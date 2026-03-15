@@ -28,7 +28,7 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('अधिक'),
         backgroundColor: AppColors.krishnaBlue,

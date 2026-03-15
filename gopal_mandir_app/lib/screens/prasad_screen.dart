@@ -29,7 +29,7 @@ class _PrasadScreenState extends State<PrasadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('प्रसाद बुकिंग'),
         backgroundColor: AppColors.krishnaBlue,

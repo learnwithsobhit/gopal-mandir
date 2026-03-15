@@ -29,7 +29,7 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('उत्सव एवं कार्यक्रम'),
         backgroundColor: AppColors.krishnaBlue,

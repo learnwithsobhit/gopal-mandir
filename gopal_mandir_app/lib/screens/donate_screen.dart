@@ -27,7 +27,7 @@ class _DonateScreenState extends State<DonateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('दान'),
         backgroundColor: AppColors.krishnaBlue,

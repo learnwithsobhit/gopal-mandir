@@ -29,7 +29,7 @@ class _AartiScreenState extends State<AartiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('आरती समय'),
         backgroundColor: AppColors.krishnaBlue,

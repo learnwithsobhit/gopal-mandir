@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_colors.dart';
+import 'widgets/vrindavan_background.dart';
 import 'screens/home_screen.dart';
 import 'screens/seva_screen.dart';
 import 'screens/live_darshan_screen.dart';
@@ -46,9 +47,12 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: VrindavanBackground(
+        showTopDecor: false,
+        child: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

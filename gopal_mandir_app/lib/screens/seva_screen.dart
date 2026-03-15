@@ -35,7 +35,7 @@ class _SevaScreenState extends State<SevaScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('सेवा बुकिंग'),
         backgroundColor: AppColors.krishnaBlue,

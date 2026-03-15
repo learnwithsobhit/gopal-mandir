@@ -8,7 +8,7 @@ class LiveDarshanScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('लाइव दर्शन'),
         backgroundColor: AppColors.krishnaBlue,

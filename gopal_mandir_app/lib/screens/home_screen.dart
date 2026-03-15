@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../widgets/vrindavan_background.dart';
 import '../widgets/darshan_banner.dart';
 import '../widgets/quick_action_button.dart';
 import '../widgets/section_card.dart';
@@ -49,14 +50,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateTo(BuildContext context, Widget screen) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => screen),
+      MaterialPageRoute(builder: (_) => VrindavanBackground(child: screen)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.sandalCream,
+      backgroundColor: Colors.transparent,
       body: RefreshIndicator(
         color: AppColors.krishnaBlue,
         onRefresh: _loadData,
