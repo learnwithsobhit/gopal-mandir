@@ -8,8 +8,8 @@ class ApiService {
   //    replace the baseUrl below with your Railway URL.
   //    Example: 'https://gopal-mandir-api-production.up.railway.app'
   // ──────────────────────────────────────────────
-  // static const String baseUrl = 'https://YOUR_RAILWAY_URL'; // Production
-  static const String baseUrl = 'http://localhost:8080'; // Local dev
+  static const String baseUrl = 'https://gopal-mandir-production.up.railway.app'; // Production
+  // static const String baseUrl = 'http://localhost:8080'; // Local dev
 
   Future<List<AartiSchedule>> getAartiSchedule() async {
     try {
