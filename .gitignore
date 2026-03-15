@@ -1,0 +1,25 @@
+# Rust
+gopal_mandir_api/target/
+
+# Flutter
+gopal_mandir_app/.dart_tool/
+gopal_mandir_app/.packages
+gopal_mandir_app/build/
+gopal_mandir_app/.flutter-plugins
+gopal_mandir_app/.flutter-plugins-dependencies
+gopal_mandir_app/ios/Pods/
+gopal_mandir_app/ios/.symlinks/
+gopal_mandir_app/.pub-cache/
+gopal_mandir_app/pubspec.lock
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Firebase
+gopal_mandir_app/.firebase/
+
+# IDE
+.idea/
+.vscode/
+*.iml
