@@ -22,11 +22,16 @@ pub async fn get_events(pool: web::Data<PgPool>) -> HttpResponse {
         .fetch_all(pool.get_ref())
         .await
     {
-        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+        Ok(data) => {
+            println!("Events: {:?}", data);
+            HttpResponse::Ok().json(ApiResponse { success: true, data })
+        }
+        Err(e) => {
+            println!("Error: {:?}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
-        })),
+        }))}
     }
 }
 
