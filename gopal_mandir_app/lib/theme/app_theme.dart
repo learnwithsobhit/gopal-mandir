@@ -27,7 +27,7 @@ class AppTheme {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.softWhite,
         elevation: 2,
         shadowColor: AppColors.krishnaBlue.withAlpha(30),
