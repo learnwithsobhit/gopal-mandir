@@ -1,5 +1,6 @@
 # Rust
 gopal_mandir_api/target/
+gopal_mandir_api/.env
 
 # Flutter
 gopal_mandir_app/.dart_tool/

@@ -1,0 +1,83 @@
+-- Gopal Mandir — Database Schema
+
+CREATE TABLE IF NOT EXISTS aarti_schedule (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    time VARCHAR(20) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    is_special BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    date VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    image_url TEXT,
+    is_featured BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS gallery (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    image_url TEXT NOT NULL,
+    category VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS prasad_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    price DOUBLE PRECISION NOT NULL DEFAULT 0,
+    image_url TEXT,
+    available BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS seva_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    price DOUBLE PRECISION NOT NULL DEFAULT 0,
+    category VARCHAR(50) NOT NULL,
+    available BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS announcements (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
+    date VARCHAR(20) NOT NULL,
+    is_urgent BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS daily_quotes (
+    id SERIAL PRIMARY KEY,
+    shlok TEXT NOT NULL,
+    translation TEXT NOT NULL,
+    source VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS temple_info (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    address TEXT NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    website VARCHAR(200) NOT NULL DEFAULT '',
+    opening_time VARCHAR(20) NOT NULL,
+    closing_time VARCHAR(20) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL DEFAULT 0,
+    longitude DOUBLE PRECISION NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS donations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
+    purpose VARCHAR(200) NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    reference_id VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

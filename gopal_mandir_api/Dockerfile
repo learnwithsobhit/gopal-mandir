@@ -14,8 +14,9 @@ RUN mkdir src && echo 'fn main() { println!("placeholder"); }' > src/main.rs
 RUN cargo build --release
 RUN rm -rf src
 
-# Copy real source code
+# Copy real source code and migrations
 COPY src ./src
+COPY migrations ./migrations
 
 # Build the actual binary (touch to invalidate cache)
 RUN touch src/main.rs && cargo build --release
@@ -27,10 +28,11 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 
 WORKDIR /app
 
-# Copy the compiled binary from builder
+# Copy the compiled binary and migrations from builder
 COPY --from=builder /app/target/release/gopal_mandir_api .
+COPY --from=builder /app/migrations ./migrations
 
-# Railway provides PORT env var
+# Railway provides PORT and DATABASE_URL env vars
 ENV PORT=8080
 EXPOSE 8080
 

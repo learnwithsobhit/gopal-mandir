@@ -1,17 +1,18 @@
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct AartiSchedule {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
     pub time: String,
     pub description: String,
     pub is_special: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct Event {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub date: String,
     pub description: String,
@@ -19,17 +20,17 @@ pub struct Event {
     pub is_featured: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct GalleryItem {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub image_url: String,
     pub category: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct PrasadItem {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
     pub description: String,
     pub price: f64,
@@ -37,9 +38,9 @@ pub struct PrasadItem {
     pub available: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct SevaItem {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
     pub description: String,
     pub price: f64,
@@ -47,24 +48,26 @@ pub struct SevaItem {
     pub available: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct Announcement {
-    pub id: u32,
+    pub id: i32,
     pub title: String,
     pub message: String,
     pub date: String,
     pub is_urgent: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct DailyQuote {
+    pub id: i32,
     pub shlok: String,
     pub translation: String,
     pub source: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct TempleInfo {
+    pub id: i32,
     pub name: String,
     pub address: String,
     pub city: String,
