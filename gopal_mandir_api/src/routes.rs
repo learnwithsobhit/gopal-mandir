@@ -18,6 +18,7 @@ pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
 
 #[get("/api/events")]
 pub async fn get_events(pool: web::Data<PgPool>) -> HttpResponse {
+    println!("Events: {:?}", pool);
     match sqlx::query_as::<_, Event>("SELECT * FROM events ORDER BY id")
         .fetch_all(pool.get_ref())
         .await
