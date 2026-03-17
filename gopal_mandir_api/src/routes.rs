@@ -30,6 +30,61 @@ pub async fn get_events(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
+#[post("/api/events/{event_id}/join")]
+pub async fn join_event(
+    pool: web::Data<PgPool>,
+    event_id: web::Path<i32>,
+    body: web::Json<EventParticipationRequest>,
+) -> HttpResponse {
+    let event_id = event_id.into_inner();
+
+    // Ensure event exists
+    let exists = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM events WHERE id = $1",
+    )
+    .bind(event_id)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match exists {
+        Ok(0) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Event not found"
+            }))
+        }
+        Ok(_) => {}
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    }
+
+    let result = sqlx::query(
+        "INSERT INTO event_participations (event_id, name, phone, notes)
+         VALUES ($1, $2, $3, $4)",
+    )
+    .bind(event_id)
+    .bind(&body.name)
+    .bind(&body.phone)
+    .bind(&body.notes)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(EventParticipationResponse {
+            success: true,
+            message: "Your participation has been recorded. Jai Gopal!".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save participation: {}", e)
+        })),
+    }
+}
+
 #[get("/api/gallery")]
 pub async fn get_gallery(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, GalleryItem>("SELECT * FROM gallery ORDER BY id")
@@ -44,6 +99,195 @@ pub async fn get_gallery(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
+#[post("/api/events/{event_id}/like")]
+pub async fn like_event(
+    pool: web::Data<PgPool>,
+    event_id: web::Path<i32>,
+    body: web::Json<Option<EventParticipationRequest>>,
+) -> HttpResponse {
+    let event_id = event_id.into_inner();
+
+    let result = sqlx::query(
+        "INSERT INTO event_likes (event_id, name) VALUES ($1, $2)",
+    )
+    .bind(event_id)
+    .bind(body.as_ref().as_ref().map(|b| b.name.clone()))
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to like event: {}", e)
+        })),
+    }
+}
+
+#[get("/api/events/{event_id}/likes/count")]
+pub async fn get_event_likes_count(
+    pool: web::Data<PgPool>,
+    event_id: web::Path<i32>,
+) -> HttpResponse {
+    let event_id = event_id.into_inner();
+    let row = sqlx::query_as::<_, LikeCount>(
+        "SELECT COUNT(*) as count FROM event_likes WHERE event_id = $1",
+    )
+    .bind(event_id)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/events/{event_id}/comments")]
+pub async fn get_event_comments(
+    pool: web::Data<PgPool>,
+    event_id: web::Path<i32>,
+) -> HttpResponse {
+    let event_id = event_id.into_inner();
+    let rows = sqlx::query_as::<_, EventComment>(
+        "SELECT * FROM event_comments WHERE event_id = $1 ORDER BY created_at DESC LIMIT 100",
+    )
+    .bind(event_id)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/events/{event_id}/comments")]
+pub async fn add_event_comment(
+    pool: web::Data<PgPool>,
+    event_id: web::Path<i32>,
+    body: web::Json<NewCommentRequest>,
+) -> HttpResponse {
+    let event_id = event_id.into_inner();
+
+    let result = sqlx::query(
+        "INSERT INTO event_comments (event_id, name, comment) VALUES ($1, $2, $3)",
+    )
+    .bind(event_id)
+    .bind(&body.name)
+    .bind(&body.comment)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to add comment: {}", e)
+        })),
+    }
+}
+
+#[post("/api/gallery/{gallery_id}/like")]
+pub async fn like_gallery(
+    pool: web::Data<PgPool>,
+    gallery_id: web::Path<i32>,
+    body: web::Json<Option<EventParticipationRequest>>,
+) -> HttpResponse {
+    let gallery_id = gallery_id.into_inner();
+
+    let result = sqlx::query(
+        "INSERT INTO gallery_likes (gallery_id, name) VALUES ($1, $2)",
+    )
+    .bind(gallery_id)
+    .bind(body.as_ref().as_ref().map(|b| b.name.clone()))
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to like gallery item: {}", e)
+        })),
+    }
+}
+
+#[get("/api/gallery/{gallery_id}/likes/count")]
+pub async fn get_gallery_likes_count(
+    pool: web::Data<PgPool>,
+    gallery_id: web::Path<i32>,
+) -> HttpResponse {
+    let gallery_id = gallery_id.into_inner();
+    let row = sqlx::query_as::<_, LikeCount>(
+        "SELECT COUNT(*) as count FROM gallery_likes WHERE gallery_id = $1",
+    )
+    .bind(gallery_id)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/gallery/{gallery_id}/comments")]
+pub async fn get_gallery_comments(
+    pool: web::Data<PgPool>,
+    gallery_id: web::Path<i32>,
+) -> HttpResponse {
+    let gallery_id = gallery_id.into_inner();
+    let rows = sqlx::query_as::<_, GalleryComment>(
+        "SELECT * FROM gallery_comments WHERE gallery_id = $1 ORDER BY created_at DESC LIMIT 100",
+    )
+    .bind(gallery_id)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/gallery/{gallery_id}/comments")]
+pub async fn add_gallery_comment(
+    pool: web::Data<PgPool>,
+    gallery_id: web::Path<i32>,
+    body: web::Json<NewCommentRequest>,
+) -> HttpResponse {
+    let gallery_id = gallery_id.into_inner();
+
+    let result = sqlx::query(
+        "INSERT INTO gallery_comments (gallery_id, name, comment) VALUES ($1, $2, $3)",
+    )
+    .bind(gallery_id)
+    .bind(&body.name)
+    .bind(&body.comment)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to add comment: {}", e)
+        })),
+    }
+}
 #[get("/api/prasad")]
 pub async fn get_prasad(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, PrasadItem>("SELECT * FROM prasad_items ORDER BY id")
@@ -174,6 +418,34 @@ pub async fn get_live_darshan(pool: web::Data<PgPool>) -> HttpResponse {
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Live darshan config not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/panchang/today")]
+pub async fn get_today_panchang(pool: web::Data<PgPool>) -> HttpResponse {
+    let row = sqlx::query_as::<_, HinduPanchang>(
+        "SELECT
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            content,
+            created_at
+         FROM hindu_panchang
+         WHERE for_date = CURRENT_DATE
+         LIMIT 1",
+    )
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Panchang for today not found"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,

@@ -230,8 +230,12 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
               children: [
                 TextField(
                   controller: dateCtrl,
+                  readOnly: true,
                   style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
-                  decoration: _inputDecoration(s2.preferredDateOptional),
+                  decoration: _inputDecoration(s2.preferredDateOptional).copyWith(
+                    suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
+                  ),
+                  onTap: () => _pickDateIntoController(context, dateCtrl),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -300,6 +304,27 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         borderSide: const BorderSide(color: AppColors.krishnaBlue),
       ),
     );
+  }
+
+  Future<void> _pickDateIntoController(BuildContext context, TextEditingController ctrl) async {
+    final now = DateTime.now();
+    DateTime initial = now;
+    if (ctrl.text.trim().isNotEmpty) {
+      try {
+        initial = DateTime.parse(ctrl.text.trim());
+      } catch (_) {}
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked != null) {
+      ctrl.text = '${picked.year.toString().padLeft(4, '0')}-'
+          '${picked.month.toString().padLeft(2, '0')}-'
+          '${picked.day.toString().padLeft(2, '0')}';
+    }
   }
 
   Future<bool?> _confirmDialog({

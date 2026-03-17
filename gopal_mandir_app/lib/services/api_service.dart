@@ -39,6 +39,33 @@ class ApiService {
     return list.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<EventParticipationResponse> joinEvent(
+    int eventId,
+    EventParticipationRequest req,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/events/$eventId/join'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        return EventParticipationResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Unable to join event';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return EventParticipationResponse(success: false, message: msg);
+    } catch (e) {
+      print('Error joining event: $e');
+      return EventParticipationResponse(
+        success: false,
+        message: 'Network error. Please try again.',
+      );
+    }
+  }
+
   Future<List<GalleryItem>> getGallery() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/gallery'));
@@ -51,6 +78,112 @@ class ApiService {
       print('Error fetching gallery: $e');
     }
     return [];
+  }
+
+  Future<void> likeEvent(int eventId) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/events/$eventId/like'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(null),
+      );
+    } catch (e) {
+      print('Error liking event: $e');
+    }
+  }
+
+  Future<int> getEventLikes(int eventId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/events/$eventId/likes/count'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return (json['count'] as num).toInt();
+      }
+    } catch (e) {
+      print('Error fetching event likes: $e');
+    }
+    return 0;
+  }
+
+  Future<List<EventComment>> getEventComments(int eventId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/events/$eventId/comments'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List data = json['data'];
+        return data.map((e) => EventComment.fromJson(e)).toList();
+      }
+    } catch (e) {
+      print('Error fetching event comments: $e');
+    }
+    return [];
+  }
+
+  Future<bool> addEventComment(int eventId, NewCommentRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/events/$eventId/comments'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error adding event comment: $e');
+      return false;
+    }
+  }
+
+  Future<void> likeGallery(int galleryId) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/gallery/$galleryId/like'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(null),
+      );
+    } catch (e) {
+      print('Error liking gallery item: $e');
+    }
+  }
+
+  Future<int> getGalleryLikes(int galleryId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/gallery/$galleryId/likes/count'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return (json['count'] as num).toInt();
+      }
+    } catch (e) {
+      print('Error fetching gallery likes: $e');
+    }
+    return 0;
+  }
+
+  Future<List<GalleryComment>> getGalleryComments(int galleryId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/gallery/$galleryId/comments'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List data = json['data'];
+        return data.map((e) => GalleryComment.fromJson(e)).toList();
+      }
+    } catch (e) {
+      print('Error fetching gallery comments: $e');
+    }
+    return [];
+  }
+
+  Future<bool> addGalleryComment(int galleryId, NewCommentRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/gallery/$galleryId/comments'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error adding gallery comment: $e');
+      return false;
+    }
   }
 
   Future<SevaBookingResponse> submitSevaBooking(SevaBookingRequest req) async {
@@ -131,6 +264,22 @@ class ApiService {
       print('Error fetching quote: $e');
     }
     return _defaultDailyQuote();
+  }
+
+  Future<HinduPanchang?> getTodayPanchang() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/panchang/today'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return HinduPanchang.fromJson(json['data'] as Map<String, dynamic>);
+      }
+      if (response.statusCode == 404) {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching panchang: $e');
+    }
+    return null;
   }
 
   Future<TempleInfo> getTempleInfo() async {

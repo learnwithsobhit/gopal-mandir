@@ -97,6 +97,48 @@ pub struct DonationResponse {
     pub reference_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct EventParticipationRequest {
+    pub name: String,
+    pub phone: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EventParticipationResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct EventComment {
+    pub id: i32,
+    pub event_id: i32,
+    pub name: String,
+    pub comment: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct GalleryComment {
+    pub id: i32,
+    pub gallery_id: i32,
+    pub name: String,
+    pub comment: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NewCommentRequest {
+    pub name: String,
+    pub comment: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct LikeCount {
+    pub count: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct LiveDarshanInfo {
     pub id: i32,
@@ -105,6 +147,14 @@ pub struct LiveDarshanInfo {
     pub is_live: bool,
     pub description: String,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct HinduPanchang {
+    pub id: i32,
+    pub for_date: String,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]

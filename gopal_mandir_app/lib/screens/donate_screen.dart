@@ -4,7 +4,9 @@ import '../services/api_service.dart';
 import '../models/models.dart';
 
 class DonateScreen extends StatefulWidget {
-  const DonateScreen({super.key});
+  final String? initialPurpose;
+
+  const DonateScreen({super.key, this.initialPurpose});
 
   @override
   State<DonateScreen> createState() => _DonateScreenState();
@@ -33,6 +35,9 @@ class _DonateScreenState extends State<DonateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialPurpose != null && _purpose == 'General Donation') {
+      _purpose = widget.initialPurpose!;
+    }
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(

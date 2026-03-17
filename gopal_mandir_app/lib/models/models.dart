@@ -180,6 +180,29 @@ class DailyQuote {
   }
 }
 
+class HinduPanchang {
+  final int id;
+  final String forDate;
+  final String content;
+  final String createdAt;
+
+  HinduPanchang({
+    required this.id,
+    required this.forDate,
+    required this.content,
+    required this.createdAt,
+  });
+
+  factory HinduPanchang.fromJson(Map<String, dynamic> json) {
+    return HinduPanchang(
+      id: json['id'],
+      forDate: (json['for_date'] ?? '').toString(),
+      content: (json['content'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
 class TempleInfo {
   final String name;
   final String address;
@@ -507,4 +530,106 @@ class SimpleActionResponse {
       message: (json['message'] ?? '').toString(),
     );
   }
+}
+
+class EventParticipationRequest {
+  final String name;
+  final String phone;
+  final String? notes;
+
+  EventParticipationRequest({
+    required this.name,
+    required this.phone,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'phone': phone,
+        'notes': notes,
+      };
+}
+
+class EventParticipationResponse {
+  final bool success;
+  final String message;
+
+  EventParticipationResponse({
+    required this.success,
+    required this.message,
+  });
+
+  factory EventParticipationResponse.fromJson(Map<String, dynamic> json) {
+    return EventParticipationResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+    );
+  }
+}
+
+class EventComment {
+  final int id;
+  final int eventId;
+  final String name;
+  final String comment;
+  final String createdAt;
+
+  EventComment({
+    required this.id,
+    required this.eventId,
+    required this.name,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  factory EventComment.fromJson(Map<String, dynamic> json) {
+    return EventComment(
+      id: json['id'],
+      eventId: json['event_id'],
+      name: (json['name'] ?? '').toString(),
+      comment: (json['comment'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
+class GalleryComment {
+  final int id;
+  final int galleryId;
+  final String name;
+  final String comment;
+  final String createdAt;
+
+  GalleryComment({
+    required this.id,
+    required this.galleryId,
+    required this.name,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  factory GalleryComment.fromJson(Map<String, dynamic> json) {
+    return GalleryComment(
+      id: json['id'],
+      galleryId: json['gallery_id'],
+      name: (json['name'] ?? '').toString(),
+      comment: (json['comment'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
+class NewCommentRequest {
+  final String name;
+  final String comment;
+
+  NewCommentRequest({
+    required this.name,
+    required this.comment,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'comment': comment,
+      };
 }

@@ -24,6 +24,7 @@ class AppStrings {
   String get todayInTemple => isHindi ? 'आज मंदिर में' : 'Today at Temple';
   String get upcomingEvents => isHindi ? 'आगामी उत्सव' : 'Upcoming Events';
   String get dailyShlok => isHindi ? 'दैनिक श्लोक' : 'Daily Shlok';
+  String get panchangTitle => isHindi ? 'हिंदू पंचांग' : 'Hindu Panchang';
   String get quickDarshan => isHindi ? 'दर्शन' : 'Darshan';
   String get quickAartiTimings => isHindi ? 'आरती\nसमय' : 'Aarti\nTimings';
   String get quickDonate => isHindi ? 'दान' : 'Donate';
@@ -32,6 +33,7 @@ class AppStrings {
   String get quickSeva => isHindi ? 'सेवा' : 'Seva';
   String get quickGallery => isHindi ? 'गैलरी' : 'Gallery';
   String get quickLiveDarshan => isHindi ? 'लाइव\nदर्शन' : 'Live\nDarshan';
+  String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
 
   // ── More screen ──
   String get more => isHindi ? 'अधिक' : 'More';
@@ -90,4 +92,11 @@ class AppStrings {
   // ── Language toggle labels (for the switch on home) ──
   String get langHindi => 'हि';
   String get langEnglish => 'EN';
+
+  // ── Panchang screen ──
+  String get panchangNotFound => isHindi
+      ? 'आज का पंचांग उपलब्ध नहीं है।'
+      : 'Today''s Panchang is not available.';
+  String get panchangError =>
+      isHindi ? 'पंचांग लोड करने में त्रुटि हुई।' : 'Failed to load Panchang.';
 }

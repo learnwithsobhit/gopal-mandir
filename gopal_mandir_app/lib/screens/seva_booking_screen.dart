@@ -36,6 +36,22 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
     super.dispose();
   }
 
+  Future<void> _pickPreferredDate() async {
+    final now = DateTime.now();
+    final current = now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null) {
+      _preferredDateController.text = '${picked.year.toString().padLeft(4, '0')}-'
+          '${picked.month.toString().padLeft(2, '0')}-'
+          '${picked.day.toString().padLeft(2, '0')}';
+    }
+  }
+
   Future<void> _confirm() async {
     final form = _formKey.currentState;
     if (form == null) return;
@@ -230,10 +246,13 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _preferredDateController,
+                        readOnly: true,
                         decoration: const InputDecoration(
                           labelText: 'Preferred date (optional)',
                           border: OutlineInputBorder(),
+                          suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
                         ),
+                        onTap: _pickPreferredDate,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(

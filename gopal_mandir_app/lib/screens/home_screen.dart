@@ -17,6 +17,7 @@ import 'seva_screen.dart';
 import 'gallery_screen.dart';
 import 'announcements_screen.dart';
 import 'live_darshan_screen.dart';
+import 'hindu_panchang_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -205,6 +206,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: s.quickLiveDarshan,
                           color: AppColors.urgentRed,
                           onTap: () => _navigateTo(context, const LiveDarshanScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.calendar_month,
+                          label: s.quickPanchang,
+                          color: AppColors.templeGoldDark,
+                          onTap: () => _navigateTo(context, const HinduPanchangScreen()),
                         ),
                       ],
                     ),
