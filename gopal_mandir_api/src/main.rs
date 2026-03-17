@@ -69,7 +69,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_temple_info)
             .service(routes::submit_donation)
             .service(routes::get_live_darshan)
-            .service(routes::get_today_panchang)
+            .service(routes::get_panchang)
             .service(routes::create_prasad_order)
             .service(routes::create_seva_booking)
             .service(routes::list_prasad_orders)

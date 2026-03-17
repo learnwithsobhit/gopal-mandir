@@ -266,9 +266,16 @@ class ApiService {
     return _defaultDailyQuote();
   }
 
-  Future<HinduPanchang?> getTodayPanchang() async {
+  Future<HinduPanchang?> getPanchangForDate(DateTime date) async {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    final queryDate = '$y-$m-$d';
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/panchang/today'));
+      final uri = Uri.parse('$baseUrl/api/panchang').replace(
+        queryParameters: {'date': queryDate},
+      );
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         return HinduPanchang.fromJson(json['data'] as Map<String, dynamic>);

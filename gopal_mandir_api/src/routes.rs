@@ -426,26 +426,55 @@ pub async fn get_live_darshan(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
-#[get("/api/panchang/today")]
-pub async fn get_today_panchang(pool: web::Data<PgPool>) -> HttpResponse {
-    let row = sqlx::query_as::<_, HinduPanchang>(
-        "SELECT
-            id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
-            content,
-            created_at
-         FROM hindu_panchang
-         WHERE for_date = CURRENT_DATE
-         LIMIT 1",
-    )
-    .fetch_optional(pool.get_ref())
-    .await;
+#[derive(serde::Deserialize)]
+pub struct PanchangQuery {
+    pub date: Option<String>,
+}
+
+#[get("/api/panchang")]
+pub async fn get_panchang(
+    pool: web::Data<PgPool>,
+    q: web::Query<PanchangQuery>,
+) -> HttpResponse {
+    // If date provided, use it; otherwise default to CURRENT_DATE
+    let (sql, bind_date_opt) = if let Some(ref d) = q.date {
+        (
+            "SELECT
+                id,
+                to_char(for_date, 'YYYY-MM-DD') as for_date,
+                content,
+                created_at
+             FROM hindu_panchang
+             WHERE for_date = $1::date
+             LIMIT 1",
+            Some(d.clone()),
+        )
+    } else {
+        (
+            "SELECT
+                id,
+                to_char(for_date, 'YYYY-MM-DD') as for_date,
+                content,
+                created_at
+             FROM hindu_panchang
+             WHERE for_date = CURRENT_DATE
+             LIMIT 1",
+            None,
+        )
+    };
+
+    let mut query = sqlx::query_as::<_, HinduPanchang>(sql);
+    if let Some(d) = bind_date_opt {
+        query = query.bind(d);
+    }
+
+    let row = query.fetch_optional(pool.get_ref()).await;
 
     match row {
         Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
-            "error": "Panchang for today not found"
+            "error": "Panchang for requested date not found"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
