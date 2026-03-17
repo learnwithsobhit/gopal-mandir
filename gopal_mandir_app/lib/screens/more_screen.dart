@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -26,6 +27,32 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _load() async {
     final data = await _api.getTempleInfo();
     if (mounted) setState(() => _info = data);
+  }
+
+  Future<void> _openMapsUrl(BuildContext context) async {
+    final info = _info;
+    final s = AppLocaleScope.of(context).strings;
+    final url = info?.mapsUrl;
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.viewOnMap),
+          backgroundColor: AppColors.krishnaBlue,
+        ),
+      );
+      return;
+    }
+    final uri = Uri.parse(url);
+    if (!await canLaunchUrl(uri)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.viewOnMap),
+          backgroundColor: AppColors.krishnaBlue,
+        ),
+      );
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -100,7 +127,13 @@ class _MoreScreenState extends State<MoreScreen> {
             },
           ),
           _menuItem(context, Icons.info_outline, s.aboutTemple, s.aboutTempleSub),
-          _menuItem(context, Icons.location_on, s.locationMap, _info?.address ?? s.viewOnMap),
+          _menuItem(
+            context,
+            Icons.location_on,
+            s.locationMap,
+            _info?.address ?? s.viewOnMap,
+            onTap: () => _openMapsUrl(context),
+          ),
           _menuItem(context, Icons.phone, s.contactUs, _info?.phone ?? s.callTempleOffice),
           _menuItem(context, Icons.email, s.email, _info?.email ?? s.emailSub),
           _menuItem(context, Icons.people, s.volunteer, s.volunteerSub),

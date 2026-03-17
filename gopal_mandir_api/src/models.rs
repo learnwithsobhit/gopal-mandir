@@ -79,6 +79,7 @@ pub struct TempleInfo {
     pub closing_time: String,
     pub latitude: f64,
     pub longitude: f64,
+    pub maps_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -214,6 +214,7 @@ class TempleInfo {
   final String closingTime;
   final double latitude;
   final double longitude;
+  final String? mapsUrl;
 
   TempleInfo({
     required this.name,
@@ -226,6 +227,7 @@ class TempleInfo {
     required this.closingTime,
     required this.latitude,
     required this.longitude,
+    this.mapsUrl,
   });
 
   factory TempleInfo.fromJson(Map<String, dynamic> json) {
@@ -240,6 +242,7 @@ class TempleInfo {
       closingTime: json['closing_time'],
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      mapsUrl: json['maps_url']?.toString(),
     );
   }
 }
