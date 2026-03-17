@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import 'bookings_screen.dart';
+import '../widgets/vrindavan_background.dart';
 
 class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
@@ -81,6 +83,19 @@ class _MoreScreenState extends State<MoreScreen> {
           const SizedBox(height: 20),
 
           // Menu items
+          _menuItem(
+            Icons.receipt_long,
+            'My Bookings',
+            'View & manage prasad/seva bookings',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: BookingsScreen()),
+                ),
+              );
+            },
+          ),
           _menuItem(Icons.info_outline, 'About Temple', 'History and information'),
           _menuItem(Icons.location_on, 'Location & Map', _info?.address ?? 'View on map'),
           _menuItem(Icons.phone, 'Contact Us', _info?.phone ?? 'Call temple office'),
@@ -95,7 +110,7 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
-  Widget _menuItem(IconData icon, String title, String subtitle) {
+  Widget _menuItem(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -129,6 +144,7 @@ class _MoreScreenState extends State<MoreScreen> {
         ),
         trailing: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.warmGrey),
         onTap: () {
+          if (onTap != null) return onTap();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('$title — Coming soon! 🙏'),

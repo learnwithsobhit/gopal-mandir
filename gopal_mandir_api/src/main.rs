@@ -62,6 +62,12 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_live_darshan)
             .service(routes::create_prasad_order)
             .service(routes::create_seva_booking)
+            .service(routes::list_prasad_orders)
+            .service(routes::update_prasad_order)
+            .service(routes::cancel_prasad_order)
+            .service(routes::list_seva_bookings)
+            .service(routes::update_seva_booking)
+            .service(routes::cancel_seva_booking)
     })
     .bind(&bind_addr)?
     .run()

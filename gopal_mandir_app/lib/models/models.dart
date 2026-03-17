@@ -264,3 +264,203 @@ class DonationResponse {
     );
   }
 }
+
+class PrasadOrderRequest {
+  final int prasadItemId;
+  final int quantity;
+  final String fulfillment; // pickup | delivery
+  final String name;
+  final String phone;
+  final String? address;
+  final String? notes;
+
+  PrasadOrderRequest({
+    required this.prasadItemId,
+    required this.quantity,
+    required this.fulfillment,
+    required this.name,
+    required this.phone,
+    this.address,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'prasad_item_id': prasadItemId,
+        'quantity': quantity,
+        'fulfillment': fulfillment,
+        'name': name,
+        'phone': phone,
+        'address': address,
+        'notes': notes,
+      };
+}
+
+class PrasadOrderResponse {
+  final bool success;
+  final String message;
+  final String referenceId;
+
+  PrasadOrderResponse({
+    required this.success,
+    required this.message,
+    required this.referenceId,
+  });
+
+  factory PrasadOrderResponse.fromJson(Map<String, dynamic> json) {
+    return PrasadOrderResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+    );
+  }
+}
+
+class PrasadOrderView {
+  final int id;
+  final String referenceId;
+  final String status;
+  final String createdAt;
+  final String fulfillment;
+  final int quantity;
+  final double totalAmount;
+  final String name;
+  final String phone;
+  final String? address;
+  final String? notes;
+  final int prasadItemId;
+  final String prasadName;
+
+  PrasadOrderView({
+    required this.id,
+    required this.referenceId,
+    required this.status,
+    required this.createdAt,
+    required this.fulfillment,
+    required this.quantity,
+    required this.totalAmount,
+    required this.name,
+    required this.phone,
+    this.address,
+    this.notes,
+    required this.prasadItemId,
+    required this.prasadName,
+  });
+
+  factory PrasadOrderView.fromJson(Map<String, dynamic> json) {
+    return PrasadOrderView(
+      id: json['id'],
+      referenceId: (json['reference_id'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      fulfillment: (json['fulfillment'] ?? '').toString(),
+      quantity: json['quantity'],
+      totalAmount: (json['total_amount'] as num).toDouble(),
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      address: json['address']?.toString(),
+      notes: json['notes']?.toString(),
+      prasadItemId: json['prasad_item_id'],
+      prasadName: (json['prasad_name'] ?? '').toString(),
+    );
+  }
+}
+
+class UpdatePrasadOrderRequest {
+  final int? quantity;
+  final String? fulfillment; // pickup | delivery
+  final String? address;
+  final String? notes;
+
+  UpdatePrasadOrderRequest({
+    this.quantity,
+    this.fulfillment,
+    this.address,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'quantity': quantity,
+        'fulfillment': fulfillment,
+        'address': address,
+        'notes': notes,
+      };
+}
+
+class SevaBookingView {
+  final int id;
+  final String referenceId;
+  final String status;
+  final String createdAt;
+  final String name;
+  final String phone;
+  final String? preferredDate;
+  final String? notes;
+  final int sevaItemId;
+  final String sevaName;
+  final String sevaCategory;
+  final double sevaPrice;
+
+  SevaBookingView({
+    required this.id,
+    required this.referenceId,
+    required this.status,
+    required this.createdAt,
+    required this.name,
+    required this.phone,
+    this.preferredDate,
+    this.notes,
+    required this.sevaItemId,
+    required this.sevaName,
+    required this.sevaCategory,
+    required this.sevaPrice,
+  });
+
+  factory SevaBookingView.fromJson(Map<String, dynamic> json) {
+    return SevaBookingView(
+      id: json['id'],
+      referenceId: (json['reference_id'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      preferredDate: json['preferred_date']?.toString(),
+      notes: json['notes']?.toString(),
+      sevaItemId: json['seva_item_id'],
+      sevaName: (json['seva_name'] ?? '').toString(),
+      sevaCategory: (json['seva_category'] ?? '').toString(),
+      sevaPrice: (json['seva_price'] as num).toDouble(),
+    );
+  }
+}
+
+class UpdateSevaBookingRequest {
+  final String? preferredDate;
+  final String? notes;
+
+  UpdateSevaBookingRequest({
+    this.preferredDate,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'preferred_date': preferredDate,
+        'notes': notes,
+      };
+}
+
+class SimpleActionResponse {
+  final bool success;
+  final String message;
+
+  SimpleActionResponse({
+    required this.success,
+    required this.message,
+  });
+
+  factory SimpleActionResponse.fromJson(Map<String, dynamic> json) {
+    return SimpleActionResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+    );
+  }
+}

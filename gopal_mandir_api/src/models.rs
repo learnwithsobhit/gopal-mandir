@@ -141,6 +141,37 @@ pub struct PrasadOrderResponse {
     pub reference_id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct PrasadOrderView {
+    pub id: i32,
+    pub reference_id: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub fulfillment: String,
+    pub quantity: i32,
+    pub total_amount: f64,
+    pub name: String,
+    pub phone: String,
+    pub address: Option<String>,
+    pub notes: Option<String>,
+    pub prasad_item_id: i32,
+    pub prasad_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePrasadOrderRequest {
+    pub quantity: Option<i32>,
+    pub fulfillment: Option<String>, // pickup | delivery
+    pub address: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SimpleActionResponse {
+    pub success: bool,
+    pub message: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SevaBookingRequest {
     pub seva_item_id: i32,
@@ -155,6 +186,28 @@ pub struct SevaBookingResponse {
     pub success: bool,
     pub message: String,
     pub reference_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct SevaBookingView {
+    pub id: i32,
+    pub reference_id: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub name: String,
+    pub phone: String,
+    pub preferred_date: Option<String>,
+    pub notes: Option<String>,
+    pub seva_item_id: i32,
+    pub seva_name: String,
+    pub seva_category: String,
+    pub seva_price: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSevaBookingRequest {
+    pub preferred_date: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
+import '../services/api_service.dart';
 
 enum PrasadFulfillment { pickup, delivery }
 
@@ -19,6 +20,7 @@ class PrasadBookingScreen extends StatefulWidget {
 
 class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ApiService _api = ApiService();
 
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -27,6 +29,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
 
   int _qty = 1;
   PrasadFulfillment _fulfillment = PrasadFulfillment.pickup;
+  bool _submitting = false;
 
   double get _total => widget.item.price * _qty;
 
@@ -43,8 +46,29 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
+    setState(() => _submitting = true);
 
-    final fulfillmentLabel = _fulfillment == PrasadFulfillment.pickup ? 'Temple Pickup' : 'Home Delivery';
+    final resp = await _api.submitPrasadOrder(
+      PrasadOrderRequest(
+        prasadItemId: widget.item.id,
+        quantity: _qty,
+        fulfillment: _fulfillment == PrasadFulfillment.pickup ? 'pickup' : 'delivery',
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _fulfillment == PrasadFulfillment.delivery ? _addressController.text.trim() : null,
+        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (!resp.success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(resp.message), backgroundColor: AppColors.urgentRed),
+      );
+      return;
+    }
 
     await showDialog<void>(
       context: context,
@@ -55,16 +79,13 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Prasad: ${widget.item.name}'),
-              const SizedBox(height: 6),
-              Text('Qty: $_qty'),
-              const SizedBox(height: 6),
-              Text('Fulfillment: $fulfillmentLabel'),
-              const SizedBox(height: 6),
-              Text('Total: ₹${_total.toStringAsFixed(0)}'),
-              if (_fulfillment == PrasadFulfillment.delivery) ...[
-                const SizedBox(height: 10),
-                Text('Address: ${_addressController.text.trim()}'),
+              Text(resp.message),
+              if (resp.referenceId.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Reference ID: ${resp.referenceId}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ],
             ],
           ),
@@ -82,7 +103,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🙏 ${widget.item.name} booking created. Jai Gopal!'),
+        content: Text('🙏 ${widget.item.name} booked! Jai Gopal!'),
         backgroundColor: AppColors.peacockGreen,
       ),
     );
@@ -196,7 +217,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     Row(
                       children: [
                         IconButton(
-                          onPressed: _qty <= 1 ? null : () => setState(() => _qty -= 1),
+                          onPressed: _submitting || _qty <= 1 ? null : () => setState(() => _qty -= 1),
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
                         Container(
@@ -211,7 +232,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           ),
                         ),
                         IconButton(
-                          onPressed: () => setState(() => _qty += 1),
+                          onPressed: _submitting ? null : () => setState(() => _qty += 1),
                           icon: const Icon(Icons.add_circle_outline),
                         ),
                         const Spacer(),
@@ -246,7 +267,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                         ),
                       ],
                       selected: {_fulfillment},
-                      onSelectionChanged: (value) => setState(() => _fulfillment = value.first),
+                      onSelectionChanged: _submitting ? null : (value) => setState(() => _fulfillment = value.first),
                     ),
                   ],
                 ),
@@ -309,20 +330,26 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: _confirm,
+                  onPressed: _submitting ? null : _confirm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.peacockGreen,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: Text(
-                    'Confirm Booking • ₹${_total.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                        )
+                      : Text(
+                          'Confirm Booking • ₹${_total.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
               ],

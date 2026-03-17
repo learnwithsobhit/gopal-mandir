@@ -149,6 +149,152 @@ class ApiService {
     }
   }
 
+  Future<PrasadOrderResponse> submitPrasadOrder(PrasadOrderRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/prasad/order'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return PrasadOrderResponse.fromJson(json);
+      }
+
+      String msg = 'Booking failed. Please try again.';
+      try {
+        final json = jsonDecode(response.body);
+        msg = (json['error'] ?? msg).toString();
+      } catch (_) {}
+
+      return PrasadOrderResponse(success: false, message: msg, referenceId: '');
+    } catch (e) {
+      print('Error submitting prasad order: $e');
+      return PrasadOrderResponse(
+        success: false,
+        message: 'Network error. Please try again.',
+        referenceId: '',
+      );
+    }
+  }
+
+  Future<List<PrasadOrderView>> getPrasadOrdersByPhone(String phone) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/prasad/orders').replace(
+        queryParameters: {'phone': phone},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List data = json['data'];
+        return data.map((e) => PrasadOrderView.fromJson(e)).toList();
+      }
+    } catch (e) {
+      print('Error fetching prasad orders: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> cancelPrasadOrder(String referenceId) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/api/prasad/order/$referenceId/cancel'));
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Cancel failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('Error cancelling prasad order: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> updatePrasadOrder(
+    String referenceId,
+    UpdatePrasadOrderRequest req,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/prasad/order/$referenceId'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('Error updating prasad order: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<List<SevaBookingView>> getSevaBookingsByPhone(String phone) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/seva/bookings').replace(
+        queryParameters: {'phone': phone},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final List data = json['data'];
+        return data.map((e) => SevaBookingView.fromJson(e)).toList();
+      }
+    } catch (e) {
+      print('Error fetching seva bookings: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> cancelSevaBooking(String referenceId) async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/api/seva/booking/$referenceId/cancel'));
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Cancel failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('Error cancelling seva booking: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> updateSevaBooking(
+    String referenceId,
+    UpdateSevaBookingRequest req,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/seva/booking/$referenceId'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('Error updating seva booking: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

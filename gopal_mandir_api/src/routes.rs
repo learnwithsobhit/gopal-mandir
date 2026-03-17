@@ -1,4 +1,4 @@
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{get, post, patch, web, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
 
@@ -328,6 +328,326 @@ pub async fn create_seva_booking(
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to create seva booking: {}", e)
+        })),
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct PhoneQuery {
+    pub phone: String,
+}
+
+#[get("/api/prasad/orders")]
+pub async fn list_prasad_orders(
+    pool: web::Data<PgPool>,
+    q: web::Query<PhoneQuery>,
+) -> HttpResponse {
+    match sqlx::query_as::<_, PrasadOrderView>(
+        "SELECT
+            o.id,
+            o.reference_id,
+            o.status,
+            o.created_at,
+            o.fulfillment,
+            o.quantity,
+            o.total_amount,
+            o.name,
+            o.phone,
+            o.address,
+            o.notes,
+            o.prasad_item_id,
+            p.name as prasad_name
+         FROM prasad_orders o
+         JOIN prasad_items p ON p.id = o.prasad_item_id
+         WHERE o.phone = $1
+         ORDER BY o.created_at DESC
+         LIMIT 100",
+    )
+    .bind(q.phone.trim())
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/prasad/order/{reference_id}")]
+pub async fn update_prasad_order(
+    pool: web::Data<PgPool>,
+    reference_id: web::Path<String>,
+    body: web::Json<UpdatePrasadOrderRequest>,
+) -> HttpResponse {
+    let reference_id = reference_id.into_inner();
+
+    // get existing (and ensure not cancelled)
+    let existing = sqlx::query_as::<_, PrasadOrder>(
+        "SELECT * FROM prasad_orders WHERE reference_id = $1 LIMIT 1",
+    )
+    .bind(&reference_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(o)) => o,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Booking not found"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if existing.status == "cancelled" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Booking already cancelled"
+        }));
+    }
+
+    let new_qty = body.quantity.unwrap_or(existing.quantity);
+    if new_qty <= 0 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Quantity must be greater than 0"
+        }));
+    }
+
+    let new_fulfillment = body
+        .fulfillment
+        .clone()
+        .unwrap_or(existing.fulfillment)
+        .to_lowercase();
+
+    if new_fulfillment != "pickup" && new_fulfillment != "delivery" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Fulfillment must be pickup or delivery"
+        }));
+    }
+
+    let new_address = if new_fulfillment == "delivery" {
+        body.address.clone().or(existing.address)
+    } else {
+        None
+    };
+    let new_notes = body.notes.clone().or(existing.notes);
+
+    // price lookup for new total
+    let price_row = sqlx::query_scalar::<_, f64>(
+        "SELECT price FROM prasad_items WHERE id = $1",
+    )
+    .bind(existing.prasad_item_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let price = match price_row {
+        Ok(Some(p)) => p,
+        Ok(None) => 0.0,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let total_amount = price * (new_qty as f64);
+
+    let result = sqlx::query(
+        "UPDATE prasad_orders
+         SET quantity = $1, fulfillment = $2, address = $3, notes = $4, total_amount = $5
+         WHERE reference_id = $6",
+    )
+    .bind(new_qty)
+    .bind(&new_fulfillment)
+    .bind(&new_address)
+    .bind(&new_notes)
+    .bind(total_amount)
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Booking updated".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to update booking: {}", e)
+        })),
+    }
+}
+
+#[post("/api/prasad/order/{reference_id}/cancel")]
+pub async fn cancel_prasad_order(
+    pool: web::Data<PgPool>,
+    reference_id: web::Path<String>,
+) -> HttpResponse {
+    let reference_id = reference_id.into_inner();
+    let result = sqlx::query(
+        "UPDATE prasad_orders SET status = 'cancelled' WHERE reference_id = $1 AND status <> 'cancelled'",
+    )
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(r) => {
+            if r.rows_affected() == 0 {
+                return HttpResponse::NotFound().json(serde_json::json!({
+                    "success": false,
+                    "error": "Booking not found or already cancelled"
+                }));
+            }
+            HttpResponse::Ok().json(SimpleActionResponse {
+                success: true,
+                message: "Booking cancelled".to_string(),
+            })
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to cancel booking: {}", e)
+        })),
+    }
+}
+
+#[get("/api/seva/bookings")]
+pub async fn list_seva_bookings(
+    pool: web::Data<PgPool>,
+    q: web::Query<PhoneQuery>,
+) -> HttpResponse {
+    match sqlx::query_as::<_, SevaBookingView>(
+        "SELECT
+            b.id,
+            b.reference_id,
+            b.status,
+            b.created_at,
+            b.name,
+            b.phone,
+            b.preferred_date,
+            b.notes,
+            b.seva_item_id,
+            s.name as seva_name,
+            s.category as seva_category,
+            s.price as seva_price
+         FROM seva_bookings b
+         JOIN seva_items s ON s.id = b.seva_item_id
+         WHERE b.phone = $1
+         ORDER BY b.created_at DESC
+         LIMIT 100",
+    )
+    .bind(q.phone.trim())
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/seva/booking/{reference_id}")]
+pub async fn update_seva_booking(
+    pool: web::Data<PgPool>,
+    reference_id: web::Path<String>,
+    body: web::Json<UpdateSevaBookingRequest>,
+) -> HttpResponse {
+    let reference_id = reference_id.into_inner();
+
+    let existing = sqlx::query_scalar::<_, String>(
+        "SELECT status FROM seva_bookings WHERE reference_id = $1 LIMIT 1",
+    )
+    .bind(&reference_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let status = match existing {
+        Ok(Some(s)) => s,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Booking not found"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if status == "cancelled" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Booking already cancelled"
+        }));
+    }
+
+    let result = sqlx::query(
+        "UPDATE seva_bookings SET preferred_date = COALESCE($1, preferred_date), notes = COALESCE($2, notes)
+         WHERE reference_id = $3",
+    )
+    .bind(&body.preferred_date)
+    .bind(&body.notes)
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Booking updated".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to update booking: {}", e)
+        })),
+    }
+}
+
+#[post("/api/seva/booking/{reference_id}/cancel")]
+pub async fn cancel_seva_booking(
+    pool: web::Data<PgPool>,
+    reference_id: web::Path<String>,
+) -> HttpResponse {
+    let reference_id = reference_id.into_inner();
+    let result = sqlx::query(
+        "UPDATE seva_bookings SET status = 'cancelled' WHERE reference_id = $1 AND status <> 'cancelled'",
+    )
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(r) => {
+            if r.rows_affected() == 0 {
+                return HttpResponse::NotFound().json(serde_json::json!({
+                    "success": false,
+                    "error": "Booking not found or already cancelled"
+                }));
+            }
+            HttpResponse::Ok().json(SimpleActionResponse {
+                success: true,
+                message: "Booking cancelled".to_string(),
+            })
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to cancel booking: {}", e)
         })),
     }
 }
