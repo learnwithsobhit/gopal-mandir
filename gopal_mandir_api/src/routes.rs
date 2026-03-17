@@ -203,15 +203,15 @@ pub async fn create_prasad_order(
     );
 
     // Lookup price so client can't tamper with totals
-    let price_row = sqlx::query!(
+    let price_row = sqlx::query_scalar::<_, f64>(
         "SELECT price FROM prasad_items WHERE id = $1 AND available = TRUE",
-        body.prasad_item_id
     )
+    .bind(body.prasad_item_id)
     .fetch_optional(pool.get_ref())
     .await;
 
     let price = match price_row {
-        Ok(Some(r)) => r.price,
+        Ok(Some(price)) => price,
         Ok(None) => {
             return HttpResponse::BadRequest().json(serde_json::json!({
                 "success": false,
@@ -283,10 +283,10 @@ pub async fn create_seva_booking(
     );
 
     // Validate item is available
-    let exists = sqlx::query!(
+    let exists = sqlx::query_scalar::<_, i32>(
         "SELECT id FROM seva_items WHERE id = $1 AND available = TRUE",
-        body.seva_item_id
     )
+    .bind(body.seva_item_id)
     .fetch_optional(pool.get_ref())
     .await;
 
