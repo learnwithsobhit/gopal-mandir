@@ -315,6 +315,50 @@ class PrasadOrderResponse {
   }
 }
 
+class SevaBookingRequest {
+  final int sevaItemId;
+  final String name;
+  final String phone;
+  final String? preferredDate;
+  final String? notes;
+
+  SevaBookingRequest({
+    required this.sevaItemId,
+    required this.name,
+    required this.phone,
+    this.preferredDate,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'seva_item_id': sevaItemId,
+        'name': name,
+        'phone': phone,
+        'preferred_date': preferredDate,
+        'notes': notes,
+      };
+}
+
+class SevaBookingResponse {
+  final bool success;
+  final String message;
+  final String referenceId;
+
+  SevaBookingResponse({
+    required this.success,
+    required this.message,
+    required this.referenceId,
+  });
+
+  factory SevaBookingResponse.fromJson(Map<String, dynamic> json) {
+    return SevaBookingResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+    );
+  }
+}
+
 class PrasadOrderView {
   final int id;
   final String referenceId;

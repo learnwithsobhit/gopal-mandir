@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../widgets/vrindavan_background.dart';
+import 'seva_booking_screen.dart';
 
 class SevaScreen extends StatefulWidget {
   const SevaScreen({super.key});
@@ -135,10 +137,12 @@ class _SevaScreenState extends State<SevaScreen> {
                             child: ElevatedButton(
                               onPressed: item.available
                                   ? () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('🙏 ${item.name} booked! Jai Gopal!'),
-                                          backgroundColor: AppColors.peacockGreen,
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => VrindavanBackground(
+                                            child: SevaBookingScreen(item: item),
+                                          ),
                                         ),
                                       );
                                     }

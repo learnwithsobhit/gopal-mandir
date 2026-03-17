@@ -53,6 +53,31 @@ class ApiService {
     return [];
   }
 
+  Future<SevaBookingResponse> submitSevaBooking(SevaBookingRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/seva/booking'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        return SevaBookingResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Seva booking failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SevaBookingResponse(success: false, message: msg, referenceId: '');
+    } catch (e) {
+      print('Error submitting seva booking: $e');
+      return SevaBookingResponse(
+        success: false,
+        message: 'Network error. Please try again.',
+        referenceId: '',
+      );
+    }
+  }
+
   Future<List<PrasadItem>> getPrasadItems() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/prasad'));
