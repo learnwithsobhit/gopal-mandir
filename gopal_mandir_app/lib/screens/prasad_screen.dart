@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import 'prasad_booking_screen.dart';
 
 class PrasadScreen extends StatefulWidget {
   const PrasadScreen({super.key});
@@ -100,10 +101,10 @@ class _PrasadScreenState extends State<PrasadScreen> {
                             ElevatedButton(
                               onPressed: item.available
                                   ? () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('🙏 ${item.name} booked! Jai Gopal!'),
-                                          backgroundColor: AppColors.peacockGreen,
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => PrasadBookingScreen(item: item),
                                         ),
                                       );
                                     }

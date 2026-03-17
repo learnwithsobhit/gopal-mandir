@@ -6,6 +6,9 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      hoverColor: AppColors.krishnaBlue.withAlpha(18),
+      focusColor: AppColors.krishnaBlue.withAlpha(18),
+      highlightColor: AppColors.krishnaBlue.withAlpha(12),
       colorScheme: ColorScheme.light(
         primary: AppColors.krishnaBlue,
         secondary: AppColors.peacockGreen,

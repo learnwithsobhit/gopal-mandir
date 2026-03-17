@@ -220,3 +220,47 @@ class TempleInfo {
     );
   }
 }
+
+class DonationRequest {
+  final String name;
+  final double amount;
+  final String purpose;
+  final String phone;
+  final String email;
+
+  DonationRequest({
+    required this.name,
+    required this.amount,
+    required this.purpose,
+    required this.phone,
+    required this.email,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'amount': amount,
+        'purpose': purpose,
+        'phone': phone,
+        'email': email,
+      };
+}
+
+class DonationResponse {
+  final bool success;
+  final String message;
+  final String referenceId;
+
+  DonationResponse({
+    required this.success,
+    required this.message,
+    required this.referenceId,
+  });
+
+  factory DonationResponse.fromJson(Map<String, dynamic> json) {
+    return DonationResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+    );
+  }
+}

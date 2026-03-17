@@ -121,6 +121,34 @@ class ApiService {
     return _defaultTempleInfo();
   }
 
+  Future<DonationResponse> submitDonation(DonationRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/donation'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return DonationResponse.fromJson(json);
+      }
+
+      return DonationResponse(
+        success: false,
+        message: 'Donation failed. Please try again.',
+        referenceId: '',
+      );
+    } catch (e) {
+      print('Error submitting donation: $e');
+      return DonationResponse(
+        success: false,
+        message: 'Network error. Please try again.',
+        referenceId: '',
+      );
+    }
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

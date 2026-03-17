@@ -59,6 +59,9 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_daily_quote)
             .service(routes::get_temple_info)
             .service(routes::submit_donation)
+            .service(routes::get_live_darshan)
+            .service(routes::create_prasad_order)
+            .service(routes::create_seva_booking)
     })
     .bind(&bind_addr)?
     .run()
