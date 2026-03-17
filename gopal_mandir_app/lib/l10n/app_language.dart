@@ -1,0 +1,93 @@
+/// App language: Hindi (hi) or English (en).
+enum AppLanguage {
+  hi,
+  en,
+}
+
+/// All localised strings. Use [AppLocaleScope.of(context).strings] to access.
+class AppStrings {
+  final AppLanguage lang;
+  const AppStrings(this.lang);
+
+  bool get isHindi => lang == AppLanguage.hi;
+
+  // ── Main / Nav ──
+  String get appTitle => isHindi ? 'श्री गोपाल मंदिर' : 'Shri Gopal Mandir';
+  String get navHome => isHindi ? 'होम' : 'Home';
+  String get navSeva => isHindi ? 'सेवा' : 'Seva';
+  String get navLive => isHindi ? 'लाइव' : 'Live';
+  String get navEvents => isHindi ? 'कार्यक्रम' : 'Events';
+  String get navMore => isHindi ? 'अधिक' : 'More';
+
+  // ── Home ──
+  String get templeName => isHindi ? 'श्री गोपाल मंदिर' : 'Shri Gopal Mandir';
+  String get todayInTemple => isHindi ? 'आज मंदिर में' : 'Today at Temple';
+  String get upcomingEvents => isHindi ? 'आगामी उत्सव' : 'Upcoming Events';
+  String get dailyShlok => isHindi ? 'दैनिक श्लोक' : 'Daily Shlok';
+  String get quickDarshan => isHindi ? 'दर्शन' : 'Darshan';
+  String get quickAartiTimings => isHindi ? 'आरती\nसमय' : 'Aarti\nTimings';
+  String get quickDonate => isHindi ? 'दान' : 'Donate';
+  String get quickBookPrasad => isHindi ? 'प्रसाद\nबुक करें' : 'Book\nPrasad';
+  String get quickEvents => isHindi ? 'कार्यक्रम' : 'Events';
+  String get quickSeva => isHindi ? 'सेवा' : 'Seva';
+  String get quickGallery => isHindi ? 'गैलरी' : 'Gallery';
+  String get quickLiveDarshan => isHindi ? 'लाइव\nदर्शन' : 'Live\nDarshan';
+
+  // ── More screen ──
+  String get more => isHindi ? 'अधिक' : 'More';
+  String get aboutTemple => isHindi ? 'मंदिर के बारे में' : 'About Temple';
+  String get aboutTempleSub => isHindi ? 'इतिहास और जानकारी' : 'History and information';
+  String get locationMap => isHindi ? 'लोकेशन और मैप' : 'Location & Map';
+  String get contactUs => isHindi ? 'संपर्क करें' : 'Contact Us';
+  String get email => isHindi ? 'ईमेल' : 'Email';
+  String get emailSub => isHindi ? 'संदेश भेजें' : 'Send message';
+  String get volunteer => isHindi ? 'स्वयंसेवक' : 'Volunteer';
+  String get volunteerSub => isHindi ? 'सेवक टीम में शामिल हों' : 'Join our sevak team';
+  String get membership => isHindi ? 'सदस्यता' : 'Membership';
+  String get membershipSub => isHindi ? 'सदस्य बनें' : 'Become a member';
+  String get shareApp => isHindi ? 'ऐप शेयर करें' : 'Share App';
+  String get shareAppSub => isHindi ? 'भक्ति फैलाएं' : 'Spread the devotion';
+  String get rateUs => isHindi ? 'रेटिंग दें' : 'Rate Us';
+  String get rateUsSub => isHindi ? 'आपकी राय मायने रखती है' : 'Your feedback matters';
+  String get settings => isHindi ? 'सेटिंग्स' : 'Settings';
+  String get settingsSub => isHindi ? 'ऐप प्राथमिकताएं' : 'App preferences';
+  String get myBookings => isHindi ? 'मेरी बुकिंग' : 'My Bookings';
+  String get myBookingsSub => isHindi ? 'प्रसाद/सेवा बुकिंग देखें और प्रबंधित करें' : 'View & manage prasad/seva bookings';
+  String get viewOnMap => isHindi ? 'मैप पर देखें' : 'View on map';
+  String get callTempleOffice => isHindi ? 'मंदिर ऑफिस पर कॉल करें' : 'Call temple office';
+  String get comingSoon => isHindi ? 'जल्द आ रहा है! 🙏' : 'Coming soon! 🙏';
+
+  // ── Bookings screen ──
+  String get prasad => isHindi ? 'प्रसाद' : 'Prasad';
+  String get seva => isHindi ? 'सेवा' : 'Seva';
+  String get phoneNumber => isHindi ? 'फ़ोन नंबर' : 'Phone number';
+  String get viewLoad => isHindi ? 'देखें' : 'Load';
+  String get errorPhoneRequired => isHindi ? 'बुकिंग देखने के लिए फ़ोन नंबर दर्ज करें' : 'Enter your phone number to view bookings';
+  String get errorLoadFailed => isHindi ? 'बुकिंग लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।' : 'Failed to load bookings. Please try again.';
+  String get noPrasadBookings => isHindi ? 'प्रसाद की कोई बुकिंग नहीं मिली' : 'No prasad bookings found';
+  String get noSevaBookings => isHindi ? 'सेवा की कोई बुकिंग नहीं मिली' : 'No seva bookings found';
+  String get update => isHindi ? 'संशोधित करें' : 'Update';
+  String get cancel => isHindi ? 'रद्द करें' : 'Cancel';
+  String get cancelBooking => isHindi ? 'बुकिंग रद्द करें?' : 'Cancel booking?';
+  String get no => isHindi ? 'नहीं' : 'No';
+  String get ref => isHindi ? 'संदर्भ' : 'Ref';
+  String get quantity => isHindi ? 'मात्रा' : 'Qty';
+  String get total => isHindi ? 'कुल' : 'Total';
+  String get address => isHindi ? 'पता' : 'Address';
+  String get preferred => isHindi ? 'पसंदीदा' : 'Preferred';
+  String get close => isHindi ? 'बंद करें' : 'Close';
+  String get save => isHindi ? 'सहेजें' : 'Save';
+  String get optional => isHindi ? 'वैकल्पिक' : 'optional';
+  String get quantityLabel => isHindi ? 'मात्रा' : 'Quantity';
+  String get addressDelivery => isHindi ? 'पता (डिलीवरी के लिए)' : 'Address (for delivery)';
+  String get notesOptional => isHindi ? 'नोट (वैकल्पिक)' : 'Notes (optional)';
+  String get preferredDateOptional => isHindi ? 'पसंदीदा तारीख (वैकल्पिक)' : 'Preferred date (optional)';
+  String get editPrasadTitle => isHindi ? 'प्रसाद बुकिंग संशोधित करें' : 'Update Prasad booking';
+  String get editSevaTitle => isHindi ? 'सेवा बुकिंग संशोधित करें' : 'Update Seva booking';
+  String get pickup => isHindi ? 'पिकअप' : 'Pickup';
+  String get delivery => isHindi ? 'डिलीवरी' : 'Delivery';
+
+  // ── Language toggle labels (for the switch on home) ──
+  String get langHindi => 'हि';
+  String get langEnglish => 'EN';
+}

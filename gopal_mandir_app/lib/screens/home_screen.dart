@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../widgets/vrindavan_background.dart';
 import '../widgets/darshan_banner.dart';
@@ -6,6 +7,8 @@ import '../widgets/quick_action_button.dart';
 import '../widgets/section_card.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../l10n/app_language.dart';
+import '../l10n/locale_scope.dart';
 import 'aarti_screen.dart';
 import 'events_screen.dart';
 import 'donate_screen.dart';
@@ -54,8 +57,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _langChip(BuildContext context, AppLocaleScope scope, AppLanguage lang, String label) {
+    final isSelected = scope.language == lang;
+    return Material(
+      color: isSelected ? AppColors.templeGold.withAlpha(180) : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: () => scope.onLanguageChanged(lang),
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scope = AppLocaleScope.of(context);
+    final s = scope.strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: RefreshIndicator(
@@ -72,10 +100,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Icon(Icons.temple_hindu, color: AppColors.templeGold, size: 24),
                   const SizedBox(width: 8),
-                  const Text('श्री गोपाल मंदिर'),
+                  Text(s.templeName),
                 ],
               ),
               actions: [
+                // Language toggle: हि | EN
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white54, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _langChip(context, scope, AppLanguage.hi, s.langHindi),
+                          Container(
+                            width: 1,
+                            height: 20,
+                            color: Colors.white54,
+                          ),
+                          _langChip(context, scope, AppLanguage.en, s.langEnglish),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined),
                   onPressed: () => _navigateTo(context, const AnnouncementsScreen()),
@@ -102,49 +155,49 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         QuickActionButton(
                           icon: Icons.remove_red_eye,
-                          label: 'Darshan',
+                          label: s.quickDarshan,
                           color: AppColors.krishnaBlue,
                           onTap: () => _navigateTo(context, const LiveDarshanScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.access_time_rounded,
-                          label: 'Aarti\nTimings',
+                          label: s.quickAartiTimings,
                           color: AppColors.templeGold,
                           onTap: () => _navigateTo(context, const AartiScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.volunteer_activism,
-                          label: 'Donate',
+                          label: s.quickDonate,
                           color: AppColors.peacockGreen,
                           onTap: () => _navigateTo(context, const DonateScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.card_giftcard,
-                          label: 'Book\nPrasad',
+                          label: s.quickBookPrasad,
                           color: AppColors.templeGoldDark,
                           onTap: () => _navigateTo(context, const PrasadScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.event,
-                          label: 'Events',
+                          label: s.quickEvents,
                           color: AppColors.krishnaBlue,
                           onTap: () => _navigateTo(context, const EventsScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.self_improvement,
-                          label: 'Seva',
+                          label: s.quickSeva,
                           color: AppColors.peacockGreen,
                           onTap: () => _navigateTo(context, const SevaScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.photo_library,
-                          label: 'Gallery',
+                          label: s.quickGallery,
                           color: AppColors.templeGold,
                           onTap: () => _navigateTo(context, const GalleryScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.live_tv,
-                          label: 'Live\nDarshan',
+                          label: s.quickLiveDarshan,
                           color: AppColors.urgentRed,
                           onTap: () => _navigateTo(context, const LiveDarshanScreen()),
                         ),
@@ -157,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Today in Mandir / Announcements
                   if (_announcements.isNotEmpty)
                     SectionCard(
-                      title: 'आज मंदिर में',
+                      title: s.todayInTemple,
                       accentColor: AppColors.templeGold,
                       onViewAll: () => _navigateTo(context, const AnnouncementsScreen()),
                       child: Column(
@@ -208,7 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Upcoming Events
                   if (_events.isNotEmpty)
                     SectionCard(
-                      title: 'आगामी उत्सव',
+                      title: s.upcomingEvents,
                       accentColor: AppColors.peacockGreen,
                       onViewAll: () => _navigateTo(context, const EventsScreen()),
                       child: Column(
@@ -266,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Daily Shlok
                   if (_quote != null)
                     SectionCard(
-                      title: 'दैनिक श्लोक',
+                      title: s.dailyShlok,
                       accentColor: AppColors.krishnaBlue,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

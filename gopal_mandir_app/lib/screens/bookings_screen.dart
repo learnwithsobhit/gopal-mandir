@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../l10n/locale_scope.dart';
 import '../widgets/vrindavan_background.dart';
 
 class BookingsScreen extends StatefulWidget {
@@ -29,10 +31,11 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load(BuildContext context) async {
+    final s = AppLocaleScope.of(context).strings;
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
-      setState(() => _error = 'Enter your phone number to view bookings');
+      setState(() => _error = s.errorPhoneRequired);
       return;
     }
 
@@ -56,16 +59,18 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Failed to load bookings. Please try again.';
+        _error = s.errorLoadFailed;
       });
     }
   }
 
-  Future<void> _cancelPrasad(PrasadOrderView order) async {
+  Future<void> _cancelPrasad(BuildContext context, PrasadOrderView order) async {
+    final s = AppLocaleScope.of(context).strings;
     final ok = await _confirmDialog(
-      title: 'Cancel booking?',
-      message: 'Reference: ${order.referenceId}',
-      actionLabel: 'Cancel',
+      context: context,
+      title: s.cancelBooking,
+      message: '${s.ref}: ${order.referenceId}',
+      actionLabel: s.cancel,
       destructive: true,
     );
     if (ok != true) return;
@@ -78,14 +83,16 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
       ),
     );
-    if (resp.success) _load();
+    if (resp.success) _load(context);
   }
 
-  Future<void> _cancelSeva(SevaBookingView booking) async {
+  Future<void> _cancelSeva(BuildContext context, SevaBookingView booking) async {
+    final s = AppLocaleScope.of(context).strings;
     final ok = await _confirmDialog(
-      title: 'Cancel booking?',
-      message: 'Reference: ${booking.referenceId}',
-      actionLabel: 'Cancel',
+      context: context,
+      title: s.cancelBooking,
+      message: '${s.ref}: ${booking.referenceId}',
+      actionLabel: s.cancel,
       destructive: true,
     );
     if (ok != true) return;
@@ -98,10 +105,10 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
       ),
     );
-    if (resp.success) _load();
+    if (resp.success) _load(context);
   }
 
-  Future<void> _editPrasad(PrasadOrderView order) async {
+  Future<void> _editPrasad(BuildContext context, PrasadOrderView order) async {
     final qtyCtrl = TextEditingController(text: order.quantity.toString());
     final notesCtrl = TextEditingController(text: order.notes ?? '');
     String fulfillment = order.fulfillment;
@@ -110,8 +117,16 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final s2 = AppLocaleScope.of(context).strings;
         return AlertDialog(
-          title: const Text('Update Prasad booking'),
+          title: Text(
+            s2.editPrasadTitle,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkBrown,
+            ),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -119,9 +134,10 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
                 DropdownMenu<String>(
                   initialSelection: fulfillment,
                   width: 320,
-                  dropdownMenuEntries: const [
-                    DropdownMenuEntry(value: 'pickup', label: 'Pickup'),
-                    DropdownMenuEntry(value: 'delivery', label: 'Delivery'),
+                  textStyle: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  dropdownMenuEntries: [
+                    DropdownMenuEntry(value: 'pickup', label: s2.pickup),
+                    DropdownMenuEntry(value: 'delivery', label: s2.delivery),
                   ],
                   onSelected: (v) => fulfillment = v ?? fulfillment,
                 ),
@@ -129,28 +145,42 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
                 TextField(
                   controller: qtyCtrl,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  decoration: _inputDecoration(s2.quantityLabel),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: addressCtrl,
                   minLines: 2,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Address (for delivery)'),
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  decoration: _inputDecoration(s2.addressDelivery),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesCtrl,
                   minLines: 2,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  decoration: _inputDecoration(s2.notesOptional),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Close')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s2.close, style: GoogleFonts.poppins(color: AppColors.warmGrey)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.krishnaBlue,
+                foregroundColor: Colors.white,
+                textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              child: Text(s2.save),
+            ),
           ],
         );
       },
@@ -174,39 +204,60 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
       ),
     );
-    if (resp.success) _load();
+    if (resp.success) _load(context);
   }
 
-  Future<void> _editSeva(SevaBookingView booking) async {
+  Future<void> _editSeva(BuildContext context, SevaBookingView booking) async {
     final dateCtrl = TextEditingController(text: booking.preferredDate ?? '');
     final notesCtrl = TextEditingController(text: booking.notes ?? '');
 
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) {
+        final s2 = AppLocaleScope.of(context).strings;
         return AlertDialog(
-          title: const Text('Update Seva booking'),
+          title: Text(
+            s2.editSevaTitle,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkBrown,
+            ),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: dateCtrl,
-                  decoration: const InputDecoration(labelText: 'Preferred date (optional)'),
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  decoration: _inputDecoration(s2.preferredDateOptional),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesCtrl,
                   minLines: 2,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+                  decoration: _inputDecoration(s2.notesOptional),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Close')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Close', style: GoogleFonts.poppins(color: AppColors.warmGrey)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.krishnaBlue,
+                foregroundColor: Colors.white,
+                textStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              child: const Text('Save'),
+            ),
           ],
         );
       },
@@ -227,26 +278,70 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
       ),
     );
-    if (resp.success) _load();
+    if (resp.success) _load(context);
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.poppins(color: AppColors.warmGrey, fontSize: 14),
+      filled: true,
+      fillColor: AppColors.softWhite,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.krishnaBlue),
+      ),
+    );
   }
 
   Future<bool?> _confirmDialog({
+    required BuildContext context,
     required String title,
     required String message,
     required String actionLabel,
     bool destructive = false,
   }) {
+    final s = AppLocaleScope.of(context).strings;
     return showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title),
-          content: Text(message),
+          title: Text(
+            title,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkBrown,
+            ),
+          ),
+          content: Text(
+            message,
+            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.warmGrey),
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.no, style: GoogleFonts.poppins(color: AppColors.warmGrey)),
+            ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              style: destructive ? TextButton.styleFrom(foregroundColor: AppColors.urgentRed) : null,
+              style: destructive
+                  ? TextButton.styleFrom(
+                      foregroundColor: AppColors.urgentRed,
+                      textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    )
+                  : TextButton.styleFrom(
+                      foregroundColor: AppColors.krishnaBlue,
+                      textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
               child: Text(actionLabel),
             ),
           ],
@@ -257,18 +352,24 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return VrindavanBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: const Text('My Bookings'),
+          title: Text(s.myBookings),
           backgroundColor: AppColors.krishnaBlue,
           foregroundColor: Colors.white,
           bottom: TabBar(
             controller: _tabs,
-            tabs: const [
-              Tab(text: 'Prasad'),
-              Tab(text: 'Seva'),
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: AppColors.templeGold,
+            labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: GoogleFonts.poppins(fontSize: 14),
+            tabs: [
+              Tab(text: s.prasad),
+              Tab(text: s.seva),
             ],
           ),
         ),
@@ -282,28 +383,46 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
                       decoration: InputDecoration(
-                        labelText: 'Phone number',
-                        labelStyle: const TextStyle(fontFamily: 'Poppins'),
+                        labelText: s.phoneNumber,
+                        labelStyle: GoogleFonts.poppins(color: AppColors.warmGrey, fontSize: 14),
                         filled: true,
                         fillColor: AppColors.softWhite,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: AppColors.krishnaBlue),
+                        ),
                       ),
-                      onSubmitted: (_) => _load(),
+                      onSubmitted: (_) => _load(context),
                     ),
                   ),
                   const SizedBox(width: 10),
                   SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _loading ? null : _load,
+                      onPressed: _loading ? null : () => _load(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.krishnaBlue,
+                        foregroundColor: Colors.white,
+                        textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                       child: _loading
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Load'),
+                          : Text(s.viewLoad),
                     ),
                   ),
                 ],
@@ -312,25 +431,38 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(_error!, style: const TextStyle(color: AppColors.urgentRed)),
+                child: Text(
+                  _error!,
+                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.urgentRed),
+                ),
               ),
             Expanded(
               child: TabBarView(
                 controller: _tabs,
                 children: [
                   _prasad.isEmpty && !_loading
-                      ? const Center(child: Text('No prasad bookings found'))
+                      ? Center(
+                          child: Text(
+                            s.noPrasadBookings,
+                            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.warmGrey),
+                          ),
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: _prasad.length,
-                          itemBuilder: (context, i) => _prasadCard(_prasad[i]),
+                          itemBuilder: (context, i) => _prasadCard(context, _prasad[i]),
                         ),
                   _seva.isEmpty && !_loading
-                      ? const Center(child: Text('No seva bookings found'))
+                      ? Center(
+                          child: Text(
+                            s.noSevaBookings,
+                            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.warmGrey),
+                          ),
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: _seva.length,
-                          itemBuilder: (context, i) => _sevaCard(_seva[i]),
+                          itemBuilder: (context, i) => _sevaCard(context, _seva[i]),
                         ),
                 ],
               ),
@@ -355,12 +487,13 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
       ),
       child: Text(
         status,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color),
+        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
 
-  Widget _prasadCard(PrasadOrderView o) {
+  Widget _prasadCard(BuildContext context, PrasadOrderView o) {
+    final s = AppLocaleScope.of(context).strings;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(14),
@@ -379,32 +512,53 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
               Expanded(
                 child: Text(
                   o.prasadName,
-                  style: const TextStyle(fontFamily: 'PlayfairDisplay', fontWeight: FontWeight.w700, fontSize: 16),
+                  style: GoogleFonts.playfairDisplay(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: AppColors.darkBrown,
+                  ),
                 ),
               ),
               _statusChip(o.status),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Ref: ${o.referenceId}', style: TextStyle(color: AppColors.warmGrey)),
+          Text(
+            '${s.ref}: ${o.referenceId}',
+            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+          ),
           const SizedBox(height: 6),
-          Text('Qty: ${o.quantity} • ${o.fulfillment} • Total: ₹${o.totalAmount.toStringAsFixed(0)}'),
+          Text(
+            '${s.quantity}: ${o.quantity} • ${o.fulfillment} • ${s.total}: ₹${o.totalAmount.toStringAsFixed(0)}',
+            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+          ),
           if ((o.address ?? '').isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('Address: ${o.address}'),
+            Text(
+              '${s.address}: ${o.address}',
+              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.warmGrey),
+            ),
           ],
           const SizedBox(height: 10),
           Row(
             children: [
               OutlinedButton(
-                onPressed: o.status.toLowerCase() == 'cancelled' ? null : () => _editPrasad(o),
-                child: const Text('Update'),
+                onPressed: o.status.toLowerCase() == 'cancelled' ? null : () => _editPrasad(context, o),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.krishnaBlue,
+                  side: const BorderSide(color: AppColors.krishnaBlue),
+                  textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                child: Text(s.update),
               ),
               const SizedBox(width: 10),
               TextButton(
-                onPressed: o.status.toLowerCase() == 'cancelled' ? null : () => _cancelPrasad(o),
-                style: TextButton.styleFrom(foregroundColor: AppColors.urgentRed),
-                child: const Text('Cancel'),
+                onPressed: o.status.toLowerCase() == 'cancelled' ? null : () => _cancelPrasad(context, o),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.urgentRed,
+                  textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                child: Text(s.cancel),
               ),
             ],
           ),
@@ -413,7 +567,8 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     );
   }
 
-  Widget _sevaCard(SevaBookingView b) {
+  Widget _sevaCard(BuildContext context, SevaBookingView b) {
+    final s = AppLocaleScope.of(context).strings;
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(14),
@@ -432,32 +587,53 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
               Expanded(
                 child: Text(
                   b.sevaName,
-                  style: const TextStyle(fontFamily: 'PlayfairDisplay', fontWeight: FontWeight.w700, fontSize: 16),
+                  style: GoogleFonts.playfairDisplay(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: AppColors.darkBrown,
+                  ),
                 ),
               ),
               _statusChip(b.status),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Ref: ${b.referenceId}', style: TextStyle(color: AppColors.warmGrey)),
+          Text(
+            '${s.ref}: ${b.referenceId}',
+            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+          ),
           const SizedBox(height: 6),
-          Text('${b.sevaCategory} • ₹${b.sevaPrice.toStringAsFixed(0)}'),
+          Text(
+            '${b.sevaCategory} • ₹${b.sevaPrice.toStringAsFixed(0)}',
+            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
+          ),
           if ((b.preferredDate ?? '').isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text('Preferred: ${b.preferredDate}'),
+            Text(
+              '${s.preferred}: ${b.preferredDate}',
+              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.warmGrey),
+            ),
           ],
           const SizedBox(height: 10),
           Row(
             children: [
               OutlinedButton(
-                onPressed: b.status.toLowerCase() == 'cancelled' ? null : () => _editSeva(b),
-                child: const Text('Update'),
+                onPressed: b.status.toLowerCase() == 'cancelled' ? null : () => _editSeva(context, b),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.krishnaBlue,
+                  side: const BorderSide(color: AppColors.krishnaBlue),
+                  textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                child: Text(s.update),
               ),
               const SizedBox(width: 10),
               TextButton(
-                onPressed: b.status.toLowerCase() == 'cancelled' ? null : () => _cancelSeva(b),
-                style: TextButton.styleFrom(foregroundColor: AppColors.urgentRed),
-                child: const Text('Cancel'),
+                onPressed: b.status.toLowerCase() == 'cancelled' ? null : () => _cancelSeva(context, b),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.urgentRed,
+                  textStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                child: Text(s.cancel),
               ),
             ],
           ),

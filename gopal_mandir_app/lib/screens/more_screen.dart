@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../l10n/locale_scope.dart';
 import 'bookings_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
@@ -29,10 +30,11 @@ class _MoreScreenState extends State<MoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('अधिक'),
+        title: Text(s.more),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
@@ -84,9 +86,10 @@ class _MoreScreenState extends State<MoreScreen> {
 
           // Menu items
           _menuItem(
+            context,
             Icons.receipt_long,
-            'My Bookings',
-            'View & manage prasad/seva bookings',
+            s.myBookings,
+            s.myBookingsSub,
             onTap: () {
               Navigator.push(
                 context,
@@ -96,21 +99,22 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          _menuItem(Icons.info_outline, 'About Temple', 'History and information'),
-          _menuItem(Icons.location_on, 'Location & Map', _info?.address ?? 'View on map'),
-          _menuItem(Icons.phone, 'Contact Us', _info?.phone ?? 'Call temple office'),
-          _menuItem(Icons.email, 'Email', _info?.email ?? 'Send message'),
-          _menuItem(Icons.people, 'Volunteer', 'Join our sevak team'),
-          _menuItem(Icons.card_membership, 'Membership', 'Become a member'),
-          _menuItem(Icons.share, 'Share App', 'Spread the devotion'),
-          _menuItem(Icons.star, 'Rate Us', 'Your feedback matters'),
-          _menuItem(Icons.settings, 'Settings', 'App preferences'),
+          _menuItem(context, Icons.info_outline, s.aboutTemple, s.aboutTempleSub),
+          _menuItem(context, Icons.location_on, s.locationMap, _info?.address ?? s.viewOnMap),
+          _menuItem(context, Icons.phone, s.contactUs, _info?.phone ?? s.callTempleOffice),
+          _menuItem(context, Icons.email, s.email, _info?.email ?? s.emailSub),
+          _menuItem(context, Icons.people, s.volunteer, s.volunteerSub),
+          _menuItem(context, Icons.card_membership, s.membership, s.membershipSub),
+          _menuItem(context, Icons.share, s.shareApp, s.shareAppSub),
+          _menuItem(context, Icons.star, s.rateUs, s.rateUsSub),
+          _menuItem(context, Icons.settings, s.settings, s.settingsSub),
         ],
       ),
     );
   }
 
-  Widget _menuItem(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
+  Widget _menuItem(BuildContext context, IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
+    final s = AppLocaleScope.of(context).strings;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -147,7 +151,7 @@ class _MoreScreenState extends State<MoreScreen> {
           if (onTap != null) return onTap();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$title — Coming soon! 🙏'),
+              content: Text('$title — ${s.comingSoon}'),
               backgroundColor: AppColors.krishnaBlue,
             ),
           );
