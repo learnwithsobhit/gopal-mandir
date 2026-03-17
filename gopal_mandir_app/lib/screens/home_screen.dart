@@ -40,7 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadData() async {
     final quote = await _api.getDailyQuote();
     final announcements = await _api.getAnnouncements();
-    final events = await _api.getEvents();
+    List<Event> events = [];
+    try {
+      events = await _api.getEvents();
+    } catch (_) {
+      // Events screen shows error + retry; home shows empty section
+    }
     if (mounted) {
       setState(() {
         _quote = quote;

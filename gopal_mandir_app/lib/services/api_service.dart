@@ -26,17 +26,17 @@ class ApiService {
   }
 
   Future<List<Event>> getEvents() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/api/events'));
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        final List data = json['data'];
-        return data.map((e) => Event.fromJson(e)).toList();
-      }
-    } catch (e) {
-      print('Error fetching events: $e');
+    final response = await http.get(Uri.parse('$baseUrl/api/events'));
+    if (response.statusCode != 200) {
+      throw Exception('Events API returned ${response.statusCode}');
     }
-    return _defaultEvents();
+    final json = jsonDecode(response.body) as Map<String, dynamic>?;
+    if (json == null) throw Exception('Invalid events response');
+    // Backend returns { "success": true, "data": [...] }
+    final data = json['data'];
+    if (data == null) return [];
+    final List list = data is List ? data : (data is Map ? [data] : []);
+    return list.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<GalleryItem>> getGallery() async {
@@ -303,11 +303,6 @@ class ApiService {
     AartiSchedule(id: 3, name: 'Rajbhog Aarti', time: '11:30 AM', description: 'Mid-day offering', isSpecial: false),
     AartiSchedule(id: 4, name: 'Sandhya Aarti', time: '06:30 PM', description: 'Evening aarti', isSpecial: true),
     AartiSchedule(id: 5, name: 'Shayan Aarti', time: '08:30 PM', description: 'Night rest aarti', isSpecial: false),
-  ];
-
-  List<Event> _defaultEvents() => [
-    Event(id: 1, title: 'Holi Mahotsav', date: '2026-03-20', description: 'Grand Holi celebration', isFeatured: true),
-    Event(id: 2, title: 'Janmashtami', date: '2026-08-25', description: 'Krishna Janmotsav', isFeatured: true),
   ];
 
   List<PrasadItem> _defaultPrasadItems() => [

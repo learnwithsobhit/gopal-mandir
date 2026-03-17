@@ -14,6 +14,7 @@ class _EventsScreenState extends State<EventsScreen> {
   final ApiService _api = ApiService();
   List<Event> _events = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -22,8 +23,17 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _load() async {
-    final data = await _api.getEvents();
-    if (mounted) setState(() { _events = data; _loading = false; });
+    if (!mounted) return;
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = await _api.getEvents();
+      if (mounted) setState(() { _events = data; _loading = false; _error = null; });
+    } catch (e) {
+      if (mounted) setState(() {
+        _loading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   @override
@@ -37,7 +47,39 @@ class _EventsScreenState extends State<EventsScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
-          : ListView.builder(
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: AppColors.warmGrey),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            color: AppColors.warmGrey,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.krishnaBlue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _events.length,
               itemBuilder: (context, index) {
