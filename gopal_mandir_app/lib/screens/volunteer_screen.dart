@@ -12,6 +12,8 @@ class VolunteerScreen extends StatefulWidget {
 
 class _VolunteerScreenState extends State<VolunteerScreen> {
   final ApiService _api = ApiService();
+  final ScrollController _scrollController = ScrollController();
+  static const double _bottomButtonHeight = 48;
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -35,6 +37,7 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
@@ -53,6 +56,7 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
     if (name.isEmpty || phone.isEmpty) {
@@ -99,10 +103,22 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
         _error = result.message;
       }
     });
+
+    if (result.success) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -110,10 +126,31 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: SizedBox(
+            height: _bottomButtonHeight,
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _loading ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.krishnaBlue,
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Submit'),
+            ),
+          ),
+        ),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
           : ListView(
-              padding: const EdgeInsets.all(16),
+              controller: _scrollController,
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomSafe + _bottomButtonHeight + 28),
               children: [
                 const Text(
                   'Join our sevak team',
@@ -206,21 +243,6 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Message (optional)',
                     border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.krishnaBlue,
-                      foregroundColor: Colors.white,
-                      textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Submit'),
                   ),
                 ),
               ],
