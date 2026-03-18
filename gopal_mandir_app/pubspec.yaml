@@ -46,6 +46,7 @@ flutter:
     - assets/images/gopal_darshan_3.jpg
     - assets/images/gopal_darshan_4.jpg
     - assets/images/vrindavan_bg_pattern.png
+    - gopal_images/IMG_7120.JPG
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

@@ -104,7 +104,21 @@ class _HomeScreenState extends State<HomeScreen> {
               backgroundColor: AppColors.krishnaBlue,
               title: Row(
                 children: [
-                  Icon(Icons.temple_hindu, color: AppColors.templeGold, size: 24),
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'gopal_images/IMG_7120.JPG',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                        // Focus slightly above center so the deity face looks better in the small circular thumbnail.
+                        alignment: const Alignment(0, -0.28),
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Text(s.templeName),
                 ],
