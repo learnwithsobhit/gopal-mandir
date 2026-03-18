@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -14,6 +17,7 @@ class MembershipScreen extends StatefulWidget {
 class _MembershipScreenState extends State<MembershipScreen> {
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'membership_token';
+  static const _defaultError = 'Could not load membership session. Please try again.';
 
   final ApiService _api = ApiService();
   final _phoneCtrl = TextEditingController();
@@ -42,31 +46,96 @@ class _MembershipScreenState extends State<MembershipScreen> {
     super.dispose();
   }
 
-  Future<void> _restoreSession() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final token = await _storage.read(key: _tokenKey);
-    if (token == null || token.trim().isEmpty) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      return;
+  Future<String?> _readToken() async {
+    // First try secure storage (works on mobile). If it throws on web, fall back to SharedPreferences.
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token != null && token.trim().isNotEmpty) return token;
+    } catch (_) {
+      // ignore and fall back
     }
-    final me = await _api.getMembershipMe(token);
-    if (!mounted) return;
-    if (me != null) {
-      setState(() {
-        _token = token;
-        _member = me;
-        _loading = false;
-      });
-    } else {
+    if (!kIsWeb) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+      final token = prefs.getString(_tokenKey);
+      if (token != null && token.trim().isNotEmpty) return token;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeToken(String token) async {
+    try {
+      await _storage.write(key: _tokenKey, value: token);
+      return;
+    } catch (_) {
+      // ignore and fall back
+    }
+    if (!kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+      await prefs.setString(_tokenKey, token).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _deleteToken() async {
+    try {
       await _storage.delete(key: _tokenKey);
+      return;
+    } catch (_) {
+      // ignore and fall back
+    }
+    if (!kIsWeb) return;
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+      await prefs.remove(_tokenKey).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      if (!mounted) return;
       setState(() {
-        _token = null;
-        _member = null;
+        _loading = true;
+        _error = null;
+      });
+
+      final token = await _readToken().timeout(const Duration(seconds: 5));
+      if (token == null || token.trim().isEmpty) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+        return;
+      }
+
+      final me = await _api.getMembershipMe(token).timeout(const Duration(seconds: 8));
+      if (!mounted) return;
+
+      if (me != null) {
+        setState(() {
+          _token = token;
+          _member = me;
+          _loading = false;
+        });
+      } else {
+        await _deleteToken().timeout(const Duration(seconds: 3));
+        setState(() {
+          _token = null;
+          _member = null;
+          _loading = false;
+          _error = 'Session expired. Please request OTP again.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
         _loading = false;
+        final msg = e.toString();
+        _error = msg.isNotEmpty ? 'Could not load membership session: $msg' : _defaultError;
       });
     }
   }
@@ -122,7 +191,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     }
     final token = res.token!;
     final member = res.member!;
-    await _storage.write(key: _tokenKey, value: token);
+    await _writeToken(token);
     setState(() {
       _token = token;
       _member = member;
@@ -138,7 +207,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
       _error = null;
     });
     await _api.logoutMembership(token);
-    await _storage.delete(key: _tokenKey);
+    await _deleteToken();
     if (!mounted) return;
     setState(() {
       _token = null;
