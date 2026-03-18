@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -95,9 +96,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   /// Thumbnail URL for grid tiles (smaller bytes if CDN supports it).
+  /// Many CDNs ignore unknown params; others return 404 — fallback to original on error.
   static String _gridImageUrl(String imageUrl) {
     final sep = imageUrl.contains('?') ? '&' : '?';
     return '$imageUrl${sep}w=300';
+  }
+
+  /// On web, load via backend proxy to avoid CORS; on mobile use direct URL.
+  static String _effectiveImageUrl(String imageUrl) {
+    if (kIsWeb) {
+      return '${ApiService.baseUrl}/api/gallery/proxy?url=${Uri.encodeComponent(imageUrl)}';
+    }
+    return imageUrl;
   }
 
   Widget _buildImageShimmer() {
@@ -297,14 +307,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               topLeft: Radius.circular(16),
                               topRight: Radius.circular(16),
                             ),
-                            child: CachedNetworkImage(
-                              imageUrl: _gridImageUrl(item.imageUrl),
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => _buildImageShimmer(),
-                              errorWidget: (_, __, ___) => const Center(
-                                child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
-                              ),
+                            child: _GalleryGridImage(
+                              imageUrl: _effectiveImageUrl(item.imageUrl),
+                              gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                              placeholder: _buildImageShimmer(),
                             ),
                           ),
                         ),
@@ -392,7 +398,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           child: Stack(
             children: [
               CachedNetworkImage(
-                imageUrl: item.imageUrl,
+                imageUrl: _effectiveImageUrl(item.imageUrl),
                 fit: BoxFit.contain,
                 placeholder: (_, __) => const Center(
                   child: CircularProgressIndicator(color: AppColors.krishnaBlue),
@@ -615,6 +621,58 @@ class _GalleryScreenState extends State<GalleryScreen> {
               );
             },
           ),
+        );
+      },
+    );
+  }
+}
+
+/// Loads grid image with thumbnail URL first; on failure falls back to original URL
+/// so images still load when the CDN does not support resize params.
+class _GalleryGridImage extends StatefulWidget {
+  const _GalleryGridImage({
+    required this.imageUrl,
+    required this.gridImageUrl,
+    required this.placeholder,
+  });
+
+  final String imageUrl;
+  final String gridImageUrl;
+  final Widget placeholder;
+
+  @override
+  State<_GalleryGridImage> createState() => _GalleryGridImageState();
+}
+
+class _GalleryGridImageState extends State<_GalleryGridImage> {
+  bool _useOriginalUrl = false;
+  bool _originalAlsoFailed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = _useOriginalUrl ? widget.imageUrl : widget.gridImageUrl;
+    if (_originalAlsoFailed && _useOriginalUrl) {
+      return const Center(
+        child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: url,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (_, __) => widget.placeholder,
+      errorWidget: (_, __, ___) {
+        if (!_useOriginalUrl) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _useOriginalUrl = true);
+          });
+          return widget.placeholder;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _originalAlsoFailed = true);
+        });
+        return const Center(
+          child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
         );
       },
     );

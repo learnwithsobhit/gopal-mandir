@@ -2,6 +2,9 @@ use actix_web::{get, post, patch, web, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
 
+/// Allowed hosts for image proxy (avoids open proxy abuse). Add more if you use other CDNs.
+const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &["images.cdn-files-a.com", "images.cdn-files.com"];
+
 #[get("/api/aarti")]
 pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, AartiSchedule>("SELECT * FROM aarti_schedule ORDER BY id")
@@ -114,6 +117,52 @@ pub async fn get_gallery(
             "error": format!("Database error: {}", e)
         })),
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ImageProxyQuery {
+    pub url: String,
+}
+
+#[get("/api/gallery/proxy")]
+pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResponse {
+    let url = match url::Url::parse(&q.url) {
+        Ok(u) => u,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid url parameter"),
+    };
+    if url.scheme() != "https" {
+        return HttpResponse::BadRequest().body("Only https URLs are allowed");
+    }
+    let host = url.host_str().unwrap_or("");
+    if !IMAGE_PROXY_ALLOWED_HOSTS.iter().any(|h| host == *h || host.ends_with(&format!(".{}", h))) {
+        return HttpResponse::Forbidden().body("URL host not allowed for proxy");
+    }
+
+    let client = match reqwest::Client::builder().build() {
+        Ok(c) => c,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("Client error: {}", e)),
+    };
+    let resp = match client.get(url.as_str()).send().await {
+        Ok(r) => r,
+        Err(e) => return HttpResponse::BadGateway().body(format!("Upstream error: {}", e)),
+    };
+    if !resp.status().is_success() {
+        return HttpResponse::BadGateway().body("Upstream returned non-success");
+    }
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+    let bytes = match resp.bytes().await {
+        Ok(b) => b,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("Body error: {}", e)),
+    };
+    HttpResponse::Ok()
+        .insert_header(("content-type", content_type))
+        .insert_header(("cache-control", "public, max-age=86400"))
+        .body(bytes.to_vec())
 }
 
 #[post("/api/events/{event_id}/like")]

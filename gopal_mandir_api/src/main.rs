@@ -58,6 +58,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_event_comments)
             .service(routes::add_event_comment)
             .service(routes::get_gallery)
+            .service(routes::get_gallery_image_proxy)
             .service(routes::like_gallery)
             .service(routes::get_gallery_likes_count)
             .service(routes::get_gallery_comments)
