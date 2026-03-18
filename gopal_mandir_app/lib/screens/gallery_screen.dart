@@ -40,8 +40,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Future<void> _load() async {
     final items = await _api.getGallery();
     if (!mounted) return;
+    final likeCounts = <int, int>{};
+    final commentCounts = <int, int>{};
+    for (final item in items) {
+      final likes = await _api.getGalleryLikes(item.id);
+      final comments = await _api.getGalleryComments(item.id);
+      likeCounts[item.id] = likes;
+      commentCounts[item.id] = comments.length;
+    }
+    if (!mounted) return;
     setState(() {
       _items = items;
+      _likeCounts.clear();
+      _likeCounts.addAll(likeCounts);
+      _commentCounts.clear();
+      _commentCounts.addAll(commentCounts);
       _loading = false;
     });
   }
@@ -57,9 +70,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
-          : Column(
-        children: [
-          // Category filter
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: AppColors.krishnaBlue,
+              child: Column(
+                children: [
+                  // Category filter
           Container(
             height: 50,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -99,9 +115,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
             ),
           ),
 
-          // Grid
-          Expanded(
-            child: GridView.builder(
+                  // Grid
+                  Expanded(
+                    child: GridView.builder(
               padding: const EdgeInsets.all(12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -223,6 +239,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -288,10 +305,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Future<void> _likeGallery(int id) async {
+    final previous = _likeCounts[id] ?? 0;
     setState(() {
-      _likeCounts[id] = (_likeCounts[id] ?? 0) + 1;
+      _likeCounts[id] = previous + 1;
     });
-    await _api.likeGallery(id);
+    final count = await _api.likeGallery(id);
+    if (!mounted) return;
+    if (count != null) {
+      setState(() => _likeCounts[id] = count);
+    } else {
+      setState(() => _likeCounts[id] = previous);
+    }
   }
 
   Future<void> _showCommentsSheet(BuildContext context, GalleryItem item) async {
@@ -410,11 +434,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           );
                           return;
                         }
-                        final ok = await _api.addGalleryComment(
+                        final count = await _api.addGalleryComment(
                           item.id,
                           NewCommentRequest(name: name, comment: text),
                         );
-                        if (!ok) {
+                        if (count == null) {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -427,7 +451,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         comments = await _api.getGalleryComments(item.id);
                         setModalState(() {});
                         setState(() {
-                          _commentCounts[item.id] = comments.length;
+                          _commentCounts[item.id] = count;
                         });
                         nameCtrl.clear();
                         commentCtrl.clear();

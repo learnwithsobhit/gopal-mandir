@@ -31,7 +31,25 @@ class _EventsScreenState extends State<EventsScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final data = await _api.getEvents();
-      if (mounted) setState(() { _events = data; _loading = false; _error = null; });
+      if (!mounted) return;
+      final likeCounts = <int, int>{};
+      final commentCounts = <int, int>{};
+      for (final event in data) {
+        final likes = await _api.getEventLikes(event.id);
+        final comments = await _api.getEventComments(event.id);
+        likeCounts[event.id] = likes;
+        commentCounts[event.id] = comments.length;
+      }
+      if (!mounted) return;
+      setState(() {
+        _events = data;
+        _likeCounts.clear();
+        _likeCounts.addAll(likeCounts);
+        _commentCounts.clear();
+        _commentCounts.addAll(commentCounts);
+        _loading = false;
+        _error = null;
+      });
     } catch (e) {
       if (mounted) setState(() {
         _loading = false;
@@ -83,10 +101,13 @@ class _EventsScreenState extends State<EventsScreen> {
                     ),
                   ),
                 )
-              : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _events.length,
-              itemBuilder: (context, index) {
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  color: AppColors.krishnaBlue,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _events.length,
+                    itemBuilder: (context, index) {
                 final event = _events[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -276,14 +297,22 @@ class _EventsScreenState extends State<EventsScreen> {
                 );
               },
             ),
+                  ),
     );
   }
 
   Future<void> _likeEvent(int eventId) async {
+    final previous = _likeCounts[eventId] ?? 0;
     setState(() {
-      _likeCounts[eventId] = (_likeCounts[eventId] ?? 0) + 1;
+      _likeCounts[eventId] = previous + 1;
     });
-    await _api.likeEvent(eventId);
+    final count = await _api.likeEvent(eventId);
+    if (!mounted) return;
+    if (count != null) {
+      setState(() => _likeCounts[eventId] = count);
+    } else {
+      setState(() => _likeCounts[eventId] = previous);
+    }
   }
 
   Future<void> _showCommentsSheet(BuildContext context, Event event) async {
@@ -402,11 +431,11 @@ class _EventsScreenState extends State<EventsScreen> {
                           );
                           return;
                         }
-                        final ok = await _api.addEventComment(
+                        final count = await _api.addEventComment(
                           event.id,
                           NewCommentRequest(name: name, comment: text),
                         );
-                        if (!ok) {
+                        if (count == null) {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -419,7 +448,7 @@ class _EventsScreenState extends State<EventsScreen> {
                         comments = await _api.getEventComments(event.id);
                         setModalState(() {});
                         setState(() {
-                          _commentCounts[event.id] = comments.length;
+                          _commentCounts[event.id] = count;
                         });
                         nameCtrl.clear();
                         commentCtrl.clear();

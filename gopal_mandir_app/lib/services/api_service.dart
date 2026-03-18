@@ -80,16 +80,25 @@ class ApiService {
     return [];
   }
 
-  Future<void> likeEvent(int eventId) async {
+  /// Returns new like count on success, null on failure.
+  Future<int?> likeEvent(int eventId) async {
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse('$baseUrl/api/events/$eventId/like'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode(null),
       );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['count'] != null) {
+          return (json['count'] as num).toInt();
+        }
+        return null;
+      }
     } catch (e) {
       print('Error liking event: $e');
     }
+    return null;
   }
 
   Future<int> getEventLikes(int eventId) async {
@@ -119,30 +128,46 @@ class ApiService {
     return [];
   }
 
-  Future<bool> addEventComment(int eventId, NewCommentRequest req) async {
+  /// Returns new comment count on success, null on failure.
+  Future<int?> addEventComment(int eventId, NewCommentRequest req) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/events/$eventId/comments'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode(req.toJson()),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['count'] != null) {
+          return (json['count'] as num).toInt();
+        }
+        return null;
+      }
     } catch (e) {
       print('Error adding event comment: $e');
-      return false;
     }
+    return null;
   }
 
-  Future<void> likeGallery(int galleryId) async {
+  /// Returns new like count on success, null on failure.
+  Future<int?> likeGallery(int galleryId) async {
     try {
-      await http.post(
+      final response = await http.post(
         Uri.parse('$baseUrl/api/gallery/$galleryId/like'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode(null),
       );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['count'] != null) {
+          return (json['count'] as num).toInt();
+        }
+        return null;
+      }
     } catch (e) {
       print('Error liking gallery item: $e');
     }
+    return null;
   }
 
   Future<int> getGalleryLikes(int galleryId) async {
@@ -172,18 +197,25 @@ class ApiService {
     return [];
   }
 
-  Future<bool> addGalleryComment(int galleryId, NewCommentRequest req) async {
+  /// Returns new comment count on success, null on failure.
+  Future<int?> addGalleryComment(int galleryId, NewCommentRequest req) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/gallery/$galleryId/comments'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode(req.toJson()),
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['count'] != null) {
+          return (json['count'] as num).toInt();
+        }
+        return null;
+      }
     } catch (e) {
       print('Error adding gallery comment: $e');
-      return false;
     }
+    return null;
   }
 
   Future<SevaBookingResponse> submitSevaBooking(SevaBookingRequest req) async {

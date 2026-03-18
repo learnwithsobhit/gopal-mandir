@@ -116,7 +116,18 @@ pub async fn like_event(
     .await;
 
     match result {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM event_likes WHERE event_id = $1",
+            )
+            .bind(event_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to like event: {}", e)
@@ -186,7 +197,18 @@ pub async fn add_event_comment(
     .await;
 
     match result {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM event_comments WHERE event_id = $1",
+            )
+            .bind(event_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to add comment: {}", e)
@@ -211,7 +233,18 @@ pub async fn like_gallery(
     .await;
 
     match result {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM gallery_likes WHERE gallery_id = $1",
+            )
+            .bind(gallery_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to like gallery item: {}", e)
@@ -281,7 +314,18 @@ pub async fn add_gallery_comment(
     .await;
 
     match result {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM gallery_comments WHERE gallery_id = $1",
+            )
+            .bind(gallery_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to add comment: {}", e)
