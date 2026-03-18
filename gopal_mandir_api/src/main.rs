@@ -61,6 +61,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::membership_verify_otp)
             .service(routes::membership_me)
             .service(routes::membership_logout)
+            .service(routes::submit_volunteer_request)
             .service(routes::get_gallery)
             .service(routes::get_gallery_image_proxy)
             .service(routes::like_gallery)

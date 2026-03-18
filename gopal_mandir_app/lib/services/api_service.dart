@@ -177,6 +177,25 @@ class ApiService {
     return false;
   }
 
+  Future<({bool success, String message})> submitVolunteerRequest(VolunteerRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/volunteer'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (success: true, message: (json['message'] ?? 'Submitted').toString());
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg');
+    } catch (e) {
+      print('Error submitting volunteer request: $e');
+      return (success: false, message: 'Network error. Please try again.');
+    }
+  }
+
   /// Returns new like count on success, null on failure.
   Future<int?> likeEvent(int eventId) async {
     try {

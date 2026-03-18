@@ -273,6 +273,33 @@ class MemberProfile {
   }
 }
 
+class VolunteerRequest {
+  final String name;
+  final String phone;
+  final String? email;
+  final String? area;
+  final String? availability;
+  final String? message;
+
+  VolunteerRequest({
+    required this.name,
+    required this.phone,
+    this.email,
+    this.area,
+    this.availability,
+    this.message,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'area': area,
+        'availability': availability,
+        'message': message,
+      };
+}
+
 class DonationRequest {
   final String name;
   final double amount;

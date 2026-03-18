@@ -320,3 +320,17 @@ pub struct MembershipMeResponse {
 pub struct MembershipLogoutResponse {
     pub success: bool,
 }
+
+// ──────────────────────────────────────────────
+// Volunteer requests
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct VolunteerRequest {
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub area: Option<String>,
+    pub availability: Option<String>,
+    pub message: Option<String>,
+}

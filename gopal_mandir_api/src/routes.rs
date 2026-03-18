@@ -291,6 +291,61 @@ pub async fn membership_logout(pool: web::Data<PgPool>, req: HttpRequest) -> Htt
     HttpResponse::Ok().json(MembershipLogoutResponse { success: true })
 }
 
+// ──────────────────────────────────────────────
+// Volunteer requests (open to all)
+// ──────────────────────────────────────────────
+
+#[post("/api/volunteer")]
+pub async fn submit_volunteer_request(
+    pool: web::Data<PgPool>,
+    body: web::Json<VolunteerRequest>,
+) -> HttpResponse {
+    let name = body.name.trim().to_string();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Name is required"
+        }));
+    }
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let email = body.email.clone().unwrap_or_default().trim().to_string();
+    let area = body.area.clone().unwrap_or_default().trim().to_string();
+    let availability = body.availability.clone().unwrap_or_default().trim().to_string();
+    let message = body.message.clone().unwrap_or_default().trim().to_string();
+
+    let result = sqlx::query(
+        "INSERT INTO volunteer_requests (name, phone, email, area, availability, message)
+         VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6)",
+    )
+    .bind(&name)
+    .bind(&phone)
+    .bind(&email)
+    .bind(&area)
+    .bind(&availability)
+    .bind(&message)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Thank you for volunteering! We will contact you soon.".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to submit volunteer request: {}", e)
+        })),
+    }
+}
+
 #[get("/api/aarti")]
 pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, AartiSchedule>("SELECT * FROM aarti_schedule ORDER BY id")
