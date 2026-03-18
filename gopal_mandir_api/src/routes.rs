@@ -85,11 +85,28 @@ pub async fn join_event(
     }
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct GalleryQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
 #[get("/api/gallery")]
-pub async fn get_gallery(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, GalleryItem>("SELECT * FROM gallery ORDER BY id")
-        .fetch_all(pool.get_ref())
-        .await
+pub async fn get_gallery(
+    pool: web::Data<PgPool>,
+    q: web::Query<GalleryQuery>,
+) -> HttpResponse {
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(20).min(50).max(1);
+    let offset = (page - 1) * per_page;
+
+    match sqlx::query_as::<_, GalleryItem>(
+        "SELECT * FROM gallery ORDER BY id LIMIT $1 OFFSET $2",
+    )
+    .bind(per_page as i64)
+    .bind(offset as i64)
+    .fetch_all(pool.get_ref())
+    .await
     {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({

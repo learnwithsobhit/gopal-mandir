@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -12,9 +14,14 @@ class GalleryScreen extends StatefulWidget {
 
 class _GalleryScreenState extends State<GalleryScreen> {
   final ApiService _api = ApiService();
+  static const int _perPage = 20;
   String _selectedCategory = 'All';
   List<GalleryItem> _items = [];
   bool _loading = true;
+  int _page = 1;
+  bool _hasMore = true;
+  bool _loadingMore = false;
+  final ScrollController _scrollController = ScrollController();
   final Map<int, int> _likeCounts = {};
   final Map<int, int> _commentCounts = {};
 
@@ -31,14 +38,108 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return _items.where((i) => i.category == _selectedCategory).toList();
   }
 
+  static const int _shimmerTileCount = 6;
+
+  Widget _buildShimmerCard() {
+    return Shimmer.fromColors(
+      baseColor: AppColors.warmGrey.withAlpha(80),
+      highlightColor: AppColors.warmGrey.withAlpha(40),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.softWhite,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 14,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 10,
+                    width: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Thumbnail URL for grid tiles (smaller bytes if CDN supports it).
+  static String _gridImageUrl(String imageUrl) {
+    final sep = imageUrl.contains('?') ? '&' : '?';
+    return '$imageUrl${sep}w=300';
+  }
+
+  Widget _buildImageShimmer() {
+    return Shimmer.fromColors(
+      baseColor: AppColors.warmGrey.withAlpha(80),
+      highlightColor: AppColors.warmGrey.withAlpha(40),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white24,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_hasMore || _loadingMore || _loading) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) _loadMore();
   }
 
   Future<void> _load() async {
-    final items = await _api.getGallery();
+    final items = await _api.getGalleryPage(1, perPage: _perPage);
     if (!mounted) return;
     final likeCounts = <int, int>{};
     final commentCounts = <int, int>{};
@@ -51,11 +152,37 @@ class _GalleryScreenState extends State<GalleryScreen> {
     if (!mounted) return;
     setState(() {
       _items = items;
+      _page = 1;
+      _hasMore = items.length >= _perPage;
       _likeCounts.clear();
       _likeCounts.addAll(likeCounts);
       _commentCounts.clear();
       _commentCounts.addAll(commentCounts);
       _loading = false;
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    final newItems = await _api.getGalleryPage(_page + 1, perPage: _perPage);
+    if (!mounted) return;
+    final likeCounts = <int, int>{};
+    final commentCounts = <int, int>{};
+    for (final item in newItems) {
+      final likes = await _api.getGalleryLikes(item.id);
+      final comments = await _api.getGalleryComments(item.id);
+      likeCounts[item.id] = likes;
+      commentCounts[item.id] = comments.length;
+    }
+    if (!mounted) return;
+    setState(() {
+      _items.addAll(newItems);
+      _likeCounts.addAll(likeCounts);
+      _commentCounts.addAll(commentCounts);
+      _page++;
+      _hasMore = newItems.length >= _perPage;
+      _loadingMore = false;
     });
   }
 
@@ -69,7 +196,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
+          ? GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: _shimmerTileCount,
+              itemBuilder: (context, index) => _buildShimmerCard(),
+            )
           : RefreshIndicator(
               onRefresh: _load,
               color: AppColors.krishnaBlue,
@@ -118,6 +255,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   // Grid
                   Expanded(
                     child: GridView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(12),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -125,8 +263,16 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 0.85,
               ),
-              itemCount: _filteredItems.length,
+              itemCount: _filteredItems.length + ((_hasMore && _loadingMore) ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index >= _filteredItems.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(color: AppColors.krishnaBlue),
+                    ),
+                  );
+                }
                 final item = _filteredItems[index];
                 return GestureDetector(
                   onTap: () => _showFullImage(context, item),
@@ -151,20 +297,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               topLeft: Radius.circular(16),
                               topRight: Radius.circular(16),
                             ),
-                            child: Image.network(
-                              item.imageUrl,
+                            child: CachedNetworkImage(
+                              imageUrl: _gridImageUrl(item.imageUrl),
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.krishnaBlue,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (_, __, ___) => const Center(
+                              placeholder: (_, __) => _buildImageShimmer(),
+                              errorWidget: (_, __, ___) => const Center(
                                 child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
                               ),
                             ),
@@ -253,9 +391,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              Image.network(
-                item.imageUrl,
+              CachedNetworkImage(
+                imageUrl: item.imageUrl,
                 fit: BoxFit.contain,
+                placeholder: (_, __) => const Center(
+                  child: CircularProgressIndicator(color: AppColors.krishnaBlue),
+                ),
+                errorWidget: (_, __, ___) => const Center(
+                  child: Icon(Icons.image_not_supported, color: AppColors.warmGrey, size: 48),
+                ),
               ),
               Positioned(
                 top: 8,

@@ -67,8 +67,15 @@ class ApiService {
   }
 
   Future<List<GalleryItem>> getGallery() async {
+    return getGalleryPage(1);
+  }
+
+  Future<List<GalleryItem>> getGalleryPage(int page, {int perPage = 20}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/gallery'));
+      final uri = Uri.parse('$baseUrl/api/gallery').replace(
+        queryParameters: {'page': '$page', 'per_page': '$perPage'},
+      );
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final List data = json['data'];
