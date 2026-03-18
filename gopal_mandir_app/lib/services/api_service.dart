@@ -110,7 +110,7 @@ class ApiService {
     return null;
   }
 
-  Future<(String, MemberProfile)?> verifyMembershipOtp({
+  Future<({String? token, MemberProfile? member, String? error})> verifyMembershipOtp({
     required String phone,
     required String otp,
     String? name,
@@ -127,20 +127,22 @@ class ApiService {
           'email': (email ?? '').trim().isEmpty ? null : email,
         }),
       );
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>?;
-        if (json != null && json['success'] == true) {
-          final token = (json['token'] ?? '').toString();
-          final memberJson = json['member'];
-          if (token.isEmpty || memberJson is! Map) return null;
-          final member = MemberProfile.fromJson(memberJson.cast<String, dynamic>());
-          return (token, member);
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        final token = (json['token'] ?? '').toString();
+        final memberJson = json['member'];
+        if (token.isEmpty || memberJson is! Map) {
+          return (token: null, member: null, error: 'Invalid server response');
         }
+        final member = MemberProfile.fromJson(memberJson.cast<String, dynamic>());
+        return (token: token, member: member, error: null);
       }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Verification failed').toString();
+      return (token: null, member: null, error: '(${response.statusCode}) $msg');
     } catch (e) {
       print('Error verifying membership OTP: $e');
     }
-    return null;
+    return (token: null, member: null, error: 'Network error. Please try again.');
   }
 
   Future<MemberProfile?> getMembershipMe(String token) async {

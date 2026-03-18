@@ -106,22 +106,22 @@ class _MembershipScreenState extends State<MembershipScreen> {
       _loading = true;
       _error = null;
     });
-    final result = await _api.verifyMembershipOtp(
+    final res = await _api.verifyMembershipOtp(
       phone: phone,
       otp: otp,
       name: _nameCtrl.text.trim(),
       email: _emailCtrl.text.trim(),
     );
     if (!mounted) return;
-    if (result == null) {
+    if (res.token == null || res.member == null) {
       setState(() {
         _loading = false;
-        _error = 'OTP verification failed';
+        _error = res.error ?? 'OTP verification failed';
       });
       return;
     }
-    final token = result.$1;
-    final member = result.$2;
+    final token = res.token!;
+    final member = res.member!;
     await _storage.write(key: _tokenKey, value: token);
     setState(() {
       _token = token;

@@ -81,7 +81,7 @@ pub async fn membership_request_otp(
     let otp = format!("{:06}", otp_num);
     let pepper = env::var("MEMBERSHIP_OTP_PEPPER").unwrap_or_else(|_| "dev".to_string());
     let otp_hash = sha256_hex(&format!("{}:{}:{}", phone, otp, pepper));
-    let expires_at = (Utc::now() + Duration::minutes(5)).naive_utc();
+    let expires_at = Utc::now() + Duration::minutes(5);
     let id = Uuid::new_v4();
 
     let result = sqlx::query(
@@ -131,7 +131,7 @@ pub async fn membership_verify_otp(
         }
     };
 
-    let row = sqlx::query_as::<_, (Uuid, String, chrono::NaiveDateTime, i32, Option<chrono::NaiveDateTime>)>(
+    let row = sqlx::query_as::<_, (Uuid, String, chrono::DateTime<Utc>, i32, Option<chrono::DateTime<Utc>>)>(
         "SELECT id, otp_hash, expires_at, attempts, consumed_at
          FROM member_otp
          WHERE phone = $1
@@ -158,7 +158,7 @@ pub async fn membership_verify_otp(
         let _ = tx.rollback().await;
         return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "OTP already used"}));
     }
-    if Utc::now().naive_utc() > expires_at {
+    if Utc::now() > expires_at {
         let _ = tx.rollback().await;
         return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "OTP expired"}));
     }
@@ -222,7 +222,7 @@ pub async fn membership_verify_otp(
     let raw_token = Uuid::new_v4().to_string();
     let token_hash = sha256_hex(&raw_token);
     let session_id = Uuid::new_v4();
-    let expires_at = (Utc::now() + Duration::days(30)).naive_utc();
+    let expires_at = Utc::now() + Duration::days(30);
 
     if let Err(e) = sqlx::query(
         "INSERT INTO member_sessions (id, member_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
