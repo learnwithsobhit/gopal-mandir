@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
+import '../l10n/app_language.dart';
 import 'bookings_screen.dart';
 import 'membership_screen.dart';
 import 'volunteer_screen.dart';
@@ -19,6 +21,9 @@ class MoreScreen extends StatefulWidget {
 class _MoreScreenState extends State<MoreScreen> {
   final ApiService _api = ApiService();
   TempleInfo? _info;
+
+  // Share link used across platforms (web + mobile fallback).
+  static const String _shareUrl = 'https://gopal-mandir-app.web.app/';
 
   @override
   void initState() {
@@ -55,6 +60,113 @@ class _MoreScreenState extends State<MoreScreen> {
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  String _buildShareText(AppStrings s) {
+    // Keep it simple and localized: message + link on a new line.
+    return '${s.shareAppSub}\n$_shareUrl';
+  }
+
+  Future<void> _launchShareUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    if (!await canLaunchUrl(uri)) {
+      if (!mounted) return;
+      final s = AppLocaleScope.of(context).strings;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.shareLinkOpenError),
+          backgroundColor: AppColors.krishnaBlue,
+        ),
+      );
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _copyShareLink(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _shareUrl));
+    if (!mounted) return;
+    final s = AppLocaleScope.of(context).strings;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(s.shareLinkCopied),
+        backgroundColor: AppColors.krishnaBlue,
+      ),
+    );
+  }
+
+  Future<void> _shareApp() async {
+    final s = AppLocaleScope.of(context).strings;
+    final shareText = _buildShareText(s);
+
+    // Pre-built endpoints so each platform receives the right payload.
+    final whatsappUrl = 'https://wa.me/?text=${Uri.encodeComponent(shareText)}';
+    final facebookUrl = 'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_shareUrl)}';
+    final xUrl = 'https://twitter.com/intent/tweet?text=${Uri.encodeComponent(shareText)}';
+    final telegramUrl =
+        'https://t.me/share/url?url=${Uri.encodeComponent(_shareUrl)}&text=${Uri.encodeComponent(shareText)}';
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final sheetS = AppLocaleScope.of(sheetContext).strings;
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.message),
+                title: Text(sheetS.shareWhatsAppLabel),
+                subtitle: Text(sheetS.shareWhatsAppSub),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _launchShareUrl(context, whatsappUrl);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.public),
+                title: Text(sheetS.shareFacebookLabel),
+                subtitle: Text(sheetS.shareFacebookSub),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _launchShareUrl(context, facebookUrl);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: Text(sheetS.shareXLabel),
+                subtitle: Text(sheetS.shareXSub),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _launchShareUrl(context, xUrl);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.send),
+                title: Text(sheetS.shareTelegramLabel),
+                subtitle: Text(sheetS.shareTelegramSub),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _launchShareUrl(context, telegramUrl);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: Text(sheetS.shareCopyLinkLabel),
+                subtitle: Text(sheetS.shareCopyLinkSub),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _copyShareLink(context);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -166,7 +278,13 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          _menuItem(context, Icons.share, s.shareApp, s.shareAppSub),
+          _menuItem(
+            context,
+            Icons.share,
+            s.shareApp,
+            s.shareAppSub,
+            onTap: _shareApp,
+          ),
           _menuItem(context, Icons.star, s.rateUs, s.rateUsSub),
           _menuItem(context, Icons.settings, s.settings, s.settingsSub),
         ],

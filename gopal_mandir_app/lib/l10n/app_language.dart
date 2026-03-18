@@ -49,6 +49,21 @@ class AppStrings {
   String get membershipSub => isHindi ? 'सदस्य बनें' : 'Become a member';
   String get shareApp => isHindi ? 'ऐप शेयर करें' : 'Share App';
   String get shareAppSub => isHindi ? 'भक्ति फैलाएं' : 'Spread the devotion';
+
+  // ── Share App bottom sheet ──
+  String get shareWhatsAppLabel => isHindi ? 'व्हाट्सऐप' : 'WhatsApp';
+  String get shareWhatsAppSub => isHindi ? 'WhatsApp पर साझा करें' : 'Share to WhatsApp';
+  String get shareFacebookLabel => isHindi ? 'फेसबुक' : 'Facebook';
+  String get shareFacebookSub => isHindi ? 'Facebook पर साझा करें' : 'Share to Facebook';
+  String get shareXLabel => 'X';
+  String get shareXSub => isHindi ? 'X (Twitter) पर साझा करें' : 'Share on X (Twitter)';
+  String get shareTelegramLabel => isHindi ? 'टेलीग्राम' : 'Telegram';
+  String get shareTelegramSub => isHindi ? 'Telegram पर साझा करें' : 'Share to Telegram';
+  String get shareCopyLinkLabel => isHindi ? 'लिंक कॉपी करें' : 'Copy link';
+  String get shareCopyLinkSub => isHindi ? 'ऐप का URL कॉपी करें' : 'Copy the app URL';
+  String get shareLinkCopied => isHindi ? 'लिंक कॉपी हो गया' : 'Link copied';
+  String get shareLinkOpenError => isHindi ? 'शेयर लिंक नहीं खुल सका। कृपया पुनः प्रयास करें।' : 'Could not open share link. Please try again.';
+
   String get rateUs => isHindi ? 'रेटिंग दें' : 'Rate Us';
   String get rateUsSub => isHindi ? 'आपकी राय मायने रखती है' : 'Your feedback matters';
   String get settings => isHindi ? 'सेटिंग्स' : 'Settings';
