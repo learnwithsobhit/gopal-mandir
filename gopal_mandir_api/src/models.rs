@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use chrono::{DateTime, Utc};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct AartiSchedule {
@@ -265,4 +266,57 @@ pub struct UpdateSevaBookingRequest {
 pub struct ApiResponse<T: Serialize> {
     pub success: bool,
     pub data: T,
+}
+
+// ──────────────────────────────────────────────
+// Membership (free) + phone OTP + sessions
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct Member {
+    pub id: Uuid,
+    pub phone: String,
+    pub name: String,
+    pub email: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MembershipRequestOtpRequest {
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipRequestOtpResponse {
+    pub success: bool,
+    pub otp: String,
+    pub expires_in_sec: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MembershipVerifyOtpRequest {
+    pub phone: String,
+    pub otp: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipVerifyOtpResponse {
+    pub success: bool,
+    pub token: String,
+    pub member: Member,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipMeResponse {
+    pub success: bool,
+    pub member: Member,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MembershipLogoutResponse {
+    pub success: bool,
 }

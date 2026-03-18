@@ -247,6 +247,32 @@ class TempleInfo {
   }
 }
 
+class MemberProfile {
+  final String id;
+  final String phone;
+  final String name;
+  final String email;
+  final String status;
+
+  MemberProfile({
+    required this.id,
+    required this.phone,
+    required this.name,
+    required this.email,
+    required this.status,
+  });
+
+  factory MemberProfile.fromJson(Map<String, dynamic> json) {
+    return MemberProfile(
+      id: (json['id'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+    );
+  }
+}
+
 class DonationRequest {
   final String name;
   final double amount;

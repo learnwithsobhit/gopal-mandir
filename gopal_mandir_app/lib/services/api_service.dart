@@ -87,6 +87,94 @@ class ApiService {
     return [];
   }
 
+  // ──────────────────────────────────────────────
+  // Membership (free) + phone OTP (dev-mode)
+  // ──────────────────────────────────────────────
+
+  Future<String?> requestMembershipOtp(String phone) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/membership/request-otp'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['success'] == true) {
+          return (json['otp'] ?? '').toString();
+        }
+      }
+    } catch (e) {
+      print('Error requesting membership OTP: $e');
+    }
+    return null;
+  }
+
+  Future<(String, MemberProfile)?> verifyMembershipOtp({
+    required String phone,
+    required String otp,
+    String? name,
+    String? email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/membership/verify-otp'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phone': phone,
+          'otp': otp,
+          'name': (name ?? '').trim().isEmpty ? null : name,
+          'email': (email ?? '').trim().isEmpty ? null : email,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['success'] == true) {
+          final token = (json['token'] ?? '').toString();
+          final memberJson = json['member'];
+          if (token.isEmpty || memberJson is! Map) return null;
+          final member = MemberProfile.fromJson(memberJson.cast<String, dynamic>());
+          return (token, member);
+        }
+      }
+    } catch (e) {
+      print('Error verifying membership OTP: $e');
+    }
+    return null;
+  }
+
+  Future<MemberProfile?> getMembershipMe(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/membership/me'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final memberJson = json?['member'];
+        if (json?['success'] == true && memberJson is Map) {
+          return MemberProfile.fromJson(memberJson.cast<String, dynamic>());
+        }
+      }
+    } catch (e) {
+      print('Error loading membership profile: $e');
+    }
+    return null;
+  }
+
+  Future<bool> logoutMembership(String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/membership/logout'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error logging out membership: $e');
+    }
+    return false;
+  }
+
   /// Returns new like count on success, null on failure.
   Future<int?> likeEvent(int eventId) async {
     try {

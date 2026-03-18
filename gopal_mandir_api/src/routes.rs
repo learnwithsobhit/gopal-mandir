@@ -1,9 +1,295 @@
-use actix_web::{get, post, patch, web, HttpResponse};
+use actix_web::{get, post, patch, web, HttpRequest, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
+use chrono::{Duration, Utc};
+use rand::Rng;
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
+use std::env;
 
 /// Allowed hosts for image proxy (avoids open proxy abuse). Add more if you use other CDNs.
 const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &["images.cdn-files-a.com", "images.cdn-files.com"];
+
+fn normalize_phone(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Keep digits and leading '+'
+    let mut out = String::new();
+    for (i, ch) in trimmed.chars().enumerate() {
+        if ch.is_ascii_digit() {
+            out.push(ch);
+        } else if ch == '+' && i == 0 {
+            out.push(ch);
+        }
+    }
+    let digits: String = out.chars().filter(|c| c.is_ascii_digit()).collect();
+    if digits.len() < 8 || digits.len() > 15 {
+        return None;
+    }
+    Some(if out.starts_with('+') { out } else { format!("+{}", digits) })
+}
+
+fn sha256_hex(input: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+fn bearer_token(req: &HttpRequest) -> Option<String> {
+    let header = req.headers().get("authorization")?.to_str().ok()?;
+    let header = header.trim();
+    let prefix = "Bearer ";
+    if header.len() <= prefix.len() || !header.starts_with(prefix) {
+        return None;
+    }
+    Some(header[prefix.len()..].trim().to_string())
+}
+
+// ──────────────────────────────────────────────
+// Membership (free) + phone OTP + sessions
+// ──────────────────────────────────────────────
+
+#[post("/api/membership/request-otp")]
+pub async fn membership_request_otp(
+    pool: web::Data<PgPool>,
+    body: web::Json<MembershipRequestOtpRequest>,
+) -> HttpResponse {
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => return HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Invalid phone"})),
+    };
+
+    // Basic rate limit: max 3 OTP requests per 10 minutes per phone.
+    let recent = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM member_otp WHERE phone = $1 AND created_at > NOW() - INTERVAL '10 minutes'",
+    )
+    .bind(&phone)
+    .fetch_one(pool.get_ref())
+    .await;
+    if let Ok(count) = recent {
+        if count >= 3 {
+            return HttpResponse::TooManyRequests().json(serde_json::json!({
+                "success": false,
+                "error": "Too many OTP requests. Please try again later."
+            }));
+        }
+    }
+
+    let otp_num: u32 = rand::thread_rng().gen_range(0..=999_999);
+    let otp = format!("{:06}", otp_num);
+    let pepper = env::var("MEMBERSHIP_OTP_PEPPER").unwrap_or_else(|_| "dev".to_string());
+    let otp_hash = sha256_hex(&format!("{}:{}:{}", phone, otp, pepper));
+    let expires_at = (Utc::now() + Duration::minutes(5)).naive_utc();
+    let id = Uuid::new_v4();
+
+    let result = sqlx::query(
+        "INSERT INTO member_otp (id, phone, otp_hash, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(id)
+    .bind(&phone)
+    .bind(&otp_hash)
+    .bind(expires_at)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(MembershipRequestOtpResponse {
+            success: true,
+            otp,
+            expires_in_sec: 300,
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to create OTP: {}", e)
+        })),
+    }
+}
+
+#[post("/api/membership/verify-otp")]
+pub async fn membership_verify_otp(
+    pool: web::Data<PgPool>,
+    body: web::Json<MembershipVerifyOtpRequest>,
+) -> HttpResponse {
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => return HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Invalid phone"})),
+    };
+    let otp = body.otp.trim().to_string();
+    if otp.len() != 6 || !otp.chars().all(|c| c.is_ascii_digit()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({"success": false, "error": "Invalid OTP"}));
+    }
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let row = sqlx::query_as::<_, (Uuid, String, chrono::NaiveDateTime, i32, Option<chrono::NaiveDateTime>)>(
+        "SELECT id, otp_hash, expires_at, attempts, consumed_at
+         FROM member_otp
+         WHERE phone = $1
+         ORDER BY created_at DESC
+         LIMIT 1",
+    )
+    .bind(&phone)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let (otp_id, otp_hash, expires_at, attempts, consumed_at) = match row {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "OTP not found"}));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Database error: {}", e)}));
+        }
+    };
+
+    if consumed_at.is_some() {
+        let _ = tx.rollback().await;
+        return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "OTP already used"}));
+    }
+    if Utc::now().naive_utc() > expires_at {
+        let _ = tx.rollback().await;
+        return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "OTP expired"}));
+    }
+    if attempts >= 5 {
+        let _ = tx.rollback().await;
+        return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "Too many attempts"}));
+    }
+
+    let pepper = env::var("MEMBERSHIP_OTP_PEPPER").unwrap_or_else(|_| "dev".to_string());
+    let expected = sha256_hex(&format!("{}:{}:{}", phone, otp, pepper));
+
+    if expected != otp_hash {
+        let _ = sqlx::query("UPDATE member_otp SET attempts = attempts + 1 WHERE id = $1")
+            .bind(otp_id)
+            .execute(&mut *tx)
+            .await;
+        let _ = tx.commit().await;
+        return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "Invalid OTP"}));
+    }
+
+    // Consume OTP
+    if let Err(e) = sqlx::query("UPDATE member_otp SET consumed_at = NOW() WHERE id = $1 AND consumed_at IS NULL")
+        .bind(otp_id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Failed to consume OTP: {}", e)}));
+    }
+
+    let name = body.name.clone().unwrap_or_default().trim().to_string();
+    let email = body.email.clone().unwrap_or_default().trim().to_string();
+
+    // Upsert member by phone. Only overwrite name/email if non-empty.
+    let member_id = Uuid::new_v4();
+    let member_row = sqlx::query_as::<_, Member>(
+        "INSERT INTO members (id, phone, name, email, status)
+         VALUES ($1, $2, $3, $4, 'active')
+         ON CONFLICT (phone) DO UPDATE SET
+           name = COALESCE(NULLIF(EXCLUDED.name, ''), members.name),
+           email = COALESCE(NULLIF(EXCLUDED.email, ''), members.email),
+           updated_at = NOW()
+         RETURNING id, phone, name, email, status, created_at, updated_at",
+    )
+    .bind(member_id)
+    .bind(&phone)
+    .bind(&name)
+    .bind(&email)
+    .fetch_one(&mut *tx)
+    .await;
+
+    let member = match member_row {
+        Ok(m) => m,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Failed to upsert member: {}", e)}));
+        }
+    };
+
+    // Create session
+    let raw_token = Uuid::new_v4().to_string();
+    let token_hash = sha256_hex(&raw_token);
+    let session_id = Uuid::new_v4();
+    let expires_at = (Utc::now() + Duration::days(30)).naive_utc();
+
+    if let Err(e) = sqlx::query(
+        "INSERT INTO member_sessions (id, member_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(session_id)
+    .bind(member.id)
+    .bind(&token_hash)
+    .bind(expires_at)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Failed to create session: {}", e)}));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Database error: {}", e)}));
+    }
+
+    HttpResponse::Ok().json(MembershipVerifyOtpResponse {
+        success: true,
+        token: raw_token,
+        member,
+    })
+}
+
+#[get("/api/membership/me")]
+pub async fn membership_me(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
+    let token = match bearer_token(&req) {
+        Some(t) => t,
+        None => return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "Missing token"})),
+    };
+    let token_hash = sha256_hex(&token);
+
+    let row = sqlx::query_as::<_, Member>(
+        "SELECT m.id, m.phone, m.name, m.email, m.status, m.created_at, m.updated_at
+         FROM member_sessions s
+         JOIN members m ON m.id = s.member_id
+         WHERE s.token_hash = $1 AND s.expires_at > NOW()
+         LIMIT 1",
+    )
+    .bind(&token_hash)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(Some(member)) => HttpResponse::Ok().json(MembershipMeResponse { success: true, member }),
+        Ok(None) => HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "Invalid session"})),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({"success": false, "error": format!("Database error: {}", e)})),
+    }
+}
+
+#[post("/api/membership/logout")]
+pub async fn membership_logout(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
+    let token = match bearer_token(&req) {
+        Some(t) => t,
+        None => return HttpResponse::Unauthorized().json(serde_json::json!({"success": false, "error": "Missing token"})),
+    };
+    let token_hash = sha256_hex(&token);
+
+    let _ = sqlx::query("DELETE FROM member_sessions WHERE token_hash = $1")
+        .bind(&token_hash)
+        .execute(pool.get_ref())
+        .await;
+
+    HttpResponse::Ok().json(MembershipLogoutResponse { success: true })
+}
 
 #[get("/api/aarti")]
 pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {

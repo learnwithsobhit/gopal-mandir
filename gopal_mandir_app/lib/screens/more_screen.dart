@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
 import 'bookings_screen.dart';
+import 'membership_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -137,7 +138,20 @@ class _MoreScreenState extends State<MoreScreen> {
           _menuItem(context, Icons.phone, s.contactUs, _info?.phone ?? s.callTempleOffice),
           _menuItem(context, Icons.email, s.email, _info?.email ?? s.emailSub),
           _menuItem(context, Icons.people, s.volunteer, s.volunteerSub),
-          _menuItem(context, Icons.card_membership, s.membership, s.membershipSub),
+          _menuItem(
+            context,
+            Icons.card_membership,
+            s.membership,
+            s.membershipSub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: MembershipScreen()),
+                ),
+              );
+            },
+          ),
           _menuItem(context, Icons.share, s.shareApp, s.shareAppSub),
           _menuItem(context, Icons.star, s.rateUs, s.rateUsSub),
           _menuItem(context, Icons.settings, s.settings, s.settingsSub),
