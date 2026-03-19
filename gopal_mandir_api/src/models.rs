@@ -443,6 +443,47 @@ pub struct AdminPatchPanchangRequest {
 }
 
 // ──────────────────────────────────────────────
+// Event Donations (public + admin)
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct EventDonationRequest {
+    pub name: String,
+    pub amount: f64,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct EventDonationResponse {
+    pub success: bool,
+    pub message: String,
+    pub reference_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminEventDonationView {
+    pub id: i32,
+    pub event_id: i32,
+    pub event_title: String,
+    pub name: String,
+    pub amount: f64,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub message: Option<String>,
+    pub reference_id: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminEventDonationsQuery {
+    pub event_id: Option<i32>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+// ──────────────────────────────────────────────
 // Admin Events CRUD
 // ──────────────────────────────────────────────
 

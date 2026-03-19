@@ -830,6 +830,78 @@ pub async fn submit_donation(
     }
 }
 
+#[post("/api/events/{id}/donate")]
+pub async fn submit_event_donation(
+    pool: web::Data<PgPool>,
+    id: web::Path<i32>,
+    body: web::Json<EventDonationRequest>,
+) -> HttpResponse {
+    let event_id = id.into_inner();
+
+    let event_exists = sqlx::query_scalar::<_, i32>("SELECT id FROM events WHERE id = $1")
+        .bind(event_id)
+        .fetch_optional(pool.get_ref())
+        .await;
+
+    match event_exists {
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Event not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+        Ok(Some(_)) => {}
+    }
+
+    let name = body.name.trim();
+    if name.is_empty() || body.amount <= 0.0 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name and a positive amount are required"
+        }));
+    }
+
+    let reference_id = format!(
+        "EVTDON-{}",
+        uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000")
+    );
+
+    let result = sqlx::query(
+        "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    )
+    .bind(event_id)
+    .bind(name)
+    .bind(body.amount)
+    .bind(&body.phone)
+    .bind(&body.email)
+    .bind(&body.message)
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(EventDonationResponse {
+            success: true,
+            message: format!(
+                "Dhanyavaad! Your donation of ₹{} has been recorded. Jai Gopal!",
+                body.amount
+            ),
+            reference_id,
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save event donation: {}", e)
+        })),
+    }
+}
+
 #[get("/api/live-darshan")]
 pub async fn get_live_darshan(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, LiveDarshanInfo>("SELECT * FROM live_darshan ORDER BY id LIMIT 1")

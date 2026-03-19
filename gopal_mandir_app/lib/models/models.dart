@@ -764,6 +764,73 @@ class EventParticipationView {
   }
 }
 
+class EventDonationRequest {
+  final int eventId;
+  final String name;
+  final double amount;
+  final String? phone;
+  final String? email;
+  final String? message;
+
+  EventDonationRequest({
+    required this.eventId,
+    required this.name,
+    required this.amount,
+    this.phone,
+    this.email,
+    this.message,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'amount': amount,
+        if (phone != null) 'phone': phone,
+        if (email != null) 'email': email,
+        if (message != null) 'message': message,
+      };
+}
+
+class EventDonationView {
+  final int id;
+  final int eventId;
+  final String eventTitle;
+  final String name;
+  final double amount;
+  final String? phone;
+  final String? email;
+  final String? message;
+  final String referenceId;
+  final String createdAt;
+
+  EventDonationView({
+    required this.id,
+    required this.eventId,
+    required this.eventTitle,
+    required this.name,
+    required this.amount,
+    this.phone,
+    this.email,
+    this.message,
+    required this.referenceId,
+    required this.createdAt,
+  });
+
+  factory EventDonationView.fromJson(Map<String, dynamic> json) {
+    return EventDonationView(
+      id: json['id'],
+      eventId: json['event_id'],
+      eventTitle: (json['event_title'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      phone: json['phone']?.toString(),
+      email: json['email']?.toString(),
+      message: json['message']?.toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
 class GalleryComment {
   final int id;
   final int galleryId;

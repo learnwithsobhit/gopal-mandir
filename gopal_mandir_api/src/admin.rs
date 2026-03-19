@@ -1708,3 +1708,57 @@ pub async fn admin_list_event_participations(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Event Donations
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/events/donations")]
+pub async fn admin_list_event_donations(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminEventDonationsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let event_id_filter = q.event_id;
+
+    let rows = sqlx::query_as::<_, AdminEventDonationView>(
+        "SELECT
+            d.id,
+            d.event_id,
+            e.title as event_title,
+            d.name,
+            d.amount,
+            d.phone,
+            d.email,
+            d.message,
+            d.reference_id,
+            d.created_at
+         FROM event_donations d
+         JOIN events e ON e.id = d.event_id
+         WHERE ($1::INT IS NULL OR d.event_id = $1)
+         ORDER BY d.created_at DESC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(&event_id_filter)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

@@ -1192,6 +1192,65 @@ class ApiService {
   }
 
   // ──────────────────────────────────────────────
+  // Event Donations (public + admin)
+  // ──────────────────────────────────────────────
+
+  Future<DonationResponse> submitEventDonation(int eventId, EventDonationRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/events/$eventId/donate'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return DonationResponse.fromJson(json);
+      }
+
+      return DonationResponse(
+        success: false,
+        message: 'Donation failed. Please try again.',
+        referenceId: '',
+      );
+    } catch (e) {
+      print('event donation error: $e');
+      return DonationResponse(
+        success: false,
+        message: 'Network error. Please try again.',
+        referenceId: '',
+      );
+    }
+  }
+
+  Future<List<EventDonationView>> adminListEventDonations(
+    String token, {
+    int? eventId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (eventId != null) 'event_id': '$eventId',
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/events/donations').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => EventDonationView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin event donations list: $e');
+    }
+    return [];
+  }
+
+  // ──────────────────────────────────────────────
   // Admin Seva Items CRUD
   // ──────────────────────────────────────────────
 

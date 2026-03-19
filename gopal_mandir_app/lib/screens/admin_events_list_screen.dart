@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
 import 'admin_event_edit_screen.dart';
+import 'admin_event_donations_screen.dart';
 
 class AdminEventsListScreen extends StatefulWidget {
   const AdminEventsListScreen({super.key, required this.token});
@@ -113,6 +114,21 @@ class _AdminEventsListScreenState extends State<AdminEventsListScreen> {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.volunteer_activism, size: 20),
+                                tooltip: 'Donations',
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => AdminEventDonationsScreen(
+                                        token: widget.token,
+                                        initialEventId: item.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                               IconButton(
                                 icon: const Icon(Icons.edit),
                                 onPressed: () async {

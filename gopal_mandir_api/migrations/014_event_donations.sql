@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS event_donations (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name VARCHAR(200) NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    message TEXT,
+    reference_id VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

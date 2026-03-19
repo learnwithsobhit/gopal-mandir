@@ -3,7 +3,7 @@ import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
-import 'donate_screen.dart';
+import 'event_donate_screen.dart';
 
 class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
@@ -240,7 +240,7 @@ class EventsScreenState extends State<EventsScreen> {
                                             context,
                                             MaterialPageRoute(
                                               builder: (_) => VrindavanBackground(
-                                                child: DonateScreen(initialPurpose: event.title),
+                                                child: EventDonateScreen(event: event),
                                               ),
                                             ),
                                           );
