@@ -7,6 +7,7 @@ import 'admin_login_screen.dart';
 import 'admin_gallery_list_screen.dart';
 import 'admin_live_darshan_screen.dart';
 import 'admin_prasad_orders_screen.dart';
+import 'admin_panchang_list_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -124,6 +125,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminPrasadOrdersScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.calendar_month,
+            'Panchang',
+            'Add & edit daily Hindu Panchang',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminPanchangListScreen(token: _token!),
               ),
             ),
           ),

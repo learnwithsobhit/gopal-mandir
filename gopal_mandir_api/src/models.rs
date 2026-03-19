@@ -427,6 +427,22 @@ pub struct AdminUpdatePrasadStatusRequest {
 }
 
 // ──────────────────────────────────────────────
+// Admin Panchang CRUD
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreatePanchangRequest {
+    pub for_date: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPanchangRequest {
+    pub for_date: Option<String>,
+    pub content: Option<String>,
+}
+
+// ──────────────────────────────────────────────
 // Volunteer requests
 // ──────────────────────────────────────────────
 

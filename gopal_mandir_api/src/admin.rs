@@ -948,3 +948,218 @@ pub async fn admin_patch_prasad_order(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Panchang CRUD
+// ──────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct AdminPanchangQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+#[get("/api/admin/panchang")]
+pub async fn admin_list_panchang(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminPanchangQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+
+    match sqlx::query_as::<_, HinduPanchang>(
+        "SELECT id, for_date::TEXT as for_date, content, created_at
+         FROM hindu_panchang
+         ORDER BY for_date DESC
+         LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/panchang")]
+pub async fn admin_create_panchang(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreatePanchangRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let for_date = body.for_date.trim();
+    let content = body.content.trim();
+    if for_date.is_empty() || content.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "for_date and content are required"
+        }));
+    }
+    let parsed_date = match chrono::NaiveDate::parse_from_str(for_date, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid date format, use YYYY-MM-DD"
+            }));
+        }
+    };
+
+    match sqlx::query_as::<_, HinduPanchang>(
+        "INSERT INTO hindu_panchang (for_date, content)
+         VALUES ($1, $2)
+         RETURNING id, for_date::TEXT as for_date, content, created_at",
+    )
+    .bind(parsed_date)
+    .bind(content)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("duplicate key") || msg.contains("unique constraint") {
+                HttpResponse::Conflict().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Panchang for {} already exists", for_date)
+                }))
+            } else {
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    }
+}
+
+#[patch("/api/admin/panchang/{id}")]
+pub async fn admin_patch_panchang(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchPanchangRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = sqlx::query_as::<_, HinduPanchang>(
+        "SELECT id, for_date::TEXT as for_date, content, created_at FROM hindu_panchang WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(e)) => e,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Panchang entry not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let new_content = body.content.as_deref().unwrap_or(&existing.content).trim().to_string();
+    let new_date_str = body.for_date.as_deref().unwrap_or(&existing.for_date).trim().to_string();
+    let parsed_date = match chrono::NaiveDate::parse_from_str(&new_date_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid date format, use YYYY-MM-DD"
+            }));
+        }
+    };
+
+    match sqlx::query_as::<_, HinduPanchang>(
+        "UPDATE hindu_panchang SET for_date = $1, content = $2
+         WHERE id = $3
+         RETURNING id, for_date::TEXT as for_date, content, created_at",
+    )
+    .bind(parsed_date)
+    .bind(&new_content)
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("duplicate key") || msg.contains("unique constraint") {
+                HttpResponse::Conflict().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Panchang for {} already exists", new_date_str)
+                }))
+            } else {
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    }
+}
+
+#[delete("/api/admin/panchang/{id}")]
+pub async fn admin_delete_panchang(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM hindu_panchang WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Entry not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

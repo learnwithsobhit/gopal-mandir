@@ -999,6 +999,92 @@ class ApiService {
     }
   }
 
+  // ──────────────────────────────────────────────
+  // Admin Panchang CRUD
+  // ──────────────────────────────────────────────
+
+  Future<List<HinduPanchang>> adminListPanchang(
+    String token, {
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'per_page': '$perPage',
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/panchang').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => HinduPanchang.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin panchang list: $e');
+    }
+    return [];
+  }
+
+  Future<HinduPanchang?> adminCreatePanchang(
+    String token, {
+    required String forDate,
+    required String content,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/panchang'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'for_date': forDate, 'content': content}),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return HinduPanchang.fromJson(data);
+      }
+    } catch (e) {
+      print('admin panchang create: $e');
+    }
+    return null;
+  }
+
+  Future<HinduPanchang?> adminPatchPanchang(
+    String token,
+    int id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/panchang/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return HinduPanchang.fromJson(data);
+      }
+    } catch (e) {
+      print('admin panchang patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeletePanchang(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/panchang/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin panchang delete: $e');
+    }
+    return false;
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [
