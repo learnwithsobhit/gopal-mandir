@@ -58,20 +58,28 @@ class GalleryItem {
   final String title;
   final String imageUrl;
   final String category;
+  final String videoUrl;
+  final String mediaType;
 
   GalleryItem({
     required this.id,
     required this.title,
     required this.imageUrl,
     required this.category,
+    this.videoUrl = '',
+    this.mediaType = 'image',
   });
+
+  bool get isVideo => mediaType.toLowerCase() == 'video' && videoUrl.trim().isNotEmpty;
 
   factory GalleryItem.fromJson(Map<String, dynamic> json) {
     return GalleryItem(
       id: json['id'],
       title: json['title'],
-      imageUrl: json['image_url'],
+      imageUrl: json['image_url'] ?? '',
       category: json['category'],
+      videoUrl: (json['video_url'] ?? '').toString(),
+      mediaType: (json['media_type'] ?? 'image').toString(),
     );
   }
 }
@@ -489,12 +497,15 @@ class PrasadOrderView {
 }
 
 class UpdatePrasadOrderRequest {
+  /// Must match the order phone on the server.
+  final String phone;
   final int? quantity;
   final String? fulfillment; // pickup | delivery
   final String? address;
   final String? notes;
 
   UpdatePrasadOrderRequest({
+    required this.phone,
     this.quantity,
     this.fulfillment,
     this.address,
@@ -502,11 +513,83 @@ class UpdatePrasadOrderRequest {
   });
 
   Map<String, dynamic> toJson() => {
+        'phone': phone,
         'quantity': quantity,
         'fulfillment': fulfillment,
         'address': address,
         'notes': notes,
       };
+}
+
+// ── Admin / Live darshan API ──
+
+class AdminProfile {
+  final String id;
+  final String phone;
+  final String name;
+  final String status;
+
+  AdminProfile({
+    required this.id,
+    required this.phone,
+    required this.name,
+    required this.status,
+  });
+
+  factory AdminProfile.fromJson(Map<String, dynamic> json) {
+    return AdminProfile(
+      id: (json['id'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+    );
+  }
+}
+
+class AdminPresignResult {
+  final String uploadUrl;
+  final String publicUrl;
+  final String key;
+
+  AdminPresignResult({
+    required this.uploadUrl,
+    required this.publicUrl,
+    required this.key,
+  });
+
+  factory AdminPresignResult.fromJson(Map<String, dynamic> json) {
+    return AdminPresignResult(
+      uploadUrl: (json['upload_url'] ?? '').toString(),
+      publicUrl: (json['public_url'] ?? '').toString(),
+      key: (json['key'] ?? '').toString(),
+    );
+  }
+}
+
+class LiveDarshanConfig {
+  final int id;
+  final String title;
+  final String streamUrl;
+  final bool isLive;
+  final String description;
+
+  LiveDarshanConfig({
+    required this.id,
+    required this.title,
+    required this.streamUrl,
+    required this.isLive,
+    required this.description,
+  });
+
+  factory LiveDarshanConfig.fromJson(Map<String, dynamic> json) {
+    return LiveDarshanConfig(
+      id: json['id'] as int,
+      title: (json['title'] ?? '').toString(),
+      streamUrl: (json['stream_url'] ?? '').toString(),
+      isLive: json['is_live'] == true,
+      description: (json['description'] ?? '').toString(),
+    );
+  }
 }
 
 class SevaBookingView {

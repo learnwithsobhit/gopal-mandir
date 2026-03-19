@@ -28,6 +28,8 @@ pub struct GalleryItem {
     pub title: String,
     pub image_url: String,
     pub category: String,
+    pub video_url: String,
+    pub media_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
@@ -212,6 +214,8 @@ pub struct PrasadOrderView {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdatePrasadOrderRequest {
+    /// Must match the order's phone (normalized) — prevents arbitrary reference_id updates.
+    pub phone: String,
     pub quantity: Option<i32>,
     pub fulfillment: Option<String>, // pickup | delivery
     pub address: Option<String>,
@@ -319,6 +323,107 @@ pub struct MembershipMeResponse {
 #[derive(Debug, Serialize)]
 pub struct MembershipLogoutResponse {
     pub success: bool,
+}
+
+// ──────────────────────────────────────────────
+// Admin (CRM) auth
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct Admin {
+    pub id: Uuid,
+    pub phone: String,
+    pub name: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminRequestOtpRequest {
+    pub phone: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminRequestOtpResponse {
+    pub success: bool,
+    pub otp: String,
+    pub expires_in_sec: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminVerifyOtpRequest {
+    pub phone: String,
+    pub otp: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminVerifyOtpResponse {
+    pub success: bool,
+    pub token: String,
+    pub admin: Admin,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminMeResponse {
+    pub success: bool,
+    pub admin: Admin,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminLogoutResponse {
+    pub success: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPresignRequest {
+    pub content_type: String,
+    pub file_ext: String,
+    /// Optional logical prefix under the bucket, e.g. "gallery" -> gallery/{uuid}.ext
+    pub object_key_prefix: Option<String>,
+    /// Declared file size in bytes (optional); used for validation only.
+    pub size_bytes: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminPresignResponse {
+    pub success: bool,
+    pub upload_url: String,
+    pub public_url: String,
+    pub key: String,
+    pub expires_in_sec: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateGalleryRequest {
+    pub title: String,
+    pub category: String,
+    pub image_url: String,
+    pub video_url: Option<String>,
+    pub media_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchGalleryRequest {
+    pub title: Option<String>,
+    pub category: Option<String>,
+    pub image_url: Option<String>,
+    pub video_url: Option<String>,
+    pub media_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchLiveDarshanRequest {
+    pub title: Option<String>,
+    pub stream_url: Option<String>,
+    pub is_live: Option<bool>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminUpdatePrasadStatusRequest {
+    pub status: String,
 }
 
 // ──────────────────────────────────────────────

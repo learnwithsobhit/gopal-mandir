@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -285,7 +286,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 }
                 final item = _filteredItems[index];
                 return GestureDetector(
-                  onTap: () => _showFullImage(context, item),
+                  onTap: () => item.isVideo ? _openVideo(context, item) : _showFullImage(context, item),
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.softWhite,
@@ -307,11 +308,37 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               topLeft: Radius.circular(16),
                               topRight: Radius.circular(16),
                             ),
-                            child: _GalleryGridImage(
-                              imageUrl: _effectiveImageUrl(item.imageUrl),
-                              gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
-                              placeholder: _buildImageShimmer(),
-                            ),
+                            child: item.isVideo
+                                ? Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      if (item.imageUrl.trim().isNotEmpty)
+                                        _GalleryGridImage(
+                                          imageUrl: _effectiveImageUrl(item.imageUrl),
+                                          gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                          placeholder: _buildImageShimmer(),
+                                        )
+                                      else
+                                        ColoredBox(
+                                          color: AppColors.krishnaBlue.withAlpha(40),
+                                          child: const Center(
+                                            child: Icon(Icons.movie, size: 48, color: AppColors.krishnaBlue),
+                                          ),
+                                        ),
+                                      const Center(
+                                        child: Icon(
+                                          Icons.play_circle_fill,
+                                          size: 52,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : _GalleryGridImage(
+                                    imageUrl: _effectiveImageUrl(item.imageUrl),
+                                    gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                    placeholder: _buildImageShimmer(),
+                                  ),
                           ),
                         ),
                         Padding(
@@ -385,6 +412,29 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       ),
     );
+  }
+
+  Future<void> _openVideo(BuildContext context, GalleryItem item) async {
+    final raw = item.videoUrl.trim();
+    if (raw.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video URL missing')),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid video URL')));
+      return;
+    }
+    if (!await canLaunchUrl(uri)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot open video URL')));
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _showFullImage(BuildContext context, GalleryItem item) {

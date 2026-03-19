@@ -1,51 +1,17 @@
 use actix_web::{get, post, patch, web, HttpRequest, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
+use crate::util::{bearer_token, normalize_phone, sha256_hex};
 use chrono::{Duration, Utc};
 use rand::Rng;
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 use std::env;
 
 /// Allowed hosts for image proxy (avoids open proxy abuse). Add more if you use other CDNs.
-const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &["images.cdn-files-a.com", "images.cdn-files.com"];
-
-fn normalize_phone(raw: &str) -> Option<String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    // Keep digits and leading '+'
-    let mut out = String::new();
-    for (i, ch) in trimmed.chars().enumerate() {
-        if ch.is_ascii_digit() {
-            out.push(ch);
-        } else if ch == '+' && i == 0 {
-            out.push(ch);
-        }
-    }
-    let digits: String = out.chars().filter(|c| c.is_ascii_digit()).collect();
-    if digits.len() < 8 || digits.len() > 15 {
-        return None;
-    }
-    Some(if out.starts_with('+') { out } else { format!("+{}", digits) })
-}
-
-fn sha256_hex(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    hex::encode(hasher.finalize())
-}
-
-fn bearer_token(req: &HttpRequest) -> Option<String> {
-    let header = req.headers().get("authorization")?.to_str().ok()?;
-    let header = header.trim();
-    let prefix = "Bearer ";
-    if header.len() <= prefix.len() || !header.starts_with(prefix) {
-        return None;
-    }
-    Some(header[prefix.len()..].trim().to_string())
-}
+const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &[
+    "images.cdn-files-a.com",
+    "images.cdn-files.com",
+];
 
 // ──────────────────────────────────────────────
 // Membership (free) + phone OTP + sessions
@@ -475,7 +441,12 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
         return HttpResponse::BadRequest().body("Only https URLs are allowed");
     }
     let host = url.host_str().unwrap_or("");
-    if !IMAGE_PROXY_ALLOWED_HOSTS.iter().any(|h| host == *h || host.ends_with(&format!(".{}", h))) {
+    let allowed = IMAGE_PROXY_ALLOWED_HOSTS
+        .iter()
+        .any(|h| host == *h || host.ends_with(&format!(".{}", h)))
+        || host.ends_with(".amazonaws.com")
+        || host.ends_with(".cloudfront.net");
+    if !allowed {
         return HttpResponse::Forbidden().body("URL host not allowed for proxy");
     }
 
@@ -1152,6 +1123,23 @@ pub async fn update_prasad_order(
             }))
         }
     };
+
+    let caller_phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let order_phone = normalize_phone(&existing.phone).unwrap_or_else(|| existing.phone.trim().to_string());
+    if caller_phone != order_phone {
+        return HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Phone does not match this booking"
+        }));
+    }
 
     if existing.status == "cancelled" {
         return HttpResponse::BadRequest().json(serde_json::json!({

@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
 import '../l10n/app_language.dart';
+import 'admin_shell.dart';
 import 'bookings_screen.dart';
 import 'membership_screen.dart';
 import 'volunteer_screen.dart';
@@ -274,6 +275,20 @@ class _MoreScreenState extends State<MoreScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const VrindavanBackground(child: MembershipScreen()),
+                ),
+              );
+            },
+          ),
+          _menuItem(
+            context,
+            Icons.admin_panel_settings,
+            'Temple staff',
+            'Gallery, live darshan, prasad orders (authorized phones only)',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: AdminShell()),
                 ),
               );
             },

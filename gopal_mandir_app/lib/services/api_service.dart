@@ -624,6 +624,311 @@ class ApiService {
     }
   }
 
+  // ──────────────────────────────────────────────
+  // Public live darshan config
+  // ──────────────────────────────────────────────
+
+  Future<LiveDarshanConfig?> getLiveDarshanConfig() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/live-darshan'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['success'] == true && json['data'] != null) {
+          return LiveDarshanConfig.fromJson(json['data'] as Map<String, dynamic>);
+        }
+      }
+    } catch (e) {
+      print('Error fetching live darshan: $e');
+    }
+    return null;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin (CRM) — Bearer token
+  // ──────────────────────────────────────────────
+
+  Map<String, String> _adminHeaders(String token) => {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+  Future<String?> requestAdminOtp(String phone) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/request-otp'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': phone}),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['success'] == true) {
+          return (json['otp'] ?? '').toString();
+        }
+      }
+    } catch (e) {
+      print('admin request otp: $e');
+    }
+    return null;
+  }
+
+  Future<({String? token, AdminProfile? admin, String? error})> verifyAdminOtp({
+    required String phone,
+    required String otp,
+    String? name,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/verify-otp'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'phone': phone,
+          'otp': otp,
+          if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        }),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        final token = (json['token'] ?? '').toString();
+        final adminMap = json['admin'] as Map<String, dynamic>?;
+        return (
+          token: token.isEmpty ? null : token,
+          admin: adminMap == null ? null : AdminProfile.fromJson(adminMap),
+          error: null,
+        );
+      }
+      final err = json?['error']?.toString() ?? 'Verification failed';
+      return (token: null, admin: null, error: err);
+    } catch (e) {
+      print('admin verify otp: $e');
+      return (token: null, admin: null, error: 'Network error');
+    }
+  }
+
+  Future<AdminProfile?> adminMe(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/me'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final adminMap = json?['admin'] as Map<String, dynamic>?;
+        if (adminMap != null) return AdminProfile.fromJson(adminMap);
+      }
+    } catch (e) {
+      print('admin me: $e');
+    }
+    return null;
+  }
+
+  Future<void> adminLogout(String token) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/admin/logout'),
+        headers: _adminHeaders(token),
+      );
+    } catch (e) {
+      print('admin logout: $e');
+    }
+  }
+
+  Future<AdminPresignResult?> adminPresign(
+    String token, {
+    required String contentType,
+    required String fileExt,
+    String objectKeyPrefix = 'gallery',
+    int? sizeBytes,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/media/presign'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({
+          'content_type': contentType,
+          'file_ext': fileExt,
+          'object_key_prefix': objectKeyPrefix,
+          if (sizeBytes != null) 'size_bytes': sizeBytes,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json != null && json['success'] == true) {
+          return AdminPresignResult.fromJson(json);
+        }
+      }
+    } catch (e) {
+      print('admin presign: $e');
+    }
+    return null;
+  }
+
+  Future<List<GalleryItem>> adminListGallery(
+    String token, {
+    int page = 1,
+    int perPage = 50,
+    String? category,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'per_page': '$perPage',
+        if (category != null && category.isNotEmpty) 'category': category,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/gallery').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => GalleryItem.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin gallery list: $e');
+    }
+    return [];
+  }
+
+  Future<GalleryItem?> adminCreateGallery(String token, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/gallery'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return GalleryItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin gallery create: $e');
+    }
+    return null;
+  }
+
+  Future<GalleryItem?> adminPatchGallery(String token, int id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/gallery/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return GalleryItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin gallery patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteGallery(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/gallery/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin gallery delete: $e');
+    }
+    return false;
+  }
+
+  Future<LiveDarshanConfig?> adminGetLiveDarshan(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/live-darshan'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return LiveDarshanConfig.fromJson(data);
+      }
+    } catch (e) {
+      print('admin live darshan get: $e');
+    }
+    return null;
+  }
+
+  Future<LiveDarshanConfig?> adminPatchLiveDarshan(String token, Map<String, dynamic> body) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/live-darshan'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return LiveDarshanConfig.fromJson(data);
+      }
+    } catch (e) {
+      print('admin live darshan patch: $e');
+    }
+    return null;
+  }
+
+  Future<List<PrasadOrderView>> adminListPrasadOrders(
+    String token, {
+    String? status,
+    String? fromDate,
+    String? toDate,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
+        if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/prasad/orders').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => PrasadOrderView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin prasad orders: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> adminPatchPrasadOrderStatus(
+    String token,
+    String referenceId,
+    String status,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/prasad/order/${Uri.encodeComponent(referenceId)}'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'status': status}),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin prasad patch: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

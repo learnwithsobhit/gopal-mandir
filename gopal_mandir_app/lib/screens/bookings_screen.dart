@@ -190,6 +190,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
 
     final qty = int.tryParse(qtyCtrl.text.trim());
     final req = UpdatePrasadOrderRequest(
+      phone: order.phone,
       quantity: qty,
       fulfillment: fulfillment,
       address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),

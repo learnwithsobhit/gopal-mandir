@@ -1,5 +1,8 @@
+mod admin;
 mod models;
 mod routes;
+mod s3_presign;
+mod util;
 
 use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
@@ -61,6 +64,19 @@ async fn main() -> std::io::Result<()> {
             .service(routes::membership_verify_otp)
             .service(routes::membership_me)
             .service(routes::membership_logout)
+            .service(admin::admin_request_otp)
+            .service(admin::admin_verify_otp)
+            .service(admin::admin_me)
+            .service(admin::admin_logout)
+            .service(admin::admin_media_presign)
+            .service(admin::admin_list_gallery)
+            .service(admin::admin_create_gallery)
+            .service(admin::admin_patch_gallery)
+            .service(admin::admin_delete_gallery)
+            .service(admin::admin_get_live_darshan)
+            .service(admin::admin_patch_live_darshan)
+            .service(admin::admin_list_prasad_orders)
+            .service(admin::admin_patch_prasad_order)
             .service(routes::submit_volunteer_request)
             .service(routes::get_gallery)
             .service(routes::get_gallery_image_proxy)
