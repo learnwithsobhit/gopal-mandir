@@ -71,7 +71,7 @@ pub fn presign_put_url(
         .join("&");
 
     let canonical_headers = format!(
-        "content-type:{}\nhost:{}\n\n",
+        "content-type:{}\nhost:{}\n",
         content_type.trim(),
         host.trim()
     );
