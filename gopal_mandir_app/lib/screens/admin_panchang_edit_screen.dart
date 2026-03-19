@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
@@ -145,10 +146,51 @@ class _AdminPanchangEditScreenState extends State<AdminPanchangEditScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Panchang Content',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.paste, size: 20),
+                  tooltip: 'Paste from clipboard',
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null && data!.text!.isNotEmpty) {
+                      _contentCtrl.text = data.text!;
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Pasted from clipboard'), duration: Duration(seconds: 1)),
+                        );
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Clipboard is empty')),
+                        );
+                      }
+                    }
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy, size: 20),
+                  tooltip: 'Copy content',
+                  onPressed: () {
+                    final text = _contentCtrl.text.trim();
+                    if (text.isEmpty) return;
+                    Clipboard.setData(ClipboardData(text: text));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _contentCtrl,
               decoration: const InputDecoration(
-                labelText: 'Panchang Content',
                 hintText: 'तिथि, नक्षत्र, योग, करण, राहुकाल…',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
@@ -156,6 +198,7 @@ class _AdminPanchangEditScreenState extends State<AdminPanchangEditScreen> {
               maxLines: 12,
               minLines: 6,
               keyboardType: TextInputType.multiline,
+              enableInteractiveSelection: true,
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
