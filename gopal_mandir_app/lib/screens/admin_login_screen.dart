@@ -36,14 +36,28 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       _error = null;
       _devOtp = null;
     });
-    final otp = await _api.requestAdminOtp(_phoneCtrl.text.trim());
+    final r = await _api.requestAdminOtp(_phoneCtrl.text.trim());
     if (!mounted) return;
     setState(() {
       _loading = false;
-      if (otp != null && otp.isNotEmpty) {
-        _devOtp = otp;
+      if (r.otp != null && r.otp!.isNotEmpty) {
+        _devOtp = r.otp;
       } else {
-        _error = 'Could not send OTP. This number may not be registered as admin.';
+        if (r.retryAfterSec != null && r.retryAfterSec! > 0) {
+          final mins = r.retryAfterSec! ~/ 60;
+          final secs = r.retryAfterSec! % 60;
+          final waitText = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
+          final attemptsText =
+              (r.attemptsUsed != null && r.attemptsLimit != null)
+                  ? ' (${r.attemptsUsed}/${r.attemptsLimit} attempts used)'
+                  : '';
+          _error =
+              '${r.error ?? 'Too many OTP requests.'} Try again in $waitText.$attemptsText';
+        } else {
+          _error =
+              r.error ??
+              'Could not send OTP. This number may not be registered as admin.';
+        }
       }
     });
   }

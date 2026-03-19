@@ -652,23 +652,58 @@ class ApiService {
         'Authorization': 'Bearer $token',
       };
 
-  Future<String?> requestAdminOtp(String phone) async {
+  Future<
+      ({
+        String? otp,
+        String? error,
+        int? retryAfterSec,
+        int? attemptsRemaining,
+        int? attemptsUsed,
+        int? attemptsLimit
+      })> requestAdminOtp(String phone) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/api/admin/request-otp'),
         headers: const {'Content-Type': 'application/json'},
         body: jsonEncode({'phone': phone}),
       );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      int? asInt(dynamic v) {
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        return int.tryParse(v?.toString() ?? '');
+      }
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>?;
         if (json != null && json['success'] == true) {
-          return (json['otp'] ?? '').toString();
+          return (
+            otp: (json['otp'] ?? '').toString(),
+            error: null,
+            retryAfterSec: null,
+            attemptsRemaining: asInt(json['attempts_remaining']),
+            attemptsUsed: asInt(json['attempts_used']),
+            attemptsLimit: asInt(json['attempts_limit']),
+          );
         }
       }
+      return (
+        otp: null,
+        error: (json?['error'] ?? 'Unable to send OTP').toString(),
+        retryAfterSec: asInt(json?['retry_after_sec']),
+        attemptsRemaining: asInt(json?['attempts_remaining']),
+        attemptsUsed: asInt(json?['attempts_used']),
+        attemptsLimit: asInt(json?['attempts_limit']),
+      );
     } catch (e) {
       print('admin request otp: $e');
+      return (
+        otp: null,
+        error: 'Network error. Please try again.',
+        retryAfterSec: null,
+        attemptsRemaining: null,
+        attemptsUsed: null,
+        attemptsLimit: null,
+      );
     }
-    return null;
   }
 
   Future<({String? token, AdminProfile? admin, String? error})> verifyAdminOtp({

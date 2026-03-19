@@ -111,18 +111,34 @@ pub async fn admin_request_otp(
         }
     }
 
-    let recent = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM admin_otp WHERE phone = $1 AND created_at > NOW() - INTERVAL '10 minutes'",
+    let attempts_limit: i64 = 3;
+    let rate_limit_window = Duration::minutes(10);
+    let now = Utc::now();
+    let recent = sqlx::query_as::<_, (i64, Option<chrono::DateTime<Utc>>)>(
+        "SELECT COUNT(*) as count, MIN(created_at) as first_at
+         FROM admin_otp
+         WHERE phone = $1 AND created_at > NOW() - INTERVAL '10 minutes'",
     )
     .bind(&phone)
     .fetch_one(pool.get_ref())
     .await;
-    if let Ok(count) = recent {
-        if count >= 3 {
-            return HttpResponse::TooManyRequests().json(serde_json::json!({
-                "success": false,
-                "error": "Too many OTP requests. Please try again later."
-            }));
+    if let Ok((count, first_at)) = recent {
+        let attempts_used = count.max(0);
+        let attempts_remaining = (attempts_limit - attempts_used).max(0);
+        if attempts_used >= attempts_limit {
+            let retry_after_sec = first_at
+                .map(|t| ((t + rate_limit_window - now).num_seconds()).max(1))
+                .unwrap_or(rate_limit_window.num_seconds().max(1));
+            return HttpResponse::TooManyRequests()
+                .insert_header(("Retry-After", retry_after_sec.to_string()))
+                .json(serde_json::json!({
+                    "success": false,
+                    "error": "Too many OTP requests. Please wait before trying again.",
+                    "attempts_used": attempts_used,
+                    "attempts_limit": attempts_limit,
+                    "attempts_remaining": attempts_remaining,
+                    "retry_after_sec": retry_after_sec
+                }));
         }
     }
 
