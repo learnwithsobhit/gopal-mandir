@@ -11,24 +11,35 @@ class AdminAuthService {
   static const _tokenKey = 'admin_token';
 
   static Future<String?> readToken() async {
+    String? secureToken;
     try {
-      final token = await _storage.read(key: _tokenKey);
-      if (token != null && token.trim().isNotEmpty) return token;
+      secureToken = await _storage.read(key: _tokenKey);
+      if (secureToken != null && secureToken.trim().isNotEmpty) return secureToken;
     } catch (_) {}
     if (!kIsWeb) return null;
     try {
       final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
-      return prefs.getString(_tokenKey);
-    } catch (_) {
+      final prefToken = prefs.getString(_tokenKey);
+      if (prefToken != null && prefToken.trim().isNotEmpty) {
+        // Heal secure storage if web secure storage was unavailable earlier.
+        try {
+          await _storage.write(key: _tokenKey, value: prefToken);
+        } catch (_) {}
+        return prefToken;
+      }
       return null;
+    } catch (_) {
+      return secureToken;
     }
   }
 
   static Future<void> writeToken(String token) async {
+    // Always try secure storage first.
     try {
       await _storage.write(key: _tokenKey, value: token);
-      return;
     } catch (_) {}
+
+    // On web, mirror token in shared prefs as a resilient fallback.
     if (!kIsWeb) return;
     try {
       final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
@@ -39,7 +50,6 @@ class AdminAuthService {
   static Future<void> deleteToken() async {
     try {
       await _storage.delete(key: _tokenKey);
-      return;
     } catch (_) {}
     if (!kIsWeb) return;
     try {

@@ -75,7 +75,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     if (!mounted) return;
     if (r.token != null && r.token!.isNotEmpty) {
       await AdminAuthService.writeToken(r.token!);
+      final persisted = await AdminAuthService.readToken();
       if (!mounted) return;
+      if (persisted == null || persisted.isEmpty) {
+        setState(() {
+          _loading = false;
+          _error = 'Login succeeded but session storage failed. Please retry.';
+        });
+        return;
+      }
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const AdminShell()),
       );
