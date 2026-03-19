@@ -443,6 +443,44 @@ pub struct AdminPatchPanchangRequest {
 }
 
 // ──────────────────────────────────────────────
+// Admin Seva Items CRUD
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateSevaItemRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub price: f64,
+    pub category: String,
+    pub available: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchSevaItemRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub price: Option<f64>,
+    pub category: Option<String>,
+    pub available: Option<bool>,
+}
+
+// ──────────────────────────────────────────────
+// Admin Seva Bookings
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminSevaBookingsQuery {
+    pub status: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminUpdateSevaBookingStatusRequest {
+    pub status: String,
+}
+
+// ──────────────────────────────────────────────
 // Volunteer requests
 // ──────────────────────────────────────────────
 

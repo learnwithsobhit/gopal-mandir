@@ -8,6 +8,8 @@ import 'admin_gallery_list_screen.dart';
 import 'admin_live_darshan_screen.dart';
 import 'admin_prasad_orders_screen.dart';
 import 'admin_panchang_list_screen.dart';
+import 'admin_seva_items_list_screen.dart';
+import 'admin_seva_bookings_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -136,6 +138,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminPanchangListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.volunteer_activism,
+            'Seva Items',
+            'Add, edit & remove seva offerings',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminSevaItemsListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.book_online,
+            'Seva Bookings',
+            'View & update seva booking status',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminSevaBookingsScreen(token: _token!),
               ),
             ),
           ),

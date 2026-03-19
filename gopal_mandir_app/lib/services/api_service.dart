@@ -1085,6 +1085,137 @@ class ApiService {
     return false;
   }
 
+  // ──────────────────────────────────────────────
+  // Admin Seva Items CRUD
+  // ──────────────────────────────────────────────
+
+  Future<List<SevaItem>> adminListSevaItems(
+    String token, {
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    try {
+      final q = <String, String>{'page': '$page', 'per_page': '$perPage'};
+      final uri = Uri.parse('$baseUrl/api/admin/seva/items').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => SevaItem.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin seva items list: $e');
+    }
+    return [];
+  }
+
+  Future<SevaItem?> adminCreateSevaItem(String token, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/seva/items'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return SevaItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin seva item create: $e');
+    }
+    return null;
+  }
+
+  Future<SevaItem?> adminPatchSevaItem(String token, int id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/seva/items/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return SevaItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin seva item patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteSevaItem(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/seva/items/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin seva item delete: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Seva Bookings
+  // ──────────────────────────────────────────────
+
+  Future<List<SevaBookingView>> adminListSevaBookings(
+    String token, {
+    String? status,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/seva/bookings').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => SevaBookingView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin seva bookings list: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> adminPatchSevaBookingStatus(
+    String token,
+    String referenceId,
+    String status,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/seva/booking/${Uri.encodeComponent(referenceId)}'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'status': status}),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin seva booking patch: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

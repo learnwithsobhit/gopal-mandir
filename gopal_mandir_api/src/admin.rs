@@ -1163,3 +1163,306 @@ pub async fn admin_delete_panchang(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Seva Items CRUD
+// ──────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct AdminSevaItemsQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+#[get("/api/admin/seva/items")]
+pub async fn admin_list_seva_items(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminSevaItemsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+
+    match sqlx::query_as::<_, SevaItem>(
+        "SELECT id, name, description, price, category, available
+         FROM seva_items ORDER BY id LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/seva/items")]
+pub async fn admin_create_seva_item(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreateSevaItemRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let name = body.name.trim();
+    let category = body.category.trim();
+    if name.is_empty() || category.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name and category are required"
+        }));
+    }
+    let description = body.description.as_deref().unwrap_or("").trim();
+    let available = body.available.unwrap_or(true);
+
+    match sqlx::query_as::<_, SevaItem>(
+        "INSERT INTO seva_items (name, description, price, category, available)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, name, description, price, category, available",
+    )
+    .bind(name)
+    .bind(description)
+    .bind(body.price)
+    .bind(category)
+    .bind(available)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/seva/items/{id}")]
+pub async fn admin_patch_seva_item(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchSevaItemRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = sqlx::query_as::<_, SevaItem>(
+        "SELECT id, name, description, price, category, available FROM seva_items WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(e)) => e,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Seva item not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let new_name = body.name.as_deref().unwrap_or(&existing.name).trim().to_string();
+    let new_desc = body.description.as_deref().unwrap_or(&existing.description).trim().to_string();
+    let new_price = body.price.unwrap_or(existing.price);
+    let new_cat = body.category.as_deref().unwrap_or(&existing.category).trim().to_string();
+    let new_avail = body.available.unwrap_or(existing.available);
+
+    match sqlx::query_as::<_, SevaItem>(
+        "UPDATE seva_items SET name = $1, description = $2, price = $3, category = $4, available = $5
+         WHERE id = $6
+         RETURNING id, name, description, price, category, available",
+    )
+    .bind(&new_name)
+    .bind(&new_desc)
+    .bind(new_price)
+    .bind(&new_cat)
+    .bind(new_avail)
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/seva/items/{id}")]
+pub async fn admin_delete_seva_item(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM seva_items WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Seva item not found"
+        })),
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("foreign key") || msg.contains("violates") {
+                HttpResponse::Conflict().json(serde_json::json!({
+                    "success": false,
+                    "error": "Cannot delete: seva item has existing bookings"
+                }))
+            } else {
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    }
+}
+
+// ──────────────────────────────────────────────
+// Admin Seva Bookings
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/seva/bookings")]
+pub async fn admin_list_seva_bookings(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminSevaBookingsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let status_filter = q.status.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+
+    let rows = sqlx::query_as::<_, SevaBookingView>(
+        "SELECT
+            b.id,
+            b.reference_id,
+            b.status,
+            b.created_at,
+            b.name,
+            b.phone,
+            b.preferred_date,
+            b.notes,
+            b.seva_item_id,
+            s.name as seva_name,
+            s.category as seva_category,
+            s.price as seva_price
+         FROM seva_bookings b
+         JOIN seva_items s ON s.id = b.seva_item_id
+         WHERE ($1::TEXT IS NULL OR b.status = $1)
+         ORDER BY b.created_at DESC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(&status_filter)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/seva/booking/{reference_id}")]
+pub async fn admin_patch_seva_booking(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    reference_id: web::Path<String>,
+    body: web::Json<AdminUpdateSevaBookingStatusRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let reference_id = reference_id.into_inner();
+    let status = body.status.trim().to_lowercase();
+    if status.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "status is required"
+        }));
+    }
+
+    let allowed = ["pending", "confirmed", "completed", "cancelled"];
+    if !allowed.contains(&status.as_str()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid status"
+        }));
+    }
+
+    let r = sqlx::query(
+        "UPDATE seva_bookings SET status = $1 WHERE reference_id = $2",
+    )
+    .bind(&status)
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Booking updated".to_string(),
+        }),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Booking not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
