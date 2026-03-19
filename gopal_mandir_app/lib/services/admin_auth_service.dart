@@ -9,18 +9,26 @@ class AdminAuthService {
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'admin_token';
+  static String? _memoryToken;
 
   static Future<String?> readToken() async {
+    if (_memoryToken != null && _memoryToken!.trim().isNotEmpty) {
+      return _memoryToken;
+    }
     String? secureToken;
     try {
       secureToken = await _storage.read(key: _tokenKey);
-      if (secureToken != null && secureToken.trim().isNotEmpty) return secureToken;
+      if (secureToken != null && secureToken.trim().isNotEmpty) {
+        _memoryToken = secureToken;
+        return secureToken;
+      }
     } catch (_) {}
     if (!kIsWeb) return null;
     try {
       final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
       final prefToken = prefs.getString(_tokenKey);
       if (prefToken != null && prefToken.trim().isNotEmpty) {
+        _memoryToken = prefToken;
         // Heal secure storage if web secure storage was unavailable earlier.
         try {
           await _storage.write(key: _tokenKey, value: prefToken);
@@ -34,6 +42,7 @@ class AdminAuthService {
   }
 
   static Future<void> writeToken(String token) async {
+    _memoryToken = token;
     // Always try secure storage first.
     try {
       await _storage.write(key: _tokenKey, value: token);
@@ -48,6 +57,7 @@ class AdminAuthService {
   }
 
   static Future<void> deleteToken() async {
+    _memoryToken = null;
     try {
       await _storage.delete(key: _tokenKey);
     } catch (_) {}

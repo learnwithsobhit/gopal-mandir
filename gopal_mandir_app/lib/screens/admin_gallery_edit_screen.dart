@@ -1,9 +1,11 @@
-import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
+import '../utils/web_upload_picker_stub.dart'
+    if (dart.library.html) '../utils/web_upload_picker_web.dart';
 
 class AdminGalleryEditScreen extends StatefulWidget {
   const AdminGalleryEditScreen({super.key, required this.token, this.existing});
@@ -80,22 +82,23 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
   Future<void> _pickAndUpload() async {
     setState(() => _uploading = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov'],
-        withData: true,
-      );
-      if (result == null || result.files.isEmpty) {
+      final picked = await pickFileForUpload();
+      if (picked == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No file selected or could not read file.')),
+          );
+        }
         setState(() => _uploading = false);
         return;
       }
-      final f = result.files.first;
-      final bytes = f.bytes;
-      final name = f.name;
-      if (bytes == null) {
+      final Uint8List bytes = picked.bytes;
+      final String name = picked.name;
+
+      if (bytes.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not read file bytes (try again on mobile)')),
+            const SnackBar(content: Text('Could not read selected file bytes. Please pick again.')),
           );
         }
         setState(() => _uploading = false);
@@ -236,7 +239,7 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use — controlled field; initialValue only applies once
+            // ignore: deprecated_member_use
             value: _mediaType,
             decoration: const InputDecoration(labelText: 'Media type', border: OutlineInputBorder()),
             items: const [

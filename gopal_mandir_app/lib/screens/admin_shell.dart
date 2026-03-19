@@ -37,9 +37,12 @@ class _AdminShellState extends State<AdminShell> {
       });
       return;
     }
-    final me = await _api.adminMe(t);
+    final meResult = await _api.adminMeResult(t);
     if (!mounted) return;
-    if (me == null) {
+    final me = meResult.admin;
+    final statusCode = meResult.statusCode;
+    final isUnauthorized = statusCode == 401 || statusCode == 403;
+    if (me == null && isUnauthorized) {
       await AdminAuthService.deleteToken();
       setState(() {
         _loading = false;

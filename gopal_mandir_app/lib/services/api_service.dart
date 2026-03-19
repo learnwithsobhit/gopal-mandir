@@ -756,6 +756,41 @@ class ApiService {
     return null;
   }
 
+  Future<({AdminProfile? admin, int? statusCode, String? error})> adminMeResult(
+    String token,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/me'),
+        headers: _adminHeaders(token),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200) {
+        final adminMap = json?['admin'] as Map<String, dynamic>?;
+        if (adminMap != null) {
+          return (
+            admin: AdminProfile.fromJson(adminMap),
+            statusCode: response.statusCode,
+            error: null,
+          );
+        }
+        return (
+          admin: null,
+          statusCode: response.statusCode,
+          error: 'Invalid admin response',
+        );
+      }
+      return (
+        admin: null,
+        statusCode: response.statusCode,
+        error: (json?['error'] ?? 'Admin session check failed').toString(),
+      );
+    } catch (e) {
+      print('admin me result: $e');
+      return (admin: null, statusCode: null, error: 'Network error');
+    }
+  }
+
   Future<void> adminLogout(String token) async {
     try {
       await http.post(
