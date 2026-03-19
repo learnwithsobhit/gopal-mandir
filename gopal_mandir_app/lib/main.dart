@@ -49,13 +49,22 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    SevaScreen(),
-    LiveDarshanScreen(),
-    EventsScreen(),
-    MoreScreen(),
+  final _sevaKey = GlobalKey<SevaScreenState>();
+
+  late final List<Widget> _screens = [
+    const HomeScreen(),
+    SevaScreen(key: _sevaKey),
+    const LiveDarshanScreen(),
+    const EventsScreen(),
+    const MoreScreen(),
   ];
+
+  void _onTabTapped(int index) {
+    if (index == 1) {
+      _sevaKey.currentState?.refresh();
+    }
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +89,7 @@ class _MainShellState extends State<MainShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          onTap: _onTabTapped,
           items: [
             BottomNavigationBarItem(
               icon: const Icon(Icons.home_outlined),

@@ -9,10 +9,10 @@ class SevaScreen extends StatefulWidget {
   const SevaScreen({super.key});
 
   @override
-  State<SevaScreen> createState() => _SevaScreenState();
+  SevaScreenState createState() => SevaScreenState();
 }
 
-class _SevaScreenState extends State<SevaScreen> {
+class SevaScreenState extends State<SevaScreen> {
   final ApiService _api = ApiService();
   List<SevaItem> _items = [];
   bool _loading = true;
@@ -23,7 +23,10 @@ class _SevaScreenState extends State<SevaScreen> {
     _load();
   }
 
+  void refresh() => _load();
+
   Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
     final data = await _api.getSevaItems();
     if (mounted) setState(() { _items = data; _loading = false; });
   }
