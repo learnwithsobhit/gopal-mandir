@@ -50,18 +50,21 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   final _sevaKey = GlobalKey<SevaScreenState>();
+  final _eventsKey = GlobalKey<EventsScreenState>();
 
   late final List<Widget> _screens = [
     const HomeScreen(),
     SevaScreen(key: _sevaKey),
     const LiveDarshanScreen(),
-    const EventsScreen(),
+    EventsScreen(key: _eventsKey),
     const MoreScreen(),
   ];
 
   void _onTabTapped(int index) {
     if (index == 1) {
       _sevaKey.currentState?.refresh();
+    } else if (index == 3) {
+      _eventsKey.currentState?.refresh();
     }
     setState(() => _currentIndex = index);
   }

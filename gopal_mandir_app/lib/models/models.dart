@@ -732,6 +732,38 @@ class EventComment {
   }
 }
 
+class EventParticipationView {
+  final int id;
+  final int eventId;
+  final String eventTitle;
+  final String name;
+  final String phone;
+  final String? notes;
+  final String createdAt;
+
+  EventParticipationView({
+    required this.id,
+    required this.eventId,
+    required this.eventTitle,
+    required this.name,
+    required this.phone,
+    this.notes,
+    required this.createdAt,
+  });
+
+  factory EventParticipationView.fromJson(Map<String, dynamic> json) {
+    return EventParticipationView(
+      id: json['id'],
+      eventId: json['event_id'],
+      eventTitle: (json['event_title'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      notes: json['notes']?.toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
 class GalleryComment {
   final int id;
   final int galleryId;

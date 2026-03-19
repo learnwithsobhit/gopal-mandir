@@ -443,6 +443,50 @@ pub struct AdminPatchPanchangRequest {
 }
 
 // ──────────────────────────────────────────────
+// Admin Events CRUD
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateEventRequest {
+    pub title: String,
+    pub date: String,
+    pub description: Option<String>,
+    pub image_url: Option<String>,
+    pub is_featured: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchEventRequest {
+    pub title: Option<String>,
+    pub date: Option<String>,
+    pub description: Option<String>,
+    pub image_url: Option<String>,
+    pub is_featured: Option<bool>,
+}
+
+// ──────────────────────────────────────────────
+// Admin Event Participations
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminEventParticipationView {
+    pub id: i32,
+    pub event_id: i32,
+    pub event_title: String,
+    pub name: String,
+    pub phone: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminEventParticipationsQuery {
+    pub event_id: Option<i32>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+// ──────────────────────────────────────────────
 // Admin Seva Items CRUD
 // ──────────────────────────────────────────────
 

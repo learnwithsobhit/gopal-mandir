@@ -1466,3 +1466,245 @@ pub async fn admin_patch_seva_booking(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Events CRUD
+// ──────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct AdminEventsQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+#[get("/api/admin/events")]
+pub async fn admin_list_events(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminEventsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+
+    match sqlx::query_as::<_, Event>(
+        "SELECT id, title, date, description, image_url, is_featured
+         FROM events ORDER BY id DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/events")]
+pub async fn admin_create_event(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreateEventRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let title = body.title.trim();
+    let date = body.date.trim();
+    if title.is_empty() || date.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "title and date are required"
+        }));
+    }
+    let description = body.description.as_deref().unwrap_or("").trim();
+    let image_url = body.image_url.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let is_featured = body.is_featured.unwrap_or(false);
+
+    match sqlx::query_as::<_, Event>(
+        "INSERT INTO events (title, date, description, image_url, is_featured)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, title, date, description, image_url, is_featured",
+    )
+    .bind(title)
+    .bind(date)
+    .bind(description)
+    .bind(&image_url)
+    .bind(is_featured)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/events/{id}")]
+pub async fn admin_patch_event(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchEventRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = sqlx::query_as::<_, Event>(
+        "SELECT id, title, date, description, image_url, is_featured FROM events WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(e)) => e,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Event not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let new_title = body.title.as_deref().unwrap_or(&existing.title).trim().to_string();
+    let new_date = body.date.as_deref().unwrap_or(&existing.date).trim().to_string();
+    let new_desc = body.description.as_deref().unwrap_or(&existing.description).trim().to_string();
+    let new_image = if body.image_url.is_some() {
+        body.image_url.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    } else {
+        existing.image_url.clone()
+    };
+    let new_featured = body.is_featured.unwrap_or(existing.is_featured);
+
+    match sqlx::query_as::<_, Event>(
+        "UPDATE events SET title = $1, date = $2, description = $3, image_url = $4, is_featured = $5
+         WHERE id = $6
+         RETURNING id, title, date, description, image_url, is_featured",
+    )
+    .bind(&new_title)
+    .bind(&new_date)
+    .bind(&new_desc)
+    .bind(&new_image)
+    .bind(new_featured)
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/events/{id}")]
+pub async fn admin_delete_event(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM events WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Event not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Admin Event Participations
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/events/participations")]
+pub async fn admin_list_event_participations(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminEventParticipationsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let event_id_filter = q.event_id;
+
+    let rows = sqlx::query_as::<_, AdminEventParticipationView>(
+        "SELECT
+            p.id,
+            p.event_id,
+            e.title as event_title,
+            p.name,
+            p.phone,
+            p.notes,
+            p.created_at
+         FROM event_participations p
+         JOIN events e ON e.id = p.event_id
+         WHERE ($1::INT IS NULL OR p.event_id = $1)
+         ORDER BY p.created_at DESC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(&event_id_filter)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

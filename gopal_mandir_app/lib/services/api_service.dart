@@ -1086,6 +1086,112 @@ class ApiService {
   }
 
   // ──────────────────────────────────────────────
+  // Admin Events CRUD
+  // ──────────────────────────────────────────────
+
+  Future<List<Event>> adminListEvents(
+    String token, {
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    try {
+      final q = <String, String>{'page': '$page', 'per_page': '$perPage'};
+      final uri = Uri.parse('$baseUrl/api/admin/events').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => Event.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin events list: $e');
+    }
+    return [];
+  }
+
+  Future<Event?> adminCreateEvent(String token, Map<String, dynamic> body) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/events'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return Event.fromJson(data);
+      }
+    } catch (e) {
+      print('admin event create: $e');
+    }
+    return null;
+  }
+
+  Future<Event?> adminPatchEvent(String token, int id, Map<String, dynamic> body) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/events/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return Event.fromJson(data);
+      }
+    } catch (e) {
+      print('admin event patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteEvent(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/events/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin event delete: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Event Participations
+  // ──────────────────────────────────────────────
+
+  Future<List<EventParticipationView>> adminListEventParticipations(
+    String token, {
+    int? eventId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (eventId != null) 'event_id': '$eventId',
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/events/participations').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => EventParticipationView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin event participations list: $e');
+    }
+    return [];
+  }
+
+  // ──────────────────────────────────────────────
   // Admin Seva Items CRUD
   // ──────────────────────────────────────────────
 

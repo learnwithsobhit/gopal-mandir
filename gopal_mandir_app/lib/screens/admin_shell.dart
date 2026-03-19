@@ -10,6 +10,8 @@ import 'admin_prasad_orders_screen.dart';
 import 'admin_panchang_list_screen.dart';
 import 'admin_seva_items_list_screen.dart';
 import 'admin_seva_bookings_screen.dart';
+import 'admin_events_list_screen.dart';
+import 'admin_event_participations_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -160,6 +162,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminSevaBookingsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.event,
+            'Events',
+            'Add, edit & remove temple events',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminEventsListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.group,
+            'Event Participations',
+            'View who joined each event',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminEventParticipationsScreen(token: _token!),
               ),
             ),
           ),

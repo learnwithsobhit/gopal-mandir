@@ -9,10 +9,10 @@ class EventsScreen extends StatefulWidget {
   const EventsScreen({super.key});
 
   @override
-  State<EventsScreen> createState() => _EventsScreenState();
+  EventsScreenState createState() => EventsScreenState();
 }
 
-class _EventsScreenState extends State<EventsScreen> {
+class EventsScreenState extends State<EventsScreen> {
   final ApiService _api = ApiService();
   List<Event> _events = [];
   bool _loading = true;
@@ -25,6 +25,8 @@ class _EventsScreenState extends State<EventsScreen> {
     super.initState();
     _load();
   }
+
+  void refresh() => _load();
 
   Future<void> _load() async {
     if (!mounted) return;
