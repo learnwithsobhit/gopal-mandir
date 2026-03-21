@@ -108,6 +108,30 @@ class AppStrings {
   String get langHindi => 'हि';
   String get langEnglish => 'EN';
 
+  // ── Settings screen ──
+  String get settingsAppearance => isHindi ? 'दिखावट' : 'Appearance';
+  String get settingsTheme => isHindi ? 'थीम' : 'Theme';
+  String get settingsThemeLight => isHindi ? 'लाइट' : 'Light';
+  String get settingsThemeDark => isHindi ? 'डार्क' : 'Dark';
+  String get settingsThemeSystem => isHindi ? 'सिस्टम' : 'System';
+  String get settingsFontSize => isHindi ? 'फ़ॉन्ट साइज़' : 'Font Size';
+  String get settingsFontSmall => isHindi ? 'छोटा' : 'Small';
+  String get settingsFontNormal => isHindi ? 'सामान्य' : 'Normal';
+  String get settingsFontLarge => isHindi ? 'बड़ा' : 'Large';
+  String get settingsFontExtraLarge => isHindi ? 'बहुत बड़ा' : 'Extra Large';
+  String get settingsLanguage => isHindi ? 'भाषा' : 'Language';
+  String get settingsLanguageHindi => isHindi ? 'हिन्दी' : 'Hindi';
+  String get settingsLanguageEnglish => isHindi ? 'अंग्रेज़ी' : 'English';
+  String get settingsNotifications => isHindi ? 'सूचनाएं' : 'Notifications';
+  String get settingsNotificationsSub => isHindi ? 'पुश सूचना प्राथमिकताएं' : 'Push notification preferences';
+  String get settingsNotificationsComingSoon => isHindi ? 'पुश सूचनाएं जल्द आ रही हैं' : 'Push notifications coming soon';
+  String get settingsLegal => isHindi ? 'कानूनी' : 'Legal';
+  String get settingsPrivacy => isHindi ? 'गोपनीयता नीति' : 'Privacy Policy';
+  String get settingsTerms => isHindi ? 'सेवा की शर्तें' : 'Terms of Service';
+  String get settingsAbout => isHindi ? 'जानकारी' : 'About';
+  String get settingsVersion => isHindi ? 'संस्करण' : 'Version';
+  String get settingsDeveloper => isHindi ? 'विकासकर्ता' : 'Developer';
+
   // ── Panchang screen ──
   String get panchangNotFound => isHindi
       ? 'आज का पंचांग उपलब्ध नहीं है।'

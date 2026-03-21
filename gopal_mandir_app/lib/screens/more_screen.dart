@@ -9,6 +9,7 @@ import '../l10n/app_language.dart';
 import 'admin_shell.dart';
 import 'bookings_screen.dart';
 import 'membership_screen.dart';
+import 'settings_screen.dart';
 import 'volunteer_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
@@ -301,7 +302,20 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: _shareApp,
           ),
           _menuItem(context, Icons.star, s.rateUs, s.rateUsSub),
-          _menuItem(context, Icons.settings, s.settings, s.settingsSub),
+          _menuItem(
+            context,
+            Icons.settings,
+            s.settings,
+            s.settingsSub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SettingsScreen(),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );

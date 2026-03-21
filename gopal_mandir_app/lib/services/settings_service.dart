@@ -1,0 +1,72 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class SettingsService {
+  static final SettingsService _instance = SettingsService._();
+  factory SettingsService() => _instance;
+  SettingsService._();
+
+  late SharedPreferences _prefs;
+
+  static const _keyThemeMode = 'settings_theme_mode';
+  static const _keyLanguage = 'settings_language';
+  static const _keyTextScale = 'settings_text_scale';
+  static const _keyNotifications = 'settings_notifications';
+
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
+
+  // ── Theme ──
+
+  ThemeMode get themeMode {
+    final v = _prefs.getString(_keyThemeMode) ?? 'light';
+    switch (v) {
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+        return ThemeMode.system;
+      default:
+        return ThemeMode.light;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    String v;
+    switch (mode) {
+      case ThemeMode.dark:
+        v = 'dark';
+        break;
+      case ThemeMode.system:
+        v = 'system';
+        break;
+      default:
+        v = 'light';
+    }
+    await _prefs.setString(_keyThemeMode, v);
+  }
+
+  // ── Language ──
+
+  String get language => _prefs.getString(_keyLanguage) ?? 'hi';
+
+  Future<void> setLanguage(String lang) async {
+    await _prefs.setString(_keyLanguage, lang);
+  }
+
+  // ── Text Scale ──
+
+  double get textScale => _prefs.getDouble(_keyTextScale) ?? 1.0;
+
+  Future<void> setTextScale(double scale) async {
+    await _prefs.setDouble(_keyTextScale, scale);
+  }
+
+  // ── Notifications ──
+
+  bool get notificationsEnabled => _prefs.getBool(_keyNotifications) ?? true;
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _prefs.setBool(_keyNotifications, enabled);
+  }
+}
