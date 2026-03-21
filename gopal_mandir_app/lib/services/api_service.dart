@@ -1453,6 +1453,98 @@ class ApiService {
     }
   }
 
+  // ──────────────────────────────────────────────
+  // Admin Members
+  // ──────────────────────────────────────────────
+
+  Future<List<MemberProfile>> adminListMembers(
+    String token, {
+    String? status,
+    String? search,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/members').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => MemberProfile.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin members list: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminPatchMemberStatus(String token, String id, String status) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/members/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'status': status}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin member patch: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Volunteers
+  // ──────────────────────────────────────────────
+
+  Future<List<VolunteerView>> adminListVolunteers(
+    String token, {
+    String? status,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/volunteers').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => VolunteerView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin volunteers list: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminPatchVolunteerStatus(String token, int id, String status) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/volunteers/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'status': status}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin volunteer patch: $e');
+    }
+    return false;
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

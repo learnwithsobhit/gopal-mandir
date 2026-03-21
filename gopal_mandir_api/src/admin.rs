@@ -1928,3 +1928,178 @@ pub async fn admin_delete_aarti(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Members
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/members")]
+pub async fn admin_list_members(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminMembersQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let status_filter = q.status.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let search_filter = q.search.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let search_pattern = search_filter.map(|s| format!("%{}%", s));
+
+    let rows = sqlx::query_as::<_, Member>(
+        "SELECT id, phone, name, email, status, created_at, updated_at
+         FROM members
+         WHERE ($1::TEXT IS NULL OR status = $1)
+           AND ($2::TEXT IS NULL OR name ILIKE $2 OR phone ILIKE $2)
+         ORDER BY created_at DESC
+         LIMIT $3 OFFSET $4",
+    )
+    .bind(&status_filter)
+    .bind(&search_pattern)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/members/{id}")]
+pub async fn admin_patch_member(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<uuid::Uuid>,
+    body: web::Json<AdminPatchMemberRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let status = body.status.trim().to_lowercase();
+    if status != "active" && status != "suspended" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "status must be 'active' or 'suspended'"
+        }));
+    }
+
+    let r = sqlx::query(
+        "UPDATE members SET status = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(&status)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Member updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Member not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Admin Volunteers
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/volunteers")]
+pub async fn admin_list_volunteers(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminVolunteersQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let status_filter = q.status.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+
+    let rows = sqlx::query_as::<_, AdminVolunteerView>(
+        "SELECT id, name, phone, email, area, availability, message, status, created_at
+         FROM volunteer_requests
+         WHERE ($1::TEXT IS NULL OR status = $1)
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(&status_filter)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/volunteers/{id}")]
+pub async fn admin_patch_volunteer(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchVolunteerStatusRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let status = body.status.trim().to_lowercase();
+    let allowed = ["new", "contacted", "approved", "rejected"];
+    if !allowed.contains(&status.as_str()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "status must be one of: new, contacted, approved, rejected"
+        }));
+    }
+
+    let r = sqlx::query("UPDATE volunteer_requests SET status = $1 WHERE id = $2")
+        .bind(&status)
+        .bind(id)
+        .execute(pool.get_ref())
+        .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Volunteer request updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Volunteer request not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

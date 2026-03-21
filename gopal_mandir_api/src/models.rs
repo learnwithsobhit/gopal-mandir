@@ -586,6 +586,52 @@ pub struct AdminPatchAartiRequest {
 }
 
 // ──────────────────────────────────────────────
+// Admin Members
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminMembersQuery {
+    pub status: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchMemberRequest {
+    pub status: String,
+}
+
+// ──────────────────────────────────────────────
+// Admin Volunteers
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminVolunteerView {
+    pub id: i32,
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub area: String,
+    pub availability: String,
+    pub message: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminVolunteersQuery {
+    pub status: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchVolunteerStatusRequest {
+    pub status: String,
+}
+
+// ──────────────────────────────────────────────
 // Volunteer requests
 // ──────────────────────────────────────────────
 

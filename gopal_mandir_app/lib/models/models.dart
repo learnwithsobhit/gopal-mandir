@@ -261,6 +261,7 @@ class MemberProfile {
   final String name;
   final String email;
   final String status;
+  final String? createdAt;
 
   MemberProfile({
     required this.id,
@@ -268,6 +269,7 @@ class MemberProfile {
     required this.name,
     required this.email,
     required this.status,
+    this.createdAt,
   });
 
   factory MemberProfile.fromJson(Map<String, dynamic> json) {
@@ -277,6 +279,7 @@ class MemberProfile {
       name: (json['name'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
+      createdAt: json['created_at']?.toString(),
     );
   }
 }
@@ -306,6 +309,44 @@ class VolunteerRequest {
         'availability': availability,
         'message': message,
       };
+}
+
+class VolunteerView {
+  final int id;
+  final String name;
+  final String phone;
+  final String? email;
+  final String area;
+  final String availability;
+  final String message;
+  final String status;
+  final String createdAt;
+
+  VolunteerView({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.email,
+    required this.area,
+    required this.availability,
+    required this.message,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory VolunteerView.fromJson(Map<String, dynamic> json) {
+    return VolunteerView(
+      id: json['id'] as int,
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: json['email']?.toString(),
+      area: (json['area'] ?? '').toString(),
+      availability: (json['availability'] ?? '').toString(),
+      message: (json['message'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
 }
 
 class DonationRequest {
