@@ -6,7 +6,7 @@ class SettingsService {
   factory SettingsService() => _instance;
   SettingsService._();
 
-  late SharedPreferences _prefs;
+  SharedPreferences? _prefs;
 
   static const _keyThemeMode = 'settings_theme_mode';
   static const _keyLanguage = 'settings_language';
@@ -14,13 +14,18 @@ class SettingsService {
   static const _keyNotifications = 'settings_notifications';
 
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    try {
+      _prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Storage unavailable (e.g. blocked on web) -- fall back to in-memory defaults.
+    }
   }
 
   // ── Theme ──
 
   ThemeMode get themeMode {
-    final v = _prefs.getString(_keyThemeMode) ?? 'light';
+    final v = _prefs?.getString(_keyThemeMode) ?? 'light';
     switch (v) {
       case 'dark':
         return ThemeMode.dark;
@@ -43,30 +48,38 @@ class SettingsService {
       default:
         v = 'light';
     }
-    await _prefs.setString(_keyThemeMode, v);
+    try {
+      await _prefs?.setString(_keyThemeMode, v);
+    } catch (_) {}
   }
 
   // ── Language ──
 
-  String get language => _prefs.getString(_keyLanguage) ?? 'hi';
+  String get language => _prefs?.getString(_keyLanguage) ?? 'hi';
 
   Future<void> setLanguage(String lang) async {
-    await _prefs.setString(_keyLanguage, lang);
+    try {
+      await _prefs?.setString(_keyLanguage, lang);
+    } catch (_) {}
   }
 
   // ── Text Scale ──
 
-  double get textScale => _prefs.getDouble(_keyTextScale) ?? 1.0;
+  double get textScale => _prefs?.getDouble(_keyTextScale) ?? 1.0;
 
   Future<void> setTextScale(double scale) async {
-    await _prefs.setDouble(_keyTextScale, scale);
+    try {
+      await _prefs?.setDouble(_keyTextScale, scale);
+    } catch (_) {}
   }
 
   // ── Notifications ──
 
-  bool get notificationsEnabled => _prefs.getBool(_keyNotifications) ?? true;
+  bool get notificationsEnabled => _prefs?.getBool(_keyNotifications) ?? true;
 
   Future<void> setNotificationsEnabled(bool enabled) async {
-    await _prefs.setBool(_keyNotifications, enabled);
+    try {
+      await _prefs?.setBool(_keyNotifications, enabled);
+    } catch (_) {}
   }
 }

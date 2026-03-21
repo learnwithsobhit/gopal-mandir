@@ -113,38 +113,44 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 24,
                         height: 24,
                         fit: BoxFit.cover,
-                        // Focus slightly above center so the deity face looks better in the small circular thumbnail.
                         alignment: const Alignment(0, -0.28),
                         filterQuality: FilterQuality.high,
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(s.templeName),
+                  Flexible(
+                    child: Text(
+                      s.templeName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               actions: [
-                // Language toggle: हि | EN
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Center(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(25),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white54, width: 1),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _langChip(context, scope, AppLanguage.hi, s.langHindi),
-                          Container(
-                            width: 1,
-                            height: 20,
-                            color: Colors.white54,
-                          ),
-                          _langChip(context, scope, AppLanguage.en, s.langEnglish),
-                        ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(25),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white54, width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _langChip(context, scope, AppLanguage.hi, s.langHindi),
+                            Container(
+                              width: 1,
+                              height: 20,
+                              color: Colors.white54,
+                            ),
+                            _langChip(context, scope, AppLanguage.en, s.langEnglish),
+                          ],
+                        ),
                       ),
                     ),
                   ),

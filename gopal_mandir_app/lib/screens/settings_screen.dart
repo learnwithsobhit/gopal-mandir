@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../app_controller.dart';
 import '../l10n/locale_scope.dart';
 import '../l10n/app_language.dart';
-import '../main.dart';
 import '../services/settings_service.dart';
 import '../theme/app_colors.dart';
 
@@ -33,18 +33,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _notificationsEnabled = _settings.notificationsEnabled;
   }
 
-  GopalMandirAppState? _appState(BuildContext context) {
-    return context.findAncestorStateOfType<GopalMandirAppState>();
-  }
-
   void _setThemeMode(ThemeMode mode) {
     setState(() => _themeMode = mode);
-    _appState(context)?.updateThemeMode(mode);
+    AppController.maybeOf(context)?.updateThemeMode(mode);
   }
 
   void _setTextScale(double scale) {
     setState(() => _textScale = scale);
-    _appState(context)?.updateTextScale(scale);
+    AppController.maybeOf(context)?.updateTextScale(scale);
   }
 
   void _setLanguage(AppLanguage lang) {
@@ -128,24 +124,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _themeSelector(AppStrings s, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.palette_outlined, size: 22, color: isDark ? AppColors.krishnaBlueLight : AppColors.krishnaBlue),
-          const SizedBox(width: 12),
-          Text(s.settingsTheme, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14)),
-          const Spacer(),
-          SegmentedButton<ThemeMode>(
-            segments: [
-              ButtonSegment(value: ThemeMode.light, label: Text(s.settingsThemeLight, style: const TextStyle(fontSize: 12))),
-              ButtonSegment(value: ThemeMode.dark, label: Text(s.settingsThemeDark, style: const TextStyle(fontSize: 12))),
-              ButtonSegment(value: ThemeMode.system, label: Text(s.settingsThemeSystem, style: const TextStyle(fontSize: 12))),
+          Row(
+            children: [
+              Icon(Icons.palette_outlined, size: 22, color: isDark ? AppColors.krishnaBlueLight : AppColors.krishnaBlue),
+              const SizedBox(width: 12),
+              Text(s.settingsTheme, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14)),
             ],
-            selected: {_themeMode},
-            onSelectionChanged: (v) => _setThemeMode(v.first),
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<ThemeMode>(
+              segments: [
+                ButtonSegment(value: ThemeMode.light, label: Text(s.settingsThemeLight, style: const TextStyle(fontSize: 12))),
+                ButtonSegment(value: ThemeMode.dark, label: Text(s.settingsThemeDark, style: const TextStyle(fontSize: 12))),
+                ButtonSegment(value: ThemeMode.system, label: Text(s.settingsThemeSystem, style: const TextStyle(fontSize: 12))),
+              ],
+              selected: {_themeMode},
+              onSelectionChanged: (v) => _setThemeMode(v.first),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
         ],
@@ -176,17 +181,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          SegmentedButton<double>(
-            segments: steps.map((v) => ButtonSegment(
-              value: v,
-              label: Text(label(v), style: const TextStyle(fontSize: 11)),
-            )).toList(),
-            selected: {_textScale},
-            onSelectionChanged: (v) => _setTextScale(v.first),
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SegmentedButton<double>(
+              segments: steps.map((v) => ButtonSegment(
+                value: v,
+                label: Text(label(v), style: const TextStyle(fontSize: 11)),
+              )).toList(),
+              selected: {_textScale},
+              onSelectionChanged: (v) => _setTextScale(v.first),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
         ],
@@ -201,19 +210,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Icon(Icons.language, size: 22, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 12),
-          Text(s.settingsLanguage, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14)),
-          const Spacer(),
-          SegmentedButton<AppLanguage>(
-            segments: [
-              ButtonSegment(value: AppLanguage.hi, label: Text(s.settingsLanguageHindi, style: const TextStyle(fontSize: 12))),
-              ButtonSegment(value: AppLanguage.en, label: Text(s.settingsLanguageEnglish, style: const TextStyle(fontSize: 12))),
-            ],
-            selected: {_language},
-            onSelectionChanged: (v) => _setLanguage(v.first),
-            showSelectedIcon: false,
-            style: ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          Expanded(
+            child: Text(s.settingsLanguage, style: const TextStyle(fontFamily: 'Poppins', fontSize: 14)),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SegmentedButton<AppLanguage>(
+              segments: [
+                ButtonSegment(value: AppLanguage.hi, label: Text(s.settingsLanguageHindi, style: const TextStyle(fontSize: 12))),
+                ButtonSegment(value: AppLanguage.en, label: Text(s.settingsLanguageEnglish, style: const TextStyle(fontSize: 12))),
+              ],
+              selected: {_language},
+              onSelectionChanged: (v) => _setLanguage(v.first),
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
           ),
         ],
