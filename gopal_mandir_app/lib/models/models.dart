@@ -349,6 +349,205 @@ class VolunteerView {
   }
 }
 
+class FeedbackRequestModel {
+  final String? name;
+  final String? email;
+  final String? phone;
+  final int rating;
+  final String message;
+  final String source;
+
+  FeedbackRequestModel({
+    this.name,
+    this.email,
+    this.phone,
+    required this.rating,
+    required this.message,
+    this.source = 'app',
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'rating': rating,
+        'message': message,
+        'source': source,
+      };
+}
+
+class FeedbackSubmissionResult {
+  final bool success;
+  final String message;
+  final String referenceId;
+
+  FeedbackSubmissionResult({
+    required this.success,
+    required this.message,
+    required this.referenceId,
+  });
+
+  factory FeedbackSubmissionResult.fromJson(Map<String, dynamic> json) {
+    return FeedbackSubmissionResult(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+    );
+  }
+}
+
+class AdminFeedbackView {
+  final int id;
+  final String name;
+  final String? email;
+  final String? phone;
+  final int rating;
+  final String message;
+  final String source;
+  final String status;
+  final String priority;
+  final String? ownerAdminId;
+  final String? ownerName;
+  final String referenceId;
+  final String createdAt;
+  final String updatedAt;
+  final int responseCount;
+
+  AdminFeedbackView({
+    required this.id,
+    required this.name,
+    this.email,
+    this.phone,
+    required this.rating,
+    required this.message,
+    required this.source,
+    required this.status,
+    required this.priority,
+    this.ownerAdminId,
+    this.ownerName,
+    required this.referenceId,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.responseCount,
+  });
+
+  factory AdminFeedbackView.fromJson(Map<String, dynamic> json) {
+    return AdminFeedbackView(
+      id: json['id'] as int,
+      name: (json['name'] ?? '').toString(),
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
+      rating: (json['rating'] as num?)?.toInt() ?? 0,
+      message: (json['message'] ?? '').toString(),
+      source: (json['source'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      priority: (json['priority'] ?? '').toString(),
+      ownerAdminId: json['owner_admin_id']?.toString(),
+      ownerName: json['owner_name']?.toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+      responseCount: (json['response_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class FeedbackThreadItem {
+  final int id;
+  final int feedbackId;
+  final String authorType;
+  final String? authorAdminId;
+  final String? authorName;
+  final String message;
+  final bool isPublic;
+  final String createdAt;
+
+  FeedbackThreadItem({
+    required this.id,
+    required this.feedbackId,
+    required this.authorType,
+    this.authorAdminId,
+    this.authorName,
+    required this.message,
+    required this.isPublic,
+    required this.createdAt,
+  });
+
+  factory FeedbackThreadItem.fromJson(Map<String, dynamic> json) {
+    return FeedbackThreadItem(
+      id: json['id'] as int,
+      feedbackId: json['feedback_id'] as int,
+      authorType: (json['author_type'] ?? '').toString(),
+      authorAdminId: json['author_admin_id']?.toString(),
+      authorName: json['author_name']?.toString(),
+      message: (json['message'] ?? '').toString(),
+      isPublic: json['is_public'] == true,
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
+class AdminFeedbackAnalytics {
+  final int total;
+  final int newCount;
+  final int inProgressCount;
+  final int resolvedCount;
+  final double avgRating;
+  final int rating1;
+  final int rating2;
+  final int rating3;
+  final int rating4;
+  final int rating5;
+  final List<FeedbackTrendPoint> trend;
+
+  AdminFeedbackAnalytics({
+    required this.total,
+    required this.newCount,
+    required this.inProgressCount,
+    required this.resolvedCount,
+    required this.avgRating,
+    required this.rating1,
+    required this.rating2,
+    required this.rating3,
+    required this.rating4,
+    required this.rating5,
+    required this.trend,
+  });
+
+  factory AdminFeedbackAnalytics.fromJson(Map<String, dynamic> json) {
+    final trendData = (json['trend'] as List<dynamic>? ?? [])
+        .map((e) => FeedbackTrendPoint.fromJson(e as Map<String, dynamic>))
+        .toList();
+    return AdminFeedbackAnalytics(
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      newCount: (json['new_count'] as num?)?.toInt() ?? 0,
+      inProgressCount: (json['in_progress_count'] as num?)?.toInt() ?? 0,
+      resolvedCount: (json['resolved_count'] as num?)?.toInt() ?? 0,
+      avgRating: (json['avg_rating'] as num?)?.toDouble() ?? 0,
+      rating1: (json['rating_1'] as num?)?.toInt() ?? 0,
+      rating2: (json['rating_2'] as num?)?.toInt() ?? 0,
+      rating3: (json['rating_3'] as num?)?.toInt() ?? 0,
+      rating4: (json['rating_4'] as num?)?.toInt() ?? 0,
+      rating5: (json['rating_5'] as num?)?.toInt() ?? 0,
+      trend: trendData,
+    );
+  }
+}
+
+class FeedbackTrendPoint {
+  final String day;
+  final int count;
+
+  FeedbackTrendPoint({required this.day, required this.count});
+
+  factory FeedbackTrendPoint.fromJson(Map<String, dynamic> json) {
+    return FeedbackTrendPoint(
+      day: (json['day'] ?? '').toString(),
+      count: (json['count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class DonationRequest {
   final String name;
   final double amount;

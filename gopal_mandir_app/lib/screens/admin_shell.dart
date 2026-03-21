@@ -16,6 +16,8 @@ import 'admin_event_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
+import 'admin_feedback_list_screen.dart';
+import 'admin_feedback_analytics_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -232,6 +234,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminVolunteersScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.feedback_rounded,
+            'Feedback Queue',
+            'Triage and respond to user feedback',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminFeedbackListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.analytics_rounded,
+            'Feedback Analytics',
+            'Ratings, trends and closure metrics',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminFeedbackAnalyticsScreen(token: _token!),
               ),
             ),
           ),

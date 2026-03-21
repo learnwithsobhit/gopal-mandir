@@ -312,6 +312,83 @@ pub async fn submit_volunteer_request(
     }
 }
 
+#[post("/api/feedback")]
+pub async fn submit_feedback(
+    pool: web::Data<PgPool>,
+    body: web::Json<FeedbackRequest>,
+) -> HttpResponse {
+    let name = body
+        .name
+        .clone()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let email = body
+        .email
+        .clone()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let phone = body
+        .phone
+        .clone()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let message = body.message.trim().to_string();
+    let source = body
+        .source
+        .clone()
+        .unwrap_or_else(|| "app".to_string())
+        .trim()
+        .to_string();
+    let rating = body.rating;
+
+    if message.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "message is required"
+        }));
+    }
+    if !(1..=5).contains(&rating) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "rating must be between 1 and 5"
+        }));
+    }
+
+    let reference_id = format!(
+        "FDBK-{}",
+        uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000")
+    );
+
+    let result = sqlx::query(
+        "INSERT INTO feedback_items (name, email, phone, rating, message, source, reference_id)
+         VALUES ($1, NULLIF($2,''), NULLIF($3,''), $4, $5, $6, $7)",
+    )
+    .bind(if name.is_empty() { "Anonymous" } else { &name })
+    .bind(&email)
+    .bind(&phone)
+    .bind(rating as i16)
+    .bind(&message)
+    .bind(if source.is_empty() { "app" } else { &source })
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(FeedbackResponse {
+            success: true,
+            message: "Thank you for your feedback. Jai Gopal!".to_string(),
+            reference_id,
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save feedback: {}", e)
+        })),
+    }
+}
+
 #[get("/api/aarti")]
 pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
     match sqlx::query_as::<_, AartiSchedule>("SELECT * FROM aarti_schedule ORDER BY id")

@@ -632,6 +632,127 @@ pub struct AdminPatchVolunteerStatusRequest {
 }
 
 // ──────────────────────────────────────────────
+// Feedback (Rate Us)
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct FeedbackRequest {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub rating: i32,
+    pub message: String,
+    pub source: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FeedbackResponse {
+    pub success: bool,
+    pub message: String,
+    pub reference_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminFeedbackView {
+    pub id: i32,
+    pub name: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub rating: i16,
+    pub message: String,
+    pub source: String,
+    pub status: String,
+    pub priority: String,
+    pub owner_admin_id: Option<Uuid>,
+    pub owner_name: Option<String>,
+    pub reference_id: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub response_count: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminFeedbackQuery {
+    pub status: Option<String>,
+    pub priority: Option<String>,
+    pub rating: Option<i16>,
+    pub search: Option<String>,
+    pub owner_admin_id: Option<Uuid>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminFeedbackDetailView {
+    pub id: i32,
+    pub name: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub rating: i16,
+    pub message: String,
+    pub source: String,
+    pub status: String,
+    pub priority: String,
+    pub owner_admin_id: Option<Uuid>,
+    pub owner_name: Option<String>,
+    pub reference_id: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminFeedbackThreadItem {
+    pub id: i32,
+    pub feedback_id: i32,
+    pub author_type: String,
+    pub author_admin_id: Option<Uuid>,
+    pub author_name: Option<String>,
+    pub message: String,
+    pub is_public: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchFeedbackRequest {
+    pub status: Option<String>,
+    pub priority: Option<String>,
+    pub owner_admin_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminAddFeedbackResponseRequest {
+    pub message: String,
+    pub is_public: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminFeedbackAnalyticsQuery {
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminFeedbackDailyBucket {
+    pub day: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminFeedbackAnalytics {
+    pub total: i64,
+    pub new_count: i64,
+    pub in_progress_count: i64,
+    pub resolved_count: i64,
+    pub avg_rating: f64,
+    pub rating_1: i64,
+    pub rating_2: i64,
+    pub rating_3: i64,
+    pub rating_4: i64,
+    pub rating_5: i64,
+    pub trend: Vec<AdminFeedbackDailyBucket>,
+}
+
+// ──────────────────────────────────────────────
 // Volunteer requests
 // ──────────────────────────────────────────────
 

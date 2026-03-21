@@ -1545,6 +1545,169 @@ class ApiService {
     return false;
   }
 
+  // ──────────────────────────────────────────────
+  // Rate Us / Feedback
+  // ──────────────────────────────────────────────
+
+  Future<FeedbackSubmissionResult> submitFeedback(FeedbackRequestModel req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/feedback'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return FeedbackSubmissionResult.fromJson(json);
+      }
+      String msg = 'Failed to submit feedback';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return FeedbackSubmissionResult(success: false, message: msg, referenceId: '');
+    } catch (e) {
+      print('submit feedback: $e');
+      return FeedbackSubmissionResult(success: false, message: 'Network error', referenceId: '');
+    }
+  }
+
+  Future<List<AdminFeedbackView>> adminListFeedback(
+    String token, {
+    String? status,
+    String? priority,
+    int? rating,
+    String? search,
+    String? ownerAdminId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (priority != null && priority.isNotEmpty) 'priority': priority,
+        if (rating != null) 'rating': '$rating',
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (ownerAdminId != null && ownerAdminId.isNotEmpty) 'owner_admin_id': ownerAdminId,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/feedback').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => AdminFeedbackView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin feedback list: $e');
+    }
+    return [];
+  }
+
+  Future<AdminFeedbackView?> adminGetFeedbackDetail(String token, int id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/feedback/$id'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return AdminFeedbackView.fromJson(data);
+      }
+    } catch (e) {
+      print('admin feedback detail: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminPatchFeedback(
+    String token,
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/feedback/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(payload),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin feedback patch: $e');
+    }
+    return false;
+  }
+
+  Future<List<FeedbackThreadItem>> adminListFeedbackResponses(
+    String token,
+    int feedbackId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/feedback/$feedbackId/responses'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => FeedbackThreadItem.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin feedback responses list: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminAddFeedbackResponse(
+    String token,
+    int feedbackId, {
+    required String message,
+    bool isPublic = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/feedback/$feedbackId/responses'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({
+          'message': message,
+          'is_public': isPublic,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin feedback response add: $e');
+    }
+    return false;
+  }
+
+  Future<AdminFeedbackAnalytics?> adminGetFeedbackAnalytics(
+    String token, {
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final q = <String, String>{
+        if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
+        if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/feedback/analytics').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return AdminFeedbackAnalytics.fromJson(data);
+      }
+    } catch (e) {
+      print('admin feedback analytics: $e');
+    }
+    return null;
+  }
+
   // ── Fallback data when API is unavailable ──
 
   List<AartiSchedule> _defaultAartiSchedule() => [

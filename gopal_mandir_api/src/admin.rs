@@ -2103,3 +2103,335 @@ pub async fn admin_patch_volunteer(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Feedback CRM
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/feedback")]
+pub async fn admin_list_feedback(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminFeedbackQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let search = q
+        .search
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+    let status = q.status.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let priority = q
+        .priority
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+
+    let rows = sqlx::query_as::<_, AdminFeedbackView>(
+        "SELECT
+            f.id, f.name, f.email, f.phone, f.rating, f.message, f.source,
+            f.status, f.priority, f.owner_admin_id, a.name as owner_name,
+            f.reference_id, f.created_at, f.updated_at,
+            COALESCE((
+              SELECT COUNT(*) FROM feedback_responses r WHERE r.feedback_id = f.id
+            ), 0)::BIGINT as response_count
+         FROM feedback_items f
+         LEFT JOIN admins a ON a.id = f.owner_admin_id
+         WHERE ($1::TEXT IS NULL OR f.status = $1)
+           AND ($2::TEXT IS NULL OR f.priority = $2)
+           AND ($3::SMALLINT IS NULL OR f.rating = $3)
+           AND ($4::UUID IS NULL OR f.owner_admin_id = $4)
+           AND ($5::TEXT IS NULL OR f.name ILIKE $5 OR COALESCE(f.email,'') ILIKE $5 OR COALESCE(f.phone,'') ILIKE $5 OR f.message ILIKE $5 OR f.reference_id ILIKE $5)
+         ORDER BY f.created_at DESC
+         LIMIT $6 OFFSET $7",
+    )
+    .bind(status)
+    .bind(priority)
+    .bind(q.rating)
+    .bind(q.owner_admin_id)
+    .bind(search)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "data": data })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/feedback/{id}")]
+pub async fn admin_get_feedback_detail(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let row = sqlx::query_as::<_, AdminFeedbackDetailView>(
+        "SELECT
+            f.id, f.name, f.email, f.phone, f.rating, f.message, f.source,
+            f.status, f.priority, f.owner_admin_id, a.name as owner_name,
+            f.reference_id, f.created_at, f.updated_at
+         FROM feedback_items f
+         LEFT JOIN admins a ON a.id = f.owner_admin_id
+         WHERE f.id = $1
+         LIMIT 1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(Some(data)) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "data": data })),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({ "success": false, "error": "Feedback not found" })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/feedback/{id}")]
+pub async fn admin_patch_feedback(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchFeedbackRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    if let Some(s) = &body.status {
+        let allowed = ["new", "triaged", "in_progress", "resolved", "closed"];
+        if !allowed.contains(&s.trim()) {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "invalid status"
+            }));
+        }
+    }
+    if let Some(p) = &body.priority {
+        let allowed = ["low", "medium", "high", "critical"];
+        if !allowed.contains(&p.trim()) {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "invalid priority"
+            }));
+        }
+    }
+
+    let result = sqlx::query(
+        "UPDATE feedback_items
+         SET status = COALESCE(NULLIF($1,''), status),
+             priority = COALESCE(NULLIF($2,''), priority),
+             owner_admin_id = COALESCE($3, owner_admin_id),
+             updated_at = NOW()
+         WHERE id = $4",
+    )
+    .bind(body.status.as_deref().map(|s| s.trim()))
+    .bind(body.priority.as_deref().map(|s| s.trim()))
+    .bind(body.owner_admin_id)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Feedback updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Feedback not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/feedback/{id}/responses")]
+pub async fn admin_list_feedback_responses(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let rows = sqlx::query_as::<_, AdminFeedbackThreadItem>(
+        "SELECT
+            r.id, r.feedback_id, r.author_type, r.author_admin_id,
+            a.name as author_name, r.message, r.is_public, r.created_at
+         FROM feedback_responses r
+         LEFT JOIN admins a ON a.id = r.author_admin_id
+         WHERE r.feedback_id = $1
+         ORDER BY r.created_at ASC",
+    )
+    .bind(id)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "data": data })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/feedback/{id}/responses")]
+pub async fn admin_add_feedback_response(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminAddFeedbackResponseRequest>,
+) -> HttpResponse {
+    let admin = match require_admin(pool.get_ref(), &req).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+    let id = id.into_inner();
+    let message = body.message.trim();
+    if message.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "message is required"
+        }));
+    }
+
+    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM feedback_items WHERE id = $1")
+        .bind(id)
+        .fetch_one(pool.get_ref())
+        .await;
+    match exists {
+        Ok(0) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Feedback not found"
+            }))
+        }
+        Ok(_) => {}
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    }
+
+    let result = sqlx::query(
+        "INSERT INTO feedback_responses (feedback_id, author_type, author_admin_id, message, is_public)
+         VALUES ($1, 'admin', $2, $3, $4)",
+    )
+    .bind(id)
+    .bind(admin.id)
+    .bind(message)
+    .bind(body.is_public.unwrap_or(false))
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Response added"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save response: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/feedback/analytics")]
+pub async fn admin_feedback_analytics(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminFeedbackAnalyticsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let from_date = q.from_date.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let to_date = q.to_date.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+
+    let agg_row = sqlx::query_as::<_, (i64, i64, i64, i64, Option<f64>, i64, i64, i64, i64, i64)>(
+        "SELECT
+            COUNT(*)::BIGINT as total,
+            COUNT(*) FILTER (WHERE status = 'new')::BIGINT as new_count,
+            COUNT(*) FILTER (WHERE status = 'in_progress')::BIGINT as in_progress_count,
+            COUNT(*) FILTER (WHERE status = 'resolved')::BIGINT as resolved_count,
+            AVG(rating)::FLOAT8 as avg_rating,
+            COUNT(*) FILTER (WHERE rating = 1)::BIGINT as rating_1,
+            COUNT(*) FILTER (WHERE rating = 2)::BIGINT as rating_2,
+            COUNT(*) FILTER (WHERE rating = 3)::BIGINT as rating_3,
+            COUNT(*) FILTER (WHERE rating = 4)::BIGINT as rating_4,
+            COUNT(*) FILTER (WHERE rating = 5)::BIGINT as rating_5
+         FROM feedback_items
+         WHERE ($1::DATE IS NULL OR created_at::date >= $1::date)
+           AND ($2::DATE IS NULL OR created_at::date <= $2::date)",
+    )
+    .bind(from_date)
+    .bind(to_date)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    let trend_rows = sqlx::query_as::<_, AdminFeedbackDailyBucket>(
+        "SELECT
+            to_char(created_at::date, 'YYYY-MM-DD') as day,
+            COUNT(*)::BIGINT as count
+         FROM feedback_items
+         WHERE ($1::DATE IS NULL OR created_at::date >= $1::date)
+           AND ($2::DATE IS NULL OR created_at::date <= $2::date)
+         GROUP BY created_at::date
+         ORDER BY created_at::date ASC",
+    )
+    .bind(from_date)
+    .bind(to_date)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match (agg_row, trend_rows) {
+        (Ok(a), Ok(trend)) => {
+            let data = AdminFeedbackAnalytics {
+                total: a.0,
+                new_count: a.1,
+                in_progress_count: a.2,
+                resolved_count: a.3,
+                avg_rating: a.4.unwrap_or(0.0),
+                rating_1: a.5,
+                rating_2: a.6,
+                rating_3: a.7,
+                rating_4: a.8,
+                rating_5: a.9,
+                trend,
+            };
+            HttpResponse::Ok().json(serde_json::json!({ "success": true, "data": data }))
+        }
+        (Err(e), _) | (_, Err(e)) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
