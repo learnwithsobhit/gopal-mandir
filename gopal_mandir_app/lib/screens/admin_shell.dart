@@ -13,6 +13,7 @@ import 'admin_seva_bookings_screen.dart';
 import 'admin_events_list_screen.dart';
 import 'admin_event_participations_screen.dart';
 import 'admin_event_donations_screen.dart';
+import 'admin_aarti_list_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -196,6 +197,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminEventDonationsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.access_time_rounded,
+            'Aarti Schedule',
+            'Add, edit & remove aarti timings',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminAartiListScreen(token: _token!),
               ),
             ),
           ),

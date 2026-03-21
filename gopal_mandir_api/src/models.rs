@@ -566,6 +566,26 @@ pub struct AdminUpdateSevaBookingStatusRequest {
 }
 
 // ──────────────────────────────────────────────
+// Admin Aarti CRUD
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateAartiRequest {
+    pub name: String,
+    pub time: String,
+    pub description: Option<String>,
+    pub is_special: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchAartiRequest {
+    pub name: Option<String>,
+    pub time: Option<String>,
+    pub description: Option<String>,
+    pub is_special: Option<bool>,
+}
+
+// ──────────────────────────────────────────────
 // Volunteer requests
 // ──────────────────────────────────────────────
 

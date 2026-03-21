@@ -1762,3 +1762,169 @@ pub async fn admin_list_event_donations(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin Aarti CRUD
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/aarti")]
+pub async fn admin_list_aarti(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    match sqlx::query_as::<_, AartiSchedule>(
+        "SELECT id, name, time, description, is_special FROM aarti_schedule ORDER BY id",
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/aarti")]
+pub async fn admin_create_aarti(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreateAartiRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let name = body.name.trim();
+    let time = body.time.trim();
+    if name.is_empty() || time.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name and time are required"
+        }));
+    }
+    let description = body.description.as_deref().unwrap_or("").trim();
+    let is_special = body.is_special.unwrap_or(false);
+
+    match sqlx::query_as::<_, AartiSchedule>(
+        "INSERT INTO aarti_schedule (name, time, description, is_special)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, time, description, is_special",
+    )
+    .bind(name)
+    .bind(time)
+    .bind(description)
+    .bind(is_special)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/aarti/{id}")]
+pub async fn admin_patch_aarti(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchAartiRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = sqlx::query_as::<_, AartiSchedule>(
+        "SELECT id, name, time, description, is_special FROM aarti_schedule WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(e)) => e,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Aarti not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let new_name = body.name.as_deref().unwrap_or(&existing.name).trim().to_string();
+    let new_time = body.time.as_deref().unwrap_or(&existing.time).trim().to_string();
+    let new_desc = body.description.as_deref().unwrap_or(&existing.description).trim().to_string();
+    let new_special = body.is_special.unwrap_or(existing.is_special);
+
+    match sqlx::query_as::<_, AartiSchedule>(
+        "UPDATE aarti_schedule SET name = $1, time = $2, description = $3, is_special = $4
+         WHERE id = $5
+         RETURNING id, name, time, description, is_special",
+    )
+    .bind(&new_name)
+    .bind(&new_time)
+    .bind(&new_desc)
+    .bind(new_special)
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/aarti/{id}")]
+pub async fn admin_delete_aarti(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM aarti_schedule WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Aarti not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
