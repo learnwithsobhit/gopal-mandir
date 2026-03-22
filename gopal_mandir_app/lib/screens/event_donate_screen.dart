@@ -346,9 +346,14 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
       if (!mounted) return;
 
       if (!checkout.success || checkout.orderId.isEmpty) {
+        final err = checkout.error ?? 'Could not start payment. Try again later.';
+        final ref = checkout.referenceId;
+        final msg = ref.isNotEmpty
+            ? '$err\nReference saved: $ref — team can follow up.'
+            : err;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(checkout.error ?? 'Could not start payment. Try again later.'),
+            content: Text(msg),
             backgroundColor: AppColors.urgentRed,
           ),
         );

@@ -1006,6 +1006,10 @@ fn amount_to_paise(amount: f64) -> Option<i64> {
     Some(p)
 }
 
+fn truncate_payment_reason(s: &str) -> String {
+    s.chars().take(500).collect()
+}
+
 fn json_nonempty_order_id(val: Option<&Value>) -> Option<String> {
     let v = val?;
     match v {
@@ -1226,13 +1230,6 @@ pub async fn donation_checkout(
     rz: web::Data<Option<RazorpayConfig>>,
     body: web::Json<DonationRequest>,
 ) -> HttpResponse {
-    let Some(cfg) = rz.as_ref().as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "success": false,
-            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
-        }));
-    };
-
     let Some(amount_paise) = amount_to_paise(body.amount) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
@@ -1242,6 +1239,40 @@ pub async fn donation_checkout(
 
     let reference_id =
         format!("GOPAL-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000"));
+
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        let reason = truncate_payment_reason(
+            "Online payments are not configured on server (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET). Donor can be contacted using details below.",
+        );
+        let ins = sqlx::query(
+            "INSERT INTO donations (name, amount, purpose, phone, email, reference_id,
+             payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW())",
+        )
+        .bind(&body.name)
+        .bind(body.amount)
+        .bind(&body.purpose)
+        .bind(&body.phone)
+        .bind(&body.email)
+        .bind(&reference_id)
+        .bind(amount_paise as i32)
+        .bind(&reason)
+        .execute(pool.get_ref())
+        .await;
+        if let Err(e) = ins {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not record donation: {}", e)
+            }));
+        }
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+            "reference_id": reference_id,
+            "recorded": true
+        }));
+    };
+
     let receipt: String = reference_id.chars().take(40).collect();
     let notes = json!({
         "dm_kind": "general",
@@ -1250,6 +1281,30 @@ pub async fn donation_checkout(
     let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
         Ok(o) => o,
         Err(e) => {
+            let reason = truncate_payment_reason(&format!("Razorpay create order failed: {}", e));
+            let ins = sqlx::query(
+                "INSERT INTO donations (name, amount, purpose, phone, email, reference_id,
+                 payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW())",
+            )
+            .bind(&body.name)
+            .bind(body.amount)
+            .bind(&body.purpose)
+            .bind(&body.phone)
+            .bind(&body.email)
+            .bind(&reference_id)
+            .bind(amount_paise as i32)
+            .bind(&reason)
+            .execute(pool.get_ref())
+            .await;
+            if ins.is_ok() {
+                return HttpResponse::BadGateway().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Could not start payment: {}", e),
+                    "reference_id": reference_id,
+                    "recorded": true
+                }));
+            }
             return HttpResponse::BadGateway().json(serde_json::json!({
                 "success": false,
                 "error": format!("Could not start payment: {}", e)
@@ -1297,13 +1352,6 @@ pub async fn event_donation_checkout(
     id: web::Path<i32>,
     body: web::Json<EventDonationRequest>,
 ) -> HttpResponse {
-    let Some(cfg) = rz.as_ref().as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "success": false,
-            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
-        }));
-    };
-
     let event_id = id.into_inner();
 
     let event_exists = sqlx::query_scalar::<_, i32>("SELECT id FROM events WHERE id = $1")
@@ -1346,6 +1394,41 @@ pub async fn event_donation_checkout(
         "EVTDON-{}",
         uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000")
     );
+
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        let reason = truncate_payment_reason(
+            "Online payments are not configured on server (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET). Donor can be contacted using details below.",
+        );
+        let ins = sqlx::query(
+            "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id,
+             payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'failed', NULL, NULL, $8, $9, NOW())",
+        )
+        .bind(event_id)
+        .bind(name)
+        .bind(body.amount)
+        .bind(&body.phone)
+        .bind(&body.email)
+        .bind(&body.message)
+        .bind(&reference_id)
+        .bind(amount_paise as i32)
+        .bind(&reason)
+        .execute(pool.get_ref())
+        .await;
+        if let Err(e) = ins {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not record event donation: {}", e)
+            }));
+        }
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+            "reference_id": reference_id,
+            "recorded": true
+        }));
+    };
+
     let receipt: String = reference_id.chars().take(40).collect();
     let notes = json!({
         "dm_kind": "event",
@@ -1355,6 +1438,31 @@ pub async fn event_donation_checkout(
     let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
         Ok(o) => o,
         Err(e) => {
+            let reason = truncate_payment_reason(&format!("Razorpay create order failed: {}", e));
+            let ins = sqlx::query(
+                "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id,
+                 payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, 'failed', NULL, NULL, $8, $9, NOW())",
+            )
+            .bind(event_id)
+            .bind(name)
+            .bind(body.amount)
+            .bind(&body.phone)
+            .bind(&body.email)
+            .bind(&body.message)
+            .bind(&reference_id)
+            .bind(amount_paise as i32)
+            .bind(&reason)
+            .execute(pool.get_ref())
+            .await;
+            if ins.is_ok() {
+                return HttpResponse::BadGateway().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Could not start payment: {}", e),
+                    "reference_id": reference_id,
+                    "recorded": true
+                }));
+            }
             return HttpResponse::BadGateway().json(serde_json::json!({
                 "success": false,
                 "error": format!("Could not start payment: {}", e)
@@ -1797,13 +1905,6 @@ pub async fn seva_booking_checkout(
     rz: web::Data<Option<RazorpayConfig>>,
     body: web::Json<SevaBookingRequest>,
 ) -> HttpResponse {
-    let Some(cfg) = rz.as_ref().as_ref() else {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "success": false,
-            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
-        }));
-    };
-
     let price_row = sqlx::query_scalar::<_, f64>(
         "SELECT price FROM seva_items WHERE id = $1 AND available = TRUE",
     )
@@ -1850,6 +1951,40 @@ pub async fn seva_booking_checkout(
             .next()
             .unwrap_or("0000")
     );
+
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        let reason = truncate_payment_reason(
+            "Online payments are not configured on server (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).",
+        );
+        let ins = sqlx::query(
+            "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id,
+             payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at, status)
+             VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW(), 'pending')",
+        )
+        .bind(body.seva_item_id)
+        .bind(&body.name)
+        .bind(&body.phone)
+        .bind(&body.preferred_date)
+        .bind(&body.notes)
+        .bind(&reference_id)
+        .bind(amount_paise as i32)
+        .bind(&reason)
+        .execute(pool.get_ref())
+        .await;
+        if let Err(e) = ins {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not record seva booking: {}", e)
+            }));
+        }
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+            "reference_id": reference_id,
+            "recorded": true
+        }));
+    };
+
     let receipt: String = reference_id.chars().take(40).collect();
     let notes = json!({
         "dm_kind": "seva",
@@ -1859,6 +1994,30 @@ pub async fn seva_booking_checkout(
     let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
         Ok(o) => o,
         Err(e) => {
+            let reason = truncate_payment_reason(&format!("Razorpay create order failed: {}", e));
+            let ins = sqlx::query(
+                "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id,
+                 payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW(), 'pending')",
+            )
+            .bind(body.seva_item_id)
+            .bind(&body.name)
+            .bind(&body.phone)
+            .bind(&body.preferred_date)
+            .bind(&body.notes)
+            .bind(&reference_id)
+            .bind(amount_paise as i32)
+            .bind(&reason)
+            .execute(pool.get_ref())
+            .await;
+            if ins.is_ok() {
+                return HttpResponse::BadGateway().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Could not start payment: {}", e),
+                    "reference_id": reference_id,
+                    "recorded": true
+                }));
+            }
             return HttpResponse::BadGateway().json(serde_json::json!({
                 "success": false,
                 "error": format!("Could not start payment: {}", e)

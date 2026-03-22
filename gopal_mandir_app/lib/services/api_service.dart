@@ -493,6 +493,7 @@ class ApiService {
       return DonationCheckoutResponse(
         success: false,
         error: (json['error'] ?? 'Could not start payment').toString(),
+        referenceId: (json['reference_id'] ?? '').toString(),
       );
     } catch (e) {
       print('donation checkout error: $e');
@@ -517,6 +518,7 @@ class ApiService {
       return DonationCheckoutResponse(
         success: false,
         error: (json['error'] ?? 'Could not start payment').toString(),
+        referenceId: (json['reference_id'] ?? '').toString(),
       );
     } catch (e) {
       print('event donation checkout error: $e');
@@ -589,6 +591,7 @@ class ApiService {
       return DonationCheckoutResponse(
         success: false,
         error: (json['error'] ?? 'Could not start payment').toString(),
+        referenceId: (json['reference_id'] ?? '').toString(),
       );
     } catch (e) {
       print('seva booking checkout error: $e');
