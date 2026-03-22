@@ -1738,6 +1738,10 @@ pub async fn admin_list_event_donations(
             d.email,
             d.message,
             d.reference_id,
+            d.payment_status,
+            d.gateway,
+            d.gateway_order_id,
+            d.gateway_payment_id,
             d.created_at
          FROM event_donations d
          JOIN events e ON e.id = d.event_id

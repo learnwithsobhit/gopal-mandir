@@ -1,5 +1,6 @@
 mod admin;
 mod models;
+mod razorpay;
 mod routes;
 mod s3_presign;
 mod util;
@@ -41,7 +42,16 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to run migrations");
     println!("✅ Migrations complete");
 
+    let razorpay_cfg = crate::razorpay::RazorpayConfig::from_env();
+    if razorpay_cfg.is_some() {
+        println!("💳 Razorpay: key configured (checkout enabled)");
+    } else {
+        println!("⚠️  Razorpay: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — donation checkout disabled");
+    }
+
     println!("🛕 Server running at http://{}", bind_addr);
+
+    let razorpay_data = web::Data::new(razorpay_cfg);
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -53,6 +63,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .app_data(web::Data::new(pool.clone()))
+            .app_data(razorpay_data.clone())
             .service(routes::get_aarti)
             .service(routes::get_events)
             .service(routes::join_event)
@@ -122,6 +133,10 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_temple_info)
             .service(routes::submit_donation)
             .service(routes::submit_event_donation)
+            .service(routes::donation_checkout)
+            .service(routes::event_donation_checkout)
+            .service(routes::razorpay_verify_payment)
+            .service(routes::razorpay_webhook)
             .service(routes::get_live_darshan)
             .service(routes::get_panchang)
             .service(routes::create_prasad_order)

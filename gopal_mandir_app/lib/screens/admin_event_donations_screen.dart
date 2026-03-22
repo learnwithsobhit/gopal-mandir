@@ -61,6 +61,19 @@ class _AdminEventDonationsScreenState
     return '₹${amount.toStringAsFixed(2)}';
   }
 
+  String _paymentLine(EventDonationView d) {
+    final st = d.paymentStatus;
+    final g = d.gateway;
+    final oid = d.gatewayOrderId;
+    final buf = StringBuffer('Status: $st');
+    if (g != null && g.isNotEmpty) buf.write(' • Gateway: $g');
+    if (oid != null && oid.isNotEmpty) buf.write('\nOrder: $oid');
+    if (d.gatewayPaymentId != null && d.gatewayPaymentId!.isNotEmpty) {
+      buf.write('\nPayment: ${d.gatewayPaymentId}');
+    }
+    return buf.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,6 +135,7 @@ class _AdminEventDonationsScreenState
                                   'Event: ${d.eventTitle}'
                                   '\nPhone: ${d.phone ?? "—"}'
                                   '\nRef: ${d.referenceId}'
+                                  '\n${_paymentLine(d)}'
                                   '${d.message != null && d.message!.isNotEmpty ? "\nMsg: ${d.message}" : ""}',
                                 ),
                                 isThreeLine: true,

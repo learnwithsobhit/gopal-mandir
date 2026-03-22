@@ -101,6 +101,23 @@ pub struct DonationResponse {
     pub reference_id: String,
 }
 
+#[derive(Debug, Serialize)]
+pub struct DonationCheckoutResponse {
+    pub success: bool,
+    pub key_id: String,
+    pub order_id: String,
+    pub amount: i64,
+    pub currency: String,
+    pub reference_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RazorpayVerifyRequest {
+    pub order_id: String,
+    pub payment_id: String,
+    pub signature: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct EventParticipationRequest {
     pub name: String,
@@ -473,6 +490,10 @@ pub struct AdminEventDonationView {
     pub email: Option<String>,
     pub message: Option<String>,
     pub reference_id: String,
+    pub payment_status: String,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

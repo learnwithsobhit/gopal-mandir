@@ -1,7 +1,9 @@
 use actix_web::{get, post, patch, web, HttpRequest, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
+use crate::razorpay::{self, RazorpayConfig};
 use crate::util::{bearer_token, normalize_phone, sha256_hex};
+use serde_json::{json, Value};
 use chrono::{Duration, Utc};
 use rand::Rng;
 use uuid::Uuid;
@@ -874,10 +876,12 @@ pub async fn submit_donation(
     body: web::Json<DonationRequest>,
 ) -> HttpResponse {
     let reference_id = format!("GOPAL-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000"));
+    let amount_paise = (body.amount * 100.0).round() as i32;
 
-    // Save donation to database
+    // Legacy path: record as paid (honor-system / pre-gateway clients). Prefer /api/donation/checkout for online pay.
     let result = sqlx::query(
-        "INSERT INTO donations (name, amount, purpose, phone, email, reference_id) VALUES ($1, $2, $3, $4, $5, $6)"
+        "INSERT INTO donations (name, amount, purpose, phone, email, reference_id, payment_status, amount_paise, paid_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'paid', $7, NOW())"
     )
         .bind(&body.name)
         .bind(body.amount)
@@ -885,6 +889,7 @@ pub async fn submit_donation(
         .bind(&body.phone)
         .bind(&body.email)
         .bind(&reference_id)
+        .bind(amount_paise)
         .execute(pool.get_ref())
         .await;
 
@@ -949,9 +954,11 @@ pub async fn submit_event_donation(
         uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000")
     );
 
+    let amount_paise = (body.amount * 100.0).round() as i32;
+
     let result = sqlx::query(
-        "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id, payment_status, amount_paise, paid_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'paid', $8, NOW())",
     )
     .bind(event_id)
     .bind(name)
@@ -960,6 +967,7 @@ pub async fn submit_event_donation(
     .bind(&body.email)
     .bind(&body.message)
     .bind(&reference_id)
+    .bind(amount_paise)
     .execute(pool.get_ref())
     .await;
 
@@ -976,6 +984,390 @@ pub async fn submit_event_donation(
             "success": false,
             "error": format!("Failed to save event donation: {}", e)
         })),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Razorpay checkout (India) — general + event donations
+// ──────────────────────────────────────────────
+
+fn amount_to_paise(amount: f64) -> Option<i64> {
+    if amount <= 0.0 {
+        return None;
+    }
+    let p = (amount * 100.0).round() as i64;
+    if p < 100 {
+        return None;
+    }
+    if p > 50_000_000 {
+        return None;
+    } // ₹5,00,000 cap per order
+    Some(p)
+}
+
+async fn mark_razorpay_order_paid(
+    pool: &PgPool,
+    order_id: &str,
+    payment_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let r = sqlx::query(
+        "UPDATE donations SET payment_status = 'paid', gateway_payment_id = $1,
+         paid_at = COALESCE(paid_at, NOW())
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(payment_id)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    if r.rows_affected() > 0 {
+        return Ok(true);
+    }
+    let r2 = sqlx::query(
+        "UPDATE event_donations SET payment_status = 'paid', gateway_payment_id = $1,
+         paid_at = COALESCE(paid_at, NOW())
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(payment_id)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    Ok(r2.rows_affected() > 0)
+}
+
+async fn razorpay_order_already_recorded_paid(
+    pool: &PgPool,
+    order_id: &str,
+    payment_id: &str,
+) -> Result<bool, sqlx::Error> {
+    let d: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM donations
+            WHERE gateway = 'razorpay' AND gateway_order_id = $1
+              AND gateway_payment_id = $2 AND payment_status = 'paid'
+        )",
+    )
+    .bind(order_id)
+    .bind(payment_id)
+    .fetch_one(pool)
+    .await?;
+    if d {
+        return Ok(true);
+    }
+    let e: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM event_donations
+            WHERE gateway = 'razorpay' AND gateway_order_id = $1
+              AND gateway_payment_id = $2 AND payment_status = 'paid'
+        )",
+    )
+    .bind(order_id)
+    .bind(payment_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(e)
+}
+
+async fn mark_razorpay_order_failed(pool: &PgPool, order_id: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE donations SET payment_status = 'failed'
+         WHERE gateway = 'razorpay' AND gateway_order_id = $1 AND payment_status = 'pending'",
+    )
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE event_donations SET payment_status = 'failed'
+         WHERE gateway = 'razorpay' AND gateway_order_id = $1 AND payment_status = 'pending'",
+    )
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[post("/api/donation/checkout")]
+pub async fn donation_checkout(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    body: web::Json<DonationRequest>,
+) -> HttpResponse {
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+        }));
+    };
+
+    let Some(amount_paise) = amount_to_paise(body.amount) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "amount must be at least ₹1"
+        }));
+    };
+
+    let reference_id =
+        format!("GOPAL-{}", uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000"));
+    let receipt: String = reference_id.chars().take(40).collect();
+    let notes = json!({
+        "dm_kind": "general",
+    });
+
+    let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
+        Ok(o) => o,
+        Err(e) => {
+            return HttpResponse::BadGateway().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not start payment: {}", e)
+            }));
+        }
+    };
+
+    let insert = sqlx::query(
+        "INSERT INTO donations (name, amount, purpose, phone, email, reference_id,
+         payment_status, gateway, gateway_order_id, amount_paise)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', 'razorpay', $7, $8)",
+    )
+    .bind(&body.name)
+    .bind(body.amount)
+    .bind(&body.purpose)
+    .bind(&body.phone)
+    .bind(&body.email)
+    .bind(&reference_id)
+    .bind(&order.id)
+    .bind(amount_paise as i32)
+    .execute(pool.get_ref())
+    .await;
+
+    if let Err(e) = insert {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save donation: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(DonationCheckoutResponse {
+        success: true,
+        key_id: cfg.key_id.clone(),
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        reference_id,
+    })
+}
+
+#[post("/api/events/{id}/donate/checkout")]
+pub async fn event_donation_checkout(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    id: web::Path<i32>,
+    body: web::Json<EventDonationRequest>,
+) -> HttpResponse {
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+        }));
+    };
+
+    let event_id = id.into_inner();
+
+    let event_exists = sqlx::query_scalar::<_, i32>("SELECT id FROM events WHERE id = $1")
+        .bind(event_id)
+        .fetch_optional(pool.get_ref())
+        .await;
+
+    match event_exists {
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Event not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+        Ok(Some(_)) => {}
+    }
+
+    let name = body.name.trim();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name is required"
+        }));
+    }
+
+    let Some(amount_paise) = amount_to_paise(body.amount) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "amount must be at least ₹1"
+        }));
+    };
+
+    let reference_id = format!(
+        "EVTDON-{}",
+        uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0000")
+    );
+    let receipt: String = reference_id.chars().take(40).collect();
+    let notes = json!({
+        "dm_kind": "event",
+        "event_id": event_id.to_string(),
+    });
+
+    let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
+        Ok(o) => o,
+        Err(e) => {
+            return HttpResponse::BadGateway().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not start payment: {}", e)
+            }));
+        }
+    };
+
+    let insert = sqlx::query(
+        "INSERT INTO event_donations (event_id, name, amount, phone, email, message, reference_id,
+         payment_status, gateway, gateway_order_id, amount_paise)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 'razorpay', $8, $9)",
+    )
+    .bind(event_id)
+    .bind(name)
+    .bind(body.amount)
+    .bind(&body.phone)
+    .bind(&body.email)
+    .bind(&body.message)
+    .bind(&reference_id)
+    .bind(&order.id)
+    .bind(amount_paise as i32)
+    .execute(pool.get_ref())
+    .await;
+
+    if let Err(e) = insert {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save event donation: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(DonationCheckoutResponse {
+        success: true,
+        key_id: cfg.key_id.clone(),
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        reference_id,
+    })
+}
+
+#[post("/api/payments/razorpay/verify")]
+pub async fn razorpay_verify_payment(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    body: web::Json<RazorpayVerifyRequest>,
+) -> HttpResponse {
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Payments not configured"
+        }));
+    };
+
+    if !razorpay::verify_payment_signature(
+        &body.order_id,
+        &body.payment_id,
+        &body.signature,
+        &cfg.key_secret,
+    ) {
+        return HttpResponse::Unauthorized().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid signature"
+        }));
+    }
+
+    match mark_razorpay_order_paid(pool.get_ref(), &body.order_id, &body.payment_id).await {
+        Ok(true) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Ok(false) => {
+            match razorpay_order_already_recorded_paid(pool.get_ref(), &body.order_id, &body.payment_id).await {
+                Ok(true) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "duplicate": true })),
+                Ok(false) => HttpResponse::NotFound().json(serde_json::json!({
+                    "success": false,
+                    "error": "No pending donation for this order"
+                })),
+                Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": e.to_string()
+                })),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        })),
+    }
+}
+
+#[post("/api/payments/razorpay/webhook")]
+pub async fn razorpay_webhook(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    req: HttpRequest,
+    body: web::Bytes,
+) -> HttpResponse {
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        return HttpResponse::Ok().finish();
+    };
+    if cfg.webhook_secret.is_empty() {
+        eprintln!("RAZORPAY_WEBHOOK_SECRET not set; ignoring Razorpay webhooks");
+        return HttpResponse::Ok().finish();
+    }
+
+    let sig = match req.headers().get("X-Razorpay-Signature") {
+        Some(h) => match h.to_str() {
+            Ok(s) => s,
+            Err(_) => return HttpResponse::BadRequest().finish(),
+        },
+        None => return HttpResponse::Unauthorized().finish(),
+    };
+
+    if !razorpay::verify_webhook_signature(&body, sig, &cfg.webhook_secret) {
+        return HttpResponse::Unauthorized().finish();
+    }
+
+    let v: Value = match serde_json::from_slice(&body) {
+        Ok(x) => x,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+
+    let event = v.get("event").and_then(|x| x.as_str()).unwrap_or("");
+
+    match event {
+        "payment.captured" => {
+            let pay = v
+                .pointer("/payload/payment/entity")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let order_id = pay.get("order_id").and_then(|x| x.as_str()).unwrap_or("");
+            let payment_id = pay.get("id").and_then(|x| x.as_str()).unwrap_or("");
+            if order_id.is_empty() || payment_id.is_empty() {
+                return HttpResponse::Ok().finish();
+            }
+            let _ = mark_razorpay_order_paid(pool.get_ref(), order_id, payment_id).await;
+            HttpResponse::Ok().finish()
+        }
+        "payment.failed" => {
+            let pay = v
+                .pointer("/payload/payment/entity")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let order_id = pay.get("order_id").and_then(|x| x.as_str()).unwrap_or("");
+            if !order_id.is_empty() {
+                let _ = mark_razorpay_order_failed(pool.get_ref(), order_id).await;
+            }
+            HttpResponse::Ok().finish()
+        }
+        _ => HttpResponse::Ok().finish(),
     }
 }
 

@@ -592,6 +592,39 @@ class DonationResponse {
   }
 }
 
+/// Response from `POST /api/donation/checkout` or event donate checkout (Razorpay order).
+class DonationCheckoutResponse {
+  final bool success;
+  final String keyId;
+  final String orderId;
+  final int amount;
+  final String currency;
+  final String referenceId;
+  final String? error;
+
+  DonationCheckoutResponse({
+    required this.success,
+    this.keyId = '',
+    this.orderId = '',
+    this.amount = 0,
+    this.currency = 'INR',
+    this.referenceId = '',
+    this.error,
+  });
+
+  factory DonationCheckoutResponse.fromJson(Map<String, dynamic> json) {
+    return DonationCheckoutResponse(
+      success: json['success'] == true,
+      keyId: (json['key_id'] ?? '').toString(),
+      orderId: (json['order_id'] ?? '').toString(),
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
+      currency: (json['currency'] ?? 'INR').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+      error: json['error']?.toString(),
+    );
+  }
+}
+
 class PrasadOrderRequest {
   final int prasadItemId;
   final int quantity;
@@ -1040,6 +1073,10 @@ class EventDonationView {
   final String? email;
   final String? message;
   final String referenceId;
+  final String paymentStatus;
+  final String? gateway;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
   final String createdAt;
 
   EventDonationView({
@@ -1052,6 +1089,10 @@ class EventDonationView {
     this.email,
     this.message,
     required this.referenceId,
+    this.paymentStatus = 'paid',
+    this.gateway,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
     required this.createdAt,
   });
 
@@ -1066,6 +1107,10 @@ class EventDonationView {
       email: json['email']?.toString(),
       message: json['message']?.toString(),
       referenceId: (json['reference_id'] ?? '').toString(),
+      paymentStatus: (json['payment_status'] ?? 'paid').toString(),
+      gateway: json['gateway']?.toString(),
+      gatewayOrderId: json['gateway_order_id']?.toString(),
+      gatewayPaymentId: json['gateway_payment_id']?.toString(),
       createdAt: (json['created_at'] ?? '').toString(),
     );
   }

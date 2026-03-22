@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../payments/razorpay_donation.dart';
 
 class DonateScreen extends StatefulWidget {
   final String? initialPurpose;
@@ -301,53 +302,109 @@ class _DonateScreenState extends State<DonateScreen> {
     if (!form.validate()) return;
 
     setState(() => _submitting = true);
-    final resp = await _api.submitDonation(
-      DonationRequest(
-        name: _nameController.text.trim(),
-        amount: _selectedAmount.toDouble(),
-        purpose: _purpose,
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim(),
-      ),
-    );
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (!resp.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(resp.message), backgroundColor: AppColors.urgentRed),
+    try {
+      final checkout = await _api.createDonationCheckout(
+        DonationRequest(
+          name: _nameController.text.trim(),
+          amount: _selectedAmount.toDouble(),
+          purpose: _purpose,
+          phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
+        ),
       );
-      return;
-    }
 
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Dhanyavaad!'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(resp.message),
-              if (resp.referenceId.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Reference ID: ${resp.referenceId}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ],
+      if (!mounted) return;
+
+      if (!checkout.success || checkout.orderId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(checkout.error ?? 'Could not start payment. Try again later.'),
+            backgroundColor: AppColors.urgentRed,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
         );
-      },
-    );
+        return;
+      }
+
+      RazorpayPaymentOutcome? outcome;
+      try {
+        outcome = await openRazorpayCheckout(
+          keyId: checkout.keyId,
+          orderId: checkout.orderId,
+          amountPaise: checkout.amount,
+          name: _nameController.text.trim(),
+          contact: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
+          description: _purpose,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.urgentRed,
+          ),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      if (outcome == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              !isRazorpayCheckoutSupported
+                  ? 'Online donation runs on Android or iOS. Open the app on your phone to pay.'
+                  : 'Payment was cancelled.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final verified = await _api.verifyRazorpayPayment(
+        orderId: outcome.orderId,
+        paymentId: outcome.paymentId,
+        signature: outcome.signature,
+      );
+
+      if (!mounted) return;
+
+      final thankYou = verified
+          ? 'Dhanyavaad! Your donation of ₹$_selectedAmount for $_purpose was received. Jai Gopal!'
+          : 'Dhanyavaad! Your payment completed. Confirmation may arrive in a moment (we will update via server). Jai Gopal!';
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Dhanyavaad!'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(thankYou),
+                if (checkout.referenceId.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Reference ID: ${checkout.referenceId}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   Widget _buildField(

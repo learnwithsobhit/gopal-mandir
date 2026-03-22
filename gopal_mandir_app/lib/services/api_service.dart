@@ -478,6 +478,77 @@ class ApiService {
     }
   }
 
+  /// Creates a Razorpay order and pending donation row (India online pay).
+  Future<DonationCheckoutResponse> createDonationCheckout(DonationRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/donation/checkout'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return DonationCheckoutResponse.fromJson(json);
+      }
+      return DonationCheckoutResponse(
+        success: false,
+        error: (json['error'] ?? 'Could not start payment').toString(),
+      );
+    } catch (e) {
+      print('donation checkout error: $e');
+      return DonationCheckoutResponse(success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<DonationCheckoutResponse> createEventDonationCheckout(
+    int eventId,
+    EventDonationRequest req,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/events/$eventId/donate/checkout'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return DonationCheckoutResponse.fromJson(json);
+      }
+      return DonationCheckoutResponse(
+        success: false,
+        error: (json['error'] ?? 'Could not start payment').toString(),
+      );
+    } catch (e) {
+      print('event donation checkout error: $e');
+      return DonationCheckoutResponse(success: false, error: 'Network error. Please try again.');
+    }
+  }
+
+  Future<bool> verifyRazorpayPayment({
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/payments/razorpay/verify'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'order_id': orderId,
+          'payment_id': paymentId,
+          'signature': signature,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return json['success'] == true;
+      }
+    } catch (e) {
+      print('razorpay verify error: $e');
+    }
+    return false;
+  }
+
   Future<PrasadOrderResponse> submitPrasadOrder(PrasadOrderRequest req) async {
     try {
       final response = await http.post(
