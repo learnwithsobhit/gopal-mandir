@@ -1427,14 +1427,14 @@ class ApiService {
     int id, {
     required String paymentStatus,
     String? gatewayPaymentId,
-    String? adminNote,
+    required String adminNote,
   }) async {
     try {
       final body = <String, dynamic>{
         'payment_status': paymentStatus,
+        'admin_note': adminNote,
         if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
           'gateway_payment_id': gatewayPaymentId,
-        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
       };
       final response = await http.patch(
         Uri.parse('$baseUrl/api/admin/donations/$id'),
@@ -1460,14 +1460,14 @@ class ApiService {
     int id, {
     required String paymentStatus,
     String? gatewayPaymentId,
-    String? adminNote,
+    required String adminNote,
   }) async {
     try {
       final body = <String, dynamic>{
         'payment_status': paymentStatus,
+        'admin_note': adminNote,
         if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
           'gateway_payment_id': gatewayPaymentId,
-        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
       };
       final response = await http.patch(
         Uri.parse('$baseUrl/api/admin/events/donations/$id'),
@@ -1484,6 +1484,41 @@ class ApiService {
       return SimpleActionResponse(success: false, message: msg);
     } catch (e) {
       print('admin patch event donation payment: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchPrasadOrderPayment(
+    String token,
+    String referenceId, {
+    required String paymentStatus,
+    String? gatewayPaymentId,
+    required String adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'payment_status': paymentStatus,
+        'admin_note': adminNote,
+        if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
+          'gateway_payment_id': gatewayPaymentId,
+      };
+      final response = await http.patch(
+        Uri.parse(
+          '$baseUrl/api/admin/prasad/order/${Uri.encodeComponent(referenceId)}/payment',
+        ),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin prasad payment patch: $e');
       return SimpleActionResponse(success: false, message: 'Network error');
     }
   }
@@ -1696,14 +1731,14 @@ class ApiService {
     String referenceId, {
     required String paymentStatus,
     String? gatewayPaymentId,
-    String? adminNote,
+    required String adminNote,
   }) async {
     try {
       final body = <String, dynamic>{
         'payment_status': paymentStatus,
+        'admin_note': adminNote,
         if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
           'gateway_payment_id': gatewayPaymentId,
-        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
       };
       final response = await http.patch(
         Uri.parse(

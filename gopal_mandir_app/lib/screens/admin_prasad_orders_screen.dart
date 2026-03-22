@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
+import '../widgets/admin_payment_status_dialog.dart';
 
 class AdminPrasadOrdersScreen extends StatefulWidget {
   const AdminPrasadOrdersScreen({super.key, required this.token});
@@ -67,6 +68,32 @@ class _AdminPrasadOrdersScreenState extends State<AdminPrasadOrdersScreen> {
     if (resp.success) _load();
   }
 
+  bool _canPatchPrasadPayment(PrasadOrderView o) {
+    if (o.paymentMethod.toLowerCase().trim() != 'online') return false;
+    return adminCanPatchPaymentStatus(o.paymentStatus ?? '');
+  }
+
+  Future<void> _patchPayment(PrasadOrderView o) async {
+    final ps = o.paymentStatus ?? '';
+    if (!adminCanPatchPaymentStatus(ps)) return;
+    final result = await showAdminPaymentResolveDialog(
+      context,
+      title: 'Update payment — ${o.referenceId}',
+      currentPaymentStatus: ps,
+    );
+    if (result == null || !mounted) return;
+    final resp = await _api.adminPatchPrasadOrderPayment(
+      widget.token,
+      o.referenceId,
+      paymentStatus: result.paymentStatus,
+      gatewayPaymentId: result.gatewayPaymentId,
+      adminNote: result.adminNote,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resp.message)));
+    if (resp.success) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,9 +146,20 @@ class _AdminPrasadOrdersScreenState extends State<AdminPrasadOrdersScreen> {
                                 '${o.paymentFailureReason != null && o.paymentFailureReason!.isNotEmpty ? '\nFailure: ${o.paymentFailureReason}' : ''}',
                               ),
                               isThreeLine: true,
-                              trailing: Chip(
-                                label: Text(o.status, style: const TextStyle(fontSize: 11)),
-                                backgroundColor: AppColors.krishnaBlue.withAlpha(28),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_canPatchPrasadPayment(o))
+                                    IconButton(
+                                      icon: const Icon(Icons.payments_outlined),
+                                      tooltip: 'Update payment status',
+                                      onPressed: () => _patchPayment(o),
+                                    ),
+                                  Chip(
+                                    label: Text(o.status, style: const TextStyle(fontSize: 11)),
+                                    backgroundColor: AppColors.krishnaBlue.withAlpha(28),
+                                  ),
+                                ],
                               ),
                               onTap: () => _changeStatus(o),
                             ),
