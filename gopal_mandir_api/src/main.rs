@@ -144,6 +144,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::razorpay_webhook)
             .service(routes::get_live_darshan)
             .service(routes::get_panchang)
+            .service(routes::prasad_order_checkout)
             .service(routes::create_prasad_order)
             .service(routes::create_seva_booking)
             .service(routes::seva_booking_checkout)

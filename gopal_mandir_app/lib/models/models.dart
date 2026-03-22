@@ -633,6 +633,8 @@ class PrasadOrderRequest {
   final String phone;
   final String? address;
   final String? notes;
+  /// `temple` for pay-at-pickup via [POST /api/prasad/order]. Omit for checkout.
+  final String? paymentMethod;
 
   PrasadOrderRequest({
     required this.prasadItemId,
@@ -642,6 +644,7 @@ class PrasadOrderRequest {
     required this.phone,
     this.address,
     this.notes,
+    this.paymentMethod,
   });
 
   Map<String, dynamic> toJson() => {
@@ -652,6 +655,7 @@ class PrasadOrderRequest {
         'phone': phone,
         'address': address,
         'notes': notes,
+        if (paymentMethod != null && paymentMethod!.isNotEmpty) 'payment_method': paymentMethod,
       };
 }
 
@@ -727,6 +731,16 @@ class PrasadOrderView {
   final String fulfillment;
   final int quantity;
   final double totalAmount;
+  final double subtotal;
+  final double deliveryFee;
+  final String paymentMethod;
+  final String? paymentStatus;
+  final String? gateway;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
+  final String? paymentFailureReason;
+  final String? paymentUpdatedAt;
+  final String? paymentAdminNote;
   final String name;
   final String phone;
   final String? address;
@@ -742,6 +756,16 @@ class PrasadOrderView {
     required this.fulfillment,
     required this.quantity,
     required this.totalAmount,
+    this.subtotal = 0,
+    this.deliveryFee = 0,
+    this.paymentMethod = 'temple',
+    this.paymentStatus,
+    this.gateway,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
+    this.paymentFailureReason,
+    this.paymentUpdatedAt,
+    this.paymentAdminNote,
     required this.name,
     required this.phone,
     this.address,
@@ -751,6 +775,7 @@ class PrasadOrderView {
   });
 
   factory PrasadOrderView.fromJson(Map<String, dynamic> json) {
+    final total = (json['total_amount'] as num?)?.toDouble() ?? 0.0;
     return PrasadOrderView(
       id: json['id'],
       referenceId: (json['reference_id'] ?? '').toString(),
@@ -758,7 +783,17 @@ class PrasadOrderView {
       createdAt: (json['created_at'] ?? '').toString(),
       fulfillment: (json['fulfillment'] ?? '').toString(),
       quantity: json['quantity'],
-      totalAmount: (json['total_amount'] as num).toDouble(),
+      totalAmount: total,
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? total,
+      deliveryFee: (json['delivery_fee'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: (json['payment_method'] ?? 'temple').toString(),
+      paymentStatus: json['payment_status']?.toString(),
+      gateway: json['gateway']?.toString(),
+      gatewayOrderId: json['gateway_order_id']?.toString(),
+      gatewayPaymentId: json['gateway_payment_id']?.toString(),
+      paymentFailureReason: json['payment_failure_reason']?.toString(),
+      paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      paymentAdminNote: json['payment_admin_note']?.toString(),
       name: (json['name'] ?? '').toString(),
       phone: (json['phone'] ?? '').toString(),
       address: json['address']?.toString(),

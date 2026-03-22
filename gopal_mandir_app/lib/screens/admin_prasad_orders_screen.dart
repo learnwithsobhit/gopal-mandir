@@ -113,7 +113,10 @@ class _AdminPrasadOrdersScreenState extends State<AdminPrasadOrdersScreen> {
                             child: ListTile(
                               title: Text(o.prasadName),
                               subtitle: Text(
-                                '${o.referenceId}\n${o.name} · ${o.phone}\nQty ${o.quantity} · ₹${o.totalAmount.toStringAsFixed(0)} · ${o.fulfillment}',
+                                '${o.referenceId}\n${o.name} · ${o.phone}\nQty ${o.quantity} · ₹${o.totalAmount.toStringAsFixed(2)} · ${o.fulfillment}'
+                                '\nPay: ${o.paymentMethod}${o.paymentStatus != null && o.paymentStatus!.isNotEmpty ? ' (${o.paymentStatus})' : ''}'
+                                '${o.deliveryFee > 0 ? '\nDelivery fee: ₹${o.deliveryFee.toStringAsFixed(2)}' : ''}'
+                                '${o.paymentFailureReason != null && o.paymentFailureReason!.isNotEmpty ? '\nFailure: ${o.paymentFailureReason}' : ''}',
                               ),
                               isThreeLine: true,
                               trailing: Chip(

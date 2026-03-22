@@ -1010,6 +1010,18 @@ fn truncate_payment_reason(s: &str) -> String {
     s.chars().take(500).collect()
 }
 
+/// Line subtotal, 10% delivery fee (delivery only), and grand total (2 decimal places).
+fn prasad_order_totals(price: f64, quantity: i32, fulfillment: &str) -> (f64, f64, f64) {
+    let subtotal = price * quantity as f64;
+    let delivery_fee = if fulfillment.trim().eq_ignore_ascii_case("delivery") {
+        ((subtotal * 0.10) * 100.0).round() / 100.0
+    } else {
+        0.0
+    };
+    let total = ((subtotal + delivery_fee) * 100.0).round() / 100.0;
+    (subtotal, delivery_fee, total)
+}
+
 fn json_nonempty_order_id(val: Option<&Value>) -> Option<String> {
     let v = val?;
     match v {
@@ -1090,7 +1102,19 @@ async fn mark_razorpay_order_paid(
     .bind(order_id)
     .execute(pool)
     .await?;
-    Ok(r3.rows_affected() > 0)
+    if r3.rows_affected() > 0 {
+        return Ok(true);
+    }
+    let r4 = sqlx::query(
+        "UPDATE prasad_orders SET payment_status = 'paid', gateway_payment_id = $1,
+         paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(payment_id)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    Ok(r4.rows_affected() > 0)
 }
 
 async fn razorpay_order_already_recorded_paid(
@@ -1137,7 +1161,21 @@ async fn razorpay_order_already_recorded_paid(
     .bind(payment_id)
     .fetch_one(pool)
     .await?;
-    Ok(s)
+    if s {
+        return Ok(true);
+    }
+    let p: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM prasad_orders
+            WHERE gateway = 'razorpay' AND gateway_order_id = $1
+              AND gateway_payment_id = $2 AND payment_status = 'paid'
+        )",
+    )
+    .bind(order_id)
+    .bind(payment_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(p)
 }
 
 async fn mark_razorpay_order_failed(
@@ -1166,6 +1204,15 @@ async fn mark_razorpay_order_failed(
     .await?;
     sqlx::query(
         "UPDATE seva_bookings SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE prasad_orders SET payment_status = 'failed', payment_failure_reason = $1,
          payment_updated_at = NOW()
          WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
@@ -1221,6 +1268,18 @@ async fn mark_razorpay_client_reported_failed(
     .execute(pool)
     .await?;
     total += r3.rows_affected();
+    let r4 = sqlx::query(
+        "UPDATE prasad_orders SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND reference_id = $3
+           AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .bind(reference_id)
+    .execute(pool)
+    .await?;
+    total += r4.rows_affected();
     Ok(total)
 }
 
@@ -1767,6 +1826,39 @@ pub async fn create_prasad_order(
             .unwrap_or("0000")
     );
 
+    let payment_method = body
+        .payment_method
+        .as_deref()
+        .unwrap_or("temple")
+        .trim()
+        .to_lowercase();
+    if payment_method == "online" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Use POST /api/prasad/order/checkout for online payment"
+        }));
+    }
+    if payment_method != "temple" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "payment_method must be temple or use checkout for online"
+        }));
+    }
+
+    let fulfillment = body.fulfillment.trim().to_lowercase();
+    if fulfillment == "delivery" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Home delivery requires online payment. Use checkout or choose temple pickup."
+        }));
+    }
+    if fulfillment != "pickup" && fulfillment != "delivery" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "fulfillment must be pickup or delivery"
+        }));
+    }
+
     // Lookup price so client can't tamper with totals
     let price_row = sqlx::query_scalar::<_, f64>(
         "SELECT price FROM prasad_items WHERE id = $1 AND available = TRUE",
@@ -1798,21 +1890,26 @@ pub async fn create_prasad_order(
         }));
     }
 
-    let total_amount = price * (body.quantity as f64);
+    let (subtotal, delivery_fee, total_amount) =
+        prasad_order_totals(price, body.quantity, &fulfillment);
 
     let result = sqlx::query(
-        "INSERT INTO prasad_orders (prasad_item_id, quantity, fulfillment, name, phone, address, notes, total_amount, reference_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)"
+        "INSERT INTO prasad_orders (prasad_item_id, quantity, fulfillment, name, phone, address, notes,
+         subtotal, delivery_fee, total_amount, reference_id, payment_method, payment_status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL)",
     )
     .bind(body.prasad_item_id)
     .bind(body.quantity)
-    .bind(body.fulfillment.to_lowercase())
+    .bind(&fulfillment)
     .bind(&body.name)
     .bind(&body.phone)
     .bind(&body.address)
     .bind(&body.notes)
+    .bind(subtotal)
+    .bind(delivery_fee)
     .bind(total_amount)
     .bind(&reference_id)
+    .bind("temple")
     .execute(pool.get_ref())
     .await;
 
@@ -1820,7 +1917,7 @@ pub async fn create_prasad_order(
         Ok(_) => HttpResponse::Ok().json(PrasadOrderResponse {
             success: true,
             message: format!(
-                "Booking created for {} item(s). Total ₹{}. Jai Gopal!",
+                "Booking created for {} item(s). Pay ₹{} at temple when you collect. Jai Gopal!",
                 body.quantity,
                 total_amount.round() as i64
             ),
@@ -1831,6 +1928,203 @@ pub async fn create_prasad_order(
             "error": format!("Failed to create prasad order: {}", e)
         })),
     }
+}
+
+#[post("/api/prasad/order/checkout")]
+pub async fn prasad_order_checkout(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    body: web::Json<PrasadOrderRequest>,
+) -> HttpResponse {
+    let fulfillment = body.fulfillment.trim().to_lowercase();
+    if fulfillment != "pickup" && fulfillment != "delivery" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "fulfillment must be pickup or delivery"
+        }));
+    }
+
+    if fulfillment == "delivery" {
+        let addr = body.address.as_deref().unwrap_or("").trim();
+        if addr.is_empty() {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Address is required for delivery"
+            }));
+        }
+    }
+
+    let price_row = sqlx::query_scalar::<_, f64>(
+        "SELECT price FROM prasad_items WHERE id = $1 AND available = TRUE",
+    )
+    .bind(body.prasad_item_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let price = match price_row {
+        Ok(Some(price)) => price,
+        Ok(None) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Prasad item not available"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if body.quantity <= 0 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Quantity must be greater than 0"
+        }));
+    }
+
+    let (subtotal, delivery_fee, total_amount) =
+        prasad_order_totals(price, body.quantity, &fulfillment);
+
+    let Some(amount_paise) = amount_to_paise(total_amount) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Order total must be at least ₹100 for online payment"
+        }));
+    };
+
+    let reference_id = format!(
+        "PRASAD-{}",
+        uuid::Uuid::new_v4()
+            .to_string()
+            .split('-')
+            .next()
+            .unwrap_or("0000")
+    );
+
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        let reason = truncate_payment_reason(
+            "Online payments are not configured on server (set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).",
+        );
+        let ins = sqlx::query(
+            "INSERT INTO prasad_orders (prasad_item_id, quantity, fulfillment, name, phone, address, notes,
+             subtotal, delivery_fee, total_amount, reference_id, payment_method,
+             payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'online','failed',NULL,NULL,$12,$13,NOW())",
+        )
+        .bind(body.prasad_item_id)
+        .bind(body.quantity)
+        .bind(&fulfillment)
+        .bind(&body.name)
+        .bind(&body.phone)
+        .bind(&body.address)
+        .bind(&body.notes)
+        .bind(subtotal)
+        .bind(delivery_fee)
+        .bind(total_amount)
+        .bind(&reference_id)
+        .bind(amount_paise as i32)
+        .bind(&reason)
+        .execute(pool.get_ref())
+        .await;
+        if let Err(e) = ins {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not record prasad order: {}", e)
+            }));
+        }
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+            "reference_id": reference_id,
+            "recorded": true
+        }));
+    };
+
+    let receipt: String = reference_id.chars().take(40).collect();
+    let notes = json!({
+        "dm_kind": "prasad",
+        "reference_id": reference_id.clone(),
+    });
+
+    let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
+        Ok(o) => o,
+        Err(e) => {
+            let reason = truncate_payment_reason(&format!("Razorpay create order failed: {}", e));
+            let ins = sqlx::query(
+                "INSERT INTO prasad_orders (prasad_item_id, quantity, fulfillment, name, phone, address, notes,
+                 subtotal, delivery_fee, total_amount, reference_id, payment_method,
+                 payment_status, gateway, gateway_order_id, amount_paise, payment_failure_reason, payment_updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'online','failed',NULL,NULL,$12,$13,NOW())",
+            )
+            .bind(body.prasad_item_id)
+            .bind(body.quantity)
+            .bind(&fulfillment)
+            .bind(&body.name)
+            .bind(&body.phone)
+            .bind(&body.address)
+            .bind(&body.notes)
+            .bind(subtotal)
+            .bind(delivery_fee)
+            .bind(total_amount)
+            .bind(&reference_id)
+            .bind(amount_paise as i32)
+            .bind(&reason)
+            .execute(pool.get_ref())
+            .await;
+            if ins.is_ok() {
+                return HttpResponse::BadGateway().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Could not start payment: {}", e),
+                    "reference_id": reference_id,
+                    "recorded": true
+                }));
+            }
+            return HttpResponse::BadGateway().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not start payment: {}", e)
+            }));
+        }
+    };
+
+    let insert = sqlx::query(
+        "INSERT INTO prasad_orders (prasad_item_id, quantity, fulfillment, name, phone, address, notes,
+         subtotal, delivery_fee, total_amount, reference_id, payment_method,
+         payment_status, gateway, gateway_order_id, amount_paise, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'online','pending','razorpay',$12,$13,'pending')",
+    )
+    .bind(body.prasad_item_id)
+    .bind(body.quantity)
+    .bind(&fulfillment)
+    .bind(&body.name)
+    .bind(&body.phone)
+    .bind(&body.address)
+    .bind(&body.notes)
+    .bind(subtotal)
+    .bind(delivery_fee)
+    .bind(total_amount)
+    .bind(&reference_id)
+    .bind(&order.id)
+    .bind(amount_paise as i32)
+    .execute(pool.get_ref())
+    .await;
+
+    if let Err(e) = insert {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save prasad order: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(DonationCheckoutResponse {
+        success: true,
+        key_id: cfg.key_id.clone(),
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        reference_id,
+    })
 }
 
 #[post("/api/seva/booking")]
@@ -2077,6 +2371,16 @@ pub async fn list_prasad_orders(
             o.fulfillment,
             o.quantity,
             o.total_amount,
+            o.subtotal,
+            o.delivery_fee,
+            o.payment_method,
+            o.payment_status,
+            o.gateway,
+            o.gateway_order_id,
+            o.gateway_payment_id,
+            o.payment_failure_reason,
+            o.payment_updated_at,
+            o.payment_admin_note,
             o.name,
             o.phone,
             o.address,
@@ -2179,11 +2483,46 @@ pub async fn update_prasad_order(
     }
 
     let new_address = if new_fulfillment == "delivery" {
-        body.address.clone().or(existing.address)
+        body.address.clone().or(existing.address.clone())
     } else {
         None
     };
     let new_notes = body.notes.clone().or(existing.notes);
+
+    if existing.payment_method == "temple" && new_fulfillment == "delivery" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Cannot switch pay-at-temple pickup to home delivery. Cancel and place a new order with online payment."
+        }));
+    }
+
+    let pending_online = existing.gateway_order_id.is_some()
+        && existing.payment_status.as_deref() == Some("pending");
+    if pending_online {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Cannot edit order while online payment is pending. Complete or cancel payment first."
+        }));
+    }
+
+    let paid_online = existing.payment_method == "online"
+        && existing.payment_status.as_deref() == Some("paid");
+    if paid_online {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Cannot edit a paid online order. Contact the temple for changes."
+        }));
+    }
+
+    if new_fulfillment == "delivery" {
+        let addr = new_address.as_deref().unwrap_or("").trim();
+        if addr.is_empty() {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Address is required for delivery"
+            }));
+        }
+    }
 
     // price lookup for new total
     let price_row = sqlx::query_scalar::<_, f64>(
@@ -2204,17 +2543,21 @@ pub async fn update_prasad_order(
         }
     };
 
-    let total_amount = price * (new_qty as f64);
+    let (subtotal, delivery_fee, total_amount) =
+        prasad_order_totals(price, new_qty, &new_fulfillment);
 
     let result = sqlx::query(
         "UPDATE prasad_orders
-         SET quantity = $1, fulfillment = $2, address = $3, notes = $4, total_amount = $5
-         WHERE reference_id = $6",
+         SET quantity = $1, fulfillment = $2, address = $3, notes = $4,
+             subtotal = $5, delivery_fee = $6, total_amount = $7
+         WHERE reference_id = $8",
     )
     .bind(new_qty)
     .bind(&new_fulfillment)
     .bind(&new_address)
     .bind(&new_notes)
+    .bind(subtotal)
+    .bind(delivery_fee)
     .bind(total_amount)
     .bind(&reference_id)
     .execute(pool.get_ref())

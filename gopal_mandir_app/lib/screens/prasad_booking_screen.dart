@@ -3,8 +3,11 @@ import '../theme/app_colors.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
 import '../services/api_service.dart';
+import '../payments/razorpay_donation.dart';
 
 enum PrasadFulfillment { pickup, delivery }
+
+enum PrasadPickupPayment { temple, online }
 
 class PrasadBookingScreen extends StatefulWidget {
   final PrasadItem item;
@@ -29,9 +32,16 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
 
   int _qty = 1;
   PrasadFulfillment _fulfillment = PrasadFulfillment.pickup;
+  PrasadPickupPayment _pickupPayment = PrasadPickupPayment.temple;
   bool _submitting = false;
 
-  double get _total => widget.item.price * _qty;
+  double get _subtotal => widget.item.price * _qty;
+
+  double get _deliveryFee => _fulfillment == PrasadFulfillment.delivery
+      ? ((_subtotal * 0.10 * 100).round() / 100.0)
+      : 0.0;
+
+  double get _grandTotal => ((_subtotal + _deliveryFee) * 100).round() / 100.0;
 
   @override
   void dispose() {
@@ -42,12 +52,115 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     super.dispose();
   }
 
+  PrasadOrderRequest _buildRequest() {
+    return PrasadOrderRequest(
+      prasadItemId: widget.item.id,
+      quantity: _qty,
+      fulfillment: _fulfillment == PrasadFulfillment.pickup ? 'pickup' : 'delivery',
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      address: _fulfillment == PrasadFulfillment.delivery ? _addressController.text.trim() : null,
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+    );
+  }
+
+  bool get _needsOnlinePayment =>
+      _fulfillment == PrasadFulfillment.delivery ||
+      (_fulfillment == PrasadFulfillment.pickup && _pickupPayment == PrasadPickupPayment.online);
+
   Future<void> _confirm() async {
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
-    setState(() => _submitting = true);
 
+    if (_needsOnlinePayment && _grandTotal < 100) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Online payment requires a minimum order total of ₹100.'),
+          backgroundColor: AppColors.urgentRed,
+        ),
+      );
+      return;
+    }
+
+    if (_needsOnlinePayment) {
+      setState(() => _submitting = true);
+      try {
+        final checkout = await _api.createPrasadOrderCheckout(_buildRequest());
+        if (!mounted) return;
+
+        if (!checkout.success || checkout.orderId.isEmpty) {
+          final err = checkout.error ?? 'Could not start payment.';
+          final ref = checkout.referenceId;
+          final msg = ref.isNotEmpty
+              ? '$err\nReference saved: $ref — team can follow up.'
+              : err;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg), backgroundColor: AppColors.urgentRed),
+          );
+          return;
+        }
+
+        RazorpayPaymentOutcome? outcome;
+        try {
+          outcome = await openRazorpayCheckout(
+            keyId: checkout.keyId,
+            orderId: checkout.orderId,
+            amountPaise: checkout.amount,
+            name: _nameController.text.trim(),
+            contact: _phoneController.text.trim(),
+            email: '',
+            description: 'Prasad: ${widget.item.name}',
+          );
+        } catch (e) {
+          if (checkout.referenceId.isNotEmpty) {
+            await _api.notifyRazorpayClientPaymentFailed(
+              orderId: checkout.orderId,
+              referenceId: checkout.referenceId,
+              reason: e.toString(),
+            );
+          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
+          );
+          return;
+        }
+
+        if (!mounted) return;
+
+        if (outcome == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                !isRazorpayCheckoutSupported
+                    ? 'Online payment runs on Android or iOS. Open the app on your phone to pay.'
+                    : 'Payment was cancelled.',
+              ),
+            ),
+          );
+          return;
+        }
+
+        final verified = await _api.verifyRazorpayPayment(
+          orderId: outcome.orderId,
+          paymentId: outcome.paymentId,
+          signature: outcome.signature,
+        );
+
+        if (!mounted) return;
+
+        final thankYou = verified
+            ? 'Payment received. Your prasad order is confirmed. Jai Gopal!'
+            : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+        await _showBookingSuccess(thankYou, checkout.referenceId);
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+      return;
+    }
+
+    setState(() => _submitting = true);
     final resp = await _api.submitPrasadOrder(
       PrasadOrderRequest(
         prasadItemId: widget.item.id,
@@ -57,6 +170,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
         phone: _phoneController.text.trim(),
         address: _fulfillment == PrasadFulfillment.delivery ? _addressController.text.trim() : null,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        paymentMethod: 'temple',
       ),
     );
 
@@ -70,6 +184,10 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
       return;
     }
 
+    await _showBookingSuccess(resp.message, resp.referenceId);
+  }
+
+  Future<void> _showBookingSuccess(String message, String referenceId) async {
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -79,11 +197,11 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(resp.message),
-              if (resp.referenceId.isNotEmpty) ...[
+              Text(message),
+              if (referenceId.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Reference ID: ${resp.referenceId}',
+                  'Reference ID: $referenceId',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -235,18 +353,38 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           onPressed: _submitting ? null : () => setState(() => _qty += 1),
                           icon: const Icon(Icons.add_circle_outline),
                         ),
-                        const Spacer(),
-                        Text(
-                          'Total: ₹${_total.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.darkBrown,
-                          ),
-                        ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Subtotal: ₹${_subtotal.toStringAsFixed(2)}',
+                      style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.darkBrown),
+                    ),
+                    if (_fulfillment == PrasadFulfillment.delivery) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Delivery (10%): ₹${_deliveryFee.toStringAsFixed(2)}',
+                        style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Total: ₹${_grandTotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.peacockGreen,
+                      ),
+                    ),
+                    if (_needsOnlinePayment && _grandTotal < 100)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Minimum ₹100 for online payment — increase quantity.',
+                          style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.urgentRed),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     const Text(
                       'Fulfillment',
@@ -267,8 +405,36 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                         ),
                       ],
                       selected: {_fulfillment},
-                      onSelectionChanged: _submitting ? null : (value) => setState(() => _fulfillment = value.first),
+                      onSelectionChanged: _submitting
+                          ? null
+                          : (value) => setState(() => _fulfillment = value.first),
                     ),
+                    if (_fulfillment == PrasadFulfillment.pickup) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Payment',
+                        style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<PrasadPickupPayment>(
+                        segments: const [
+                          ButtonSegment(
+                            value: PrasadPickupPayment.temple,
+                            label: Text('Pay at temple'),
+                            icon: Icon(Icons.payments_outlined),
+                          ),
+                          ButtonSegment(
+                            value: PrasadPickupPayment.online,
+                            label: Text('Pay online'),
+                            icon: Icon(Icons.phone_android),
+                          ),
+                        ],
+                        selected: {_pickupPayment},
+                        onSelectionChanged: _submitting
+                            ? null
+                            : (value) => setState(() => _pickupPayment = value.first),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -342,10 +508,12 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
                       : Text(
-                          'Confirm Booking • ₹${_total.toStringAsFixed(0)}',
+                          _needsOnlinePayment
+                              ? 'Pay ₹${_grandTotal.toStringAsFixed(2)}'
+                              : 'Book • Pay ₹${_grandTotal.toStringAsFixed(2)} at temple',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),

@@ -629,6 +629,28 @@ class ApiService {
     }
   }
 
+  Future<DonationCheckoutResponse> createPrasadOrderCheckout(PrasadOrderRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/prasad/order/checkout'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return DonationCheckoutResponse.fromJson(json);
+      }
+      return DonationCheckoutResponse(
+        success: false,
+        error: (json['error'] ?? 'Could not start payment').toString(),
+        referenceId: (json['reference_id'] ?? '').toString(),
+      );
+    } catch (e) {
+      print('prasad checkout error: $e');
+      return DonationCheckoutResponse(success: false, error: 'Network error. Please try again.');
+    }
+  }
+
   Future<List<PrasadOrderView>> getPrasadOrdersByPhone(String phone) async {
     try {
       final uri = Uri.parse('$baseUrl/api/prasad/orders').replace(

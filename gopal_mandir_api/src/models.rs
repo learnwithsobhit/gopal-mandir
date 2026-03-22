@@ -195,6 +195,9 @@ pub struct PrasadOrderRequest {
     pub phone: String,
     pub address: Option<String>,
     pub notes: Option<String>,
+    /// `temple` = pay when collecting (pickup only). `online` is rejected here — use `/api/prasad/order/checkout`.
+    #[serde(default)]
+    pub payment_method: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
@@ -211,6 +214,18 @@ pub struct PrasadOrder {
     pub status: String,
     pub reference_id: String,
     pub created_at: DateTime<Utc>,
+    pub subtotal: f64,
+    pub delivery_fee: f64,
+    pub payment_method: String,
+    pub payment_status: Option<String>,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub amount_paise: Option<i32>,
+    pub paid_at: Option<DateTime<Utc>>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -229,6 +244,16 @@ pub struct PrasadOrderView {
     pub fulfillment: String,
     pub quantity: i32,
     pub total_amount: f64,
+    pub subtotal: f64,
+    pub delivery_fee: f64,
+    pub payment_method: String,
+    pub payment_status: Option<String>,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
     pub name: String,
     pub phone: String,
     pub address: Option<String>,

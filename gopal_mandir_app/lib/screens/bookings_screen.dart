@@ -555,9 +555,28 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
           ),
           const SizedBox(height: 6),
           Text(
-            '${s.quantity}: ${o.quantity} • ${o.fulfillment} • ${s.total}: ₹${o.totalAmount.toStringAsFixed(0)}',
+            '${s.quantity}: ${o.quantity} • ${o.fulfillment} • ${s.total}: ₹${o.totalAmount.toStringAsFixed(2)}',
             style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
           ),
+          if (o.deliveryFee > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Subtotal ₹${o.subtotal.toStringAsFixed(2)} + delivery 10% ₹${o.deliveryFee.toStringAsFixed(2)}',
+              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+            ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'Pay: ${o.paymentMethod}${o.paymentStatus != null && o.paymentStatus!.isNotEmpty ? ' • ${o.paymentStatus}' : ''}',
+            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+          ),
+          if (o.paymentFailureReason != null && o.paymentFailureReason!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Payment note: ${o.paymentFailureReason}',
+              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.urgentRed),
+            ),
+          ],
           if ((o.address ?? '').isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
