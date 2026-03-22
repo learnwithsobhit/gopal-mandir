@@ -1391,7 +1391,13 @@ pub async fn admin_list_seva_bookings(
             b.seva_item_id,
             s.name as seva_name,
             s.category as seva_category,
-            s.price as seva_price
+            s.price as seva_price,
+            b.payment_status,
+            b.gateway,
+            b.gateway_order_id,
+            b.gateway_payment_id,
+            b.payment_failure_reason,
+            b.payment_updated_at
          FROM seva_bookings b
          JOIN seva_items s ON s.id = b.seva_item_id
          WHERE ($1::TEXT IS NULL OR b.status = $1)
@@ -1710,6 +1716,79 @@ pub async fn admin_list_event_participations(
 }
 
 // ──────────────────────────────────────────────
+// Admin general donations (follow-up / failed payments)
+// ──────────────────────────────────────────────
+
+#[get("/api/admin/donations")]
+pub async fn admin_list_donations(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminDonationsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).min(200).max(1);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let status_filter = q
+        .payment_status
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let search_raw = q
+        .search
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let search_pat = search_raw.as_ref().map(|s| format!("%{}%", s.replace('%', "\\%")));
+
+    let rows = sqlx::query_as::<_, AdminDonationView>(
+        "SELECT
+            d.id,
+            d.name,
+            d.amount,
+            d.purpose,
+            d.phone,
+            d.email,
+            d.reference_id,
+            d.payment_status,
+            d.gateway,
+            d.gateway_order_id,
+            d.gateway_payment_id,
+            d.payment_failure_reason,
+            d.payment_updated_at,
+            d.created_at
+         FROM donations d
+         WHERE ($1::TEXT IS NULL OR d.payment_status = $1)
+         AND ($2::TEXT IS NULL OR (
+            d.name ILIKE $2 OR COALESCE(d.email, '') ILIKE $2 OR COALESCE(d.phone, '') ILIKE $2
+            OR d.reference_id ILIKE $2 OR d.purpose ILIKE $2
+            OR COALESCE(d.payment_failure_reason, '') ILIKE $2
+         ))
+         ORDER BY d.created_at DESC
+         LIMIT $3 OFFSET $4",
+    )
+    .bind(&status_filter)
+    .bind(&search_pat)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+// ──────────────────────────────────────────────
 // Admin Event Donations
 // ──────────────────────────────────────────────
 
@@ -1742,6 +1821,8 @@ pub async fn admin_list_event_donations(
             d.gateway,
             d.gateway_order_id,
             d.gateway_payment_id,
+            d.payment_failure_reason,
+            d.payment_updated_at,
             d.created_at
          FROM event_donations d
          JOIN events e ON e.id = d.event_id

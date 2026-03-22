@@ -3,48 +3,42 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
 
-class AdminEventDonationsScreen extends StatefulWidget {
-  const AdminEventDonationsScreen({
-    super.key,
-    required this.token,
-    this.initialEventId,
-  });
+class AdminDonationsScreen extends StatefulWidget {
+  const AdminDonationsScreen({super.key, required this.token});
 
   final String token;
-  final int? initialEventId;
 
   @override
-  State<AdminEventDonationsScreen> createState() =>
-      _AdminEventDonationsScreenState();
+  State<AdminDonationsScreen> createState() => _AdminDonationsScreenState();
 }
 
-class _AdminEventDonationsScreenState
-    extends State<AdminEventDonationsScreen> {
+class _AdminDonationsScreenState extends State<AdminDonationsScreen> {
   final ApiService _api = ApiService();
-  List<EventDonationView> _items = [];
-  List<Event> _events = [];
+  final _searchController = TextEditingController();
+  List<AdminDonationView> _items = [];
   bool _loading = true;
-  int? _eventIdFilter;
+  String? _paymentStatusFilter;
+
+  static const _statusChoices = ['pending', 'paid', 'failed', 'refunded'];
 
   @override
   void initState() {
     super.initState();
-    _eventIdFilter = widget.initialEventId;
-    _bootstrap();
+    _load();
   }
 
-  Future<void> _bootstrap() async {
-    final events = await _api.adminListEvents(widget.token, perPage: 200);
-    if (!mounted) return;
-    setState(() => _events = events);
-    await _load();
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final list = await _api.adminListEventDonations(
+    final list = await _api.adminListDonations(
       widget.token,
-      eventId: _eventIdFilter,
+      paymentStatus: _paymentStatusFilter,
+      search: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
       limit: 100,
     );
     if (!mounted) return;
@@ -61,15 +55,16 @@ class _AdminEventDonationsScreenState
     return '₹${amount.toStringAsFixed(2)}';
   }
 
-  String _paymentLine(EventDonationView d) {
-    final st = d.paymentStatus;
-    final g = d.gateway;
-    final oid = d.gatewayOrderId;
-    final buf = StringBuffer('Status: $st');
-    if (g != null && g.isNotEmpty) buf.write(' • Gateway: $g');
-    if (oid != null && oid.isNotEmpty) buf.write('\nOrder: $oid');
+  String _paymentLine(AdminDonationView d) {
+    final buf = StringBuffer('Pay: ${d.paymentStatus}');
+    if (d.gateway != null && d.gateway!.isNotEmpty) {
+      buf.write(' • ${d.gateway}');
+    }
+    if (d.gatewayOrderId != null && d.gatewayOrderId!.isNotEmpty) {
+      buf.write('\nOrder: ${d.gatewayOrderId}');
+    }
     if (d.gatewayPaymentId != null && d.gatewayPaymentId!.isNotEmpty) {
-      buf.write('\nPayment: ${d.gatewayPaymentId}');
+      buf.write('\nPayment id: ${d.gatewayPaymentId}');
     }
     if (d.paymentFailureReason != null && d.paymentFailureReason!.isNotEmpty) {
       buf.write('\nFailure: ${d.paymentFailureReason}');
@@ -81,7 +76,7 @@ class _AdminEventDonationsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Event Donations'),
+        title: const Text('General Donations'),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
         actions: [
@@ -91,22 +86,37 @@ class _AdminEventDonationsScreenState
       body: Column(
         children: [
           Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search name, phone, ref, purpose…',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: _load,
+                ),
+              ),
+              onSubmitted: (_) => _load(),
+            ),
+          ),
+          Padding(
             padding: const EdgeInsets.all(8),
-            child: DropdownButtonFormField<int?>(
-              value: _eventIdFilter,
+            child: DropdownButtonFormField<String?>(
+              value: _paymentStatusFilter,
               decoration: const InputDecoration(
-                labelText: 'Filter by event',
+                labelText: 'Payment status',
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               isExpanded: true,
               items: [
-                const DropdownMenuItem<int?>(value: null, child: Text('All events')),
-                for (final e in _events)
-                  DropdownMenuItem<int?>(value: e.id, child: Text(e.title)),
+                const DropdownMenuItem<String?>(value: null, child: Text('All')),
+                for (final s in _statusChoices)
+                  DropdownMenuItem<String?>(value: s, child: Text(s)),
               ],
               onChanged: (v) {
-                setState(() => _eventIdFilter = v);
+                setState(() => _paymentStatusFilter = v);
                 _load();
               },
             ),
@@ -123,23 +133,24 @@ class _AdminEventDonationsScreenState
                           itemCount: _items.length,
                           itemBuilder: (context, i) {
                             final d = _items[i];
+                            final highlight = d.paymentStatus == 'failed' || d.paymentStatus == 'pending';
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              color: highlight ? AppColors.urgentRed.withAlpha(14) : null,
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: AppColors.peacockGreen.withAlpha(24),
-                                  child: const Icon(Icons.volunteer_activism, color: AppColors.peacockGreen),
+                                  backgroundColor: AppColors.templeGold.withAlpha(40),
+                                  child: const Icon(Icons.favorite, color: AppColors.krishnaBlue),
                                 ),
                                 title: Text(
                                   '${d.name}  •  ${_fmtAmount(d.amount)}',
                                   style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 subtitle: Text(
-                                  'Event: ${d.eventTitle}'
-                                  '\nPhone: ${d.phone ?? "—"}'
+                                  'Purpose: ${d.purpose}'
+                                  '\nPhone: ${d.phone ?? "—"} · Email: ${d.email ?? "—"}'
                                   '\nRef: ${d.referenceId}'
-                                  '\n${_paymentLine(d)}'
-                                  '${d.message != null && d.message!.isNotEmpty ? "\nMsg: ${d.message}" : ""}',
+                                  '\n${_paymentLine(d)}',
                                 ),
                                 isThreeLine: true,
                               ),

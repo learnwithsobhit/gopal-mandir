@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
 import '../services/api_service.dart';
+import '../payments/razorpay_donation.dart';
 
 class SevaBookingScreen extends StatefulWidget {
   final SevaItem item;
@@ -56,44 +57,115 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
-    setState(() => _submitting = true);
 
-    final resp = await _api.submitSevaBooking(
-      SevaBookingRequest(
-        sevaItemId: widget.item.id,
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        preferredDate: _preferredDateController.text.trim().isEmpty
-            ? null
-            : _preferredDateController.text.trim(),
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-      ),
+    final req = SevaBookingRequest(
+      sevaItemId: widget.item.id,
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      preferredDate: _preferredDateController.text.trim().isEmpty
+          ? null
+          : _preferredDateController.text.trim(),
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
 
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (!resp.success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(resp.message), backgroundColor: AppColors.urgentRed),
-      );
+    // Items under ₹100: honor-system booking only (no Razorpay order).
+    if (widget.item.price < 100) {
+      setState(() => _submitting = true);
+      final resp = await _api.submitSevaBooking(req);
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      if (!resp.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(resp.message), backgroundColor: AppColors.urgentRed),
+        );
+        return;
+      }
+      await _showBookingSuccess(resp.message, resp.referenceId);
       return;
     }
 
+    setState(() => _submitting = true);
+    try {
+      final checkout = await _api.createSevaBookingCheckout(req);
+
+      if (!mounted) return;
+
+      if (!checkout.success || checkout.orderId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(checkout.error ?? 'Could not start payment.'),
+            backgroundColor: AppColors.urgentRed,
+          ),
+        );
+        return;
+      }
+
+      RazorpayPaymentOutcome? outcome;
+      try {
+        outcome = await openRazorpayCheckout(
+          keyId: checkout.keyId,
+          orderId: checkout.orderId,
+          amountPaise: checkout.amount,
+          name: _nameController.text.trim(),
+          contact: _phoneController.text.trim(),
+          email: '',
+          description: widget.item.name,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      if (outcome == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              !isRazorpayCheckoutSupported
+                  ? 'Online payment runs on Android or iOS. Open the app on your phone to pay.'
+                  : 'Payment was cancelled.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final verified = await _api.verifyRazorpayPayment(
+        orderId: outcome.orderId,
+        paymentId: outcome.paymentId,
+        signature: outcome.signature,
+      );
+
+      if (!mounted) return;
+
+      final msg = verified
+          ? 'Payment received. Your seva booking is confirmed. Jai Gopal!'
+          : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+      await _showBookingSuccess(msg, checkout.referenceId);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _showBookingSuccess(String message, String referenceId) async {
     await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Seva Booking Confirmed'),
+          title: const Text('Seva Booking'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(resp.message),
-              if (resp.referenceId.isNotEmpty) ...[
+              Text(message),
+              if (referenceId.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Reference ID: ${resp.referenceId}',
+                  'Reference ID: $referenceId',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -204,6 +276,14 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (widget.item.price < 100)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'This seva is listed under ₹100 — your booking is submitted without online payment.',
+                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                    ),
+                  ),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -289,7 +369,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Confirm Seva Booking'),
+                        : Text(widget.item.price < 100 ? 'Confirm Seva Booking' : 'Pay & book seva'),
                   ),
                 ),
               ],

@@ -13,6 +13,7 @@ import 'admin_seva_bookings_screen.dart';
 import 'admin_events_list_screen.dart';
 import 'admin_event_participations_screen.dart';
 import 'admin_event_donations_screen.dart';
+import 'admin_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
@@ -201,6 +202,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminEventDonationsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.favorite,
+            'General Donations',
+            'Payment status, failures, and donor contact',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminDonationsScreen(token: _token!),
               ),
             ),
           ),

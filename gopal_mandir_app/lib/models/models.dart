@@ -878,6 +878,12 @@ class SevaBookingView {
   final String sevaName;
   final String sevaCategory;
   final double sevaPrice;
+  final String paymentStatus;
+  final String? gateway;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
+  final String? paymentFailureReason;
+  final String? paymentUpdatedAt;
 
   SevaBookingView({
     required this.id,
@@ -892,6 +898,12 @@ class SevaBookingView {
     required this.sevaName,
     required this.sevaCategory,
     required this.sevaPrice,
+    this.paymentStatus = 'paid',
+    this.gateway,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
+    this.paymentFailureReason,
+    this.paymentUpdatedAt,
   });
 
   factory SevaBookingView.fromJson(Map<String, dynamic> json) {
@@ -908,6 +920,12 @@ class SevaBookingView {
       sevaName: (json['seva_name'] ?? '').toString(),
       sevaCategory: (json['seva_category'] ?? '').toString(),
       sevaPrice: (json['seva_price'] as num).toDouble(),
+      paymentStatus: (json['payment_status'] ?? 'paid').toString(),
+      gateway: json['gateway']?.toString(),
+      gatewayOrderId: json['gateway_order_id']?.toString(),
+      gatewayPaymentId: json['gateway_payment_id']?.toString(),
+      paymentFailureReason: json['payment_failure_reason']?.toString(),
+      paymentUpdatedAt: json['payment_updated_at']?.toString(),
     );
   }
 }
@@ -1077,6 +1095,8 @@ class EventDonationView {
   final String? gateway;
   final String? gatewayOrderId;
   final String? gatewayPaymentId;
+  final String? paymentFailureReason;
+  final String? paymentUpdatedAt;
   final String createdAt;
 
   EventDonationView({
@@ -1093,6 +1113,8 @@ class EventDonationView {
     this.gateway,
     this.gatewayOrderId,
     this.gatewayPaymentId,
+    this.paymentFailureReason,
+    this.paymentUpdatedAt,
     required this.createdAt,
   });
 
@@ -1111,6 +1133,62 @@ class EventDonationView {
       gateway: json['gateway']?.toString(),
       gatewayOrderId: json['gateway_order_id']?.toString(),
       gatewayPaymentId: json['gateway_payment_id']?.toString(),
+      paymentFailureReason: json['payment_failure_reason']?.toString(),
+      paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
+/// Admin list row for general donations ([GET /api/admin/donations]).
+class AdminDonationView {
+  final int id;
+  final String name;
+  final double amount;
+  final String purpose;
+  final String? phone;
+  final String? email;
+  final String referenceId;
+  final String paymentStatus;
+  final String? gateway;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
+  final String? paymentFailureReason;
+  final String? paymentUpdatedAt;
+  final String createdAt;
+
+  AdminDonationView({
+    required this.id,
+    required this.name,
+    required this.amount,
+    required this.purpose,
+    this.phone,
+    this.email,
+    required this.referenceId,
+    required this.paymentStatus,
+    this.gateway,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
+    this.paymentFailureReason,
+    this.paymentUpdatedAt,
+    required this.createdAt,
+  });
+
+  factory AdminDonationView.fromJson(Map<String, dynamic> json) {
+    return AdminDonationView(
+      id: json['id'],
+      name: (json['name'] ?? '').toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      purpose: (json['purpose'] ?? '').toString(),
+      phone: json['phone']?.toString(),
+      email: json['email']?.toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+      paymentStatus: (json['payment_status'] ?? '').toString(),
+      gateway: json['gateway']?.toString(),
+      gatewayOrderId: json['gateway_order_id']?.toString(),
+      gatewayPaymentId: json['gateway_payment_id']?.toString(),
+      paymentFailureReason: json['payment_failure_reason']?.toString(),
+      paymentUpdatedAt: json['payment_updated_at']?.toString(),
       createdAt: (json['created_at'] ?? '').toString(),
     );
   }

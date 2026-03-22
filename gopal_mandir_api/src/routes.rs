@@ -991,18 +991,41 @@ pub async fn submit_event_donation(
 // Razorpay checkout (India) — general + event donations
 // ──────────────────────────────────────────────
 
+/// Minimum online donation / event donation: ₹100 (10_000 paise).
 fn amount_to_paise(amount: f64) -> Option<i64> {
     if amount <= 0.0 {
         return None;
     }
     let p = (amount * 100.0).round() as i64;
-    if p < 100 {
+    if p < 10_000 {
         return None;
     }
     if p > 50_000_000 {
         return None;
     } // ₹5,00,000 cap per order
     Some(p)
+}
+
+fn razorpay_payment_failure_reason(pay: &Value) -> String {
+    let code = pay
+        .get("error_code")
+        .or_else(|| pay.get("code"))
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    let desc = pay
+        .get("error_description")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    let reason = pay
+        .get("error_reason")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    let step = pay
+        .get("error_step")
+        .and_then(|x| x.as_str())
+        .unwrap_or("");
+    let s = format!("{} {} {} {}", code, desc, reason, step);
+    s.trim().chars().take(500).collect::<String>()
 }
 
 async fn mark_razorpay_order_paid(
@@ -1012,7 +1035,7 @@ async fn mark_razorpay_order_paid(
 ) -> Result<bool, sqlx::Error> {
     let r = sqlx::query(
         "UPDATE donations SET payment_status = 'paid', gateway_payment_id = $1,
-         paid_at = COALESCE(paid_at, NOW())
+         paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
          WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
     .bind(payment_id)
@@ -1024,14 +1047,26 @@ async fn mark_razorpay_order_paid(
     }
     let r2 = sqlx::query(
         "UPDATE event_donations SET payment_status = 'paid', gateway_payment_id = $1,
-         paid_at = COALESCE(paid_at, NOW())
+         paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
          WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
     .bind(payment_id)
     .bind(order_id)
     .execute(pool)
     .await?;
-    Ok(r2.rows_affected() > 0)
+    if r2.rows_affected() > 0 {
+        return Ok(true);
+    }
+    let r3 = sqlx::query(
+        "UPDATE seva_bookings SET payment_status = 'paid', gateway_payment_id = $1,
+         paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(payment_id)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    Ok(r3.rows_affected() > 0)
 }
 
 async fn razorpay_order_already_recorded_paid(
@@ -1064,21 +1099,53 @@ async fn razorpay_order_already_recorded_paid(
     .bind(payment_id)
     .fetch_one(pool)
     .await?;
-    Ok(e)
+    if e {
+        return Ok(true);
+    }
+    let s: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM seva_bookings
+            WHERE gateway = 'razorpay' AND gateway_order_id = $1
+              AND gateway_payment_id = $2 AND payment_status = 'paid'
+        )",
+    )
+    .bind(order_id)
+    .bind(payment_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(s)
 }
 
-async fn mark_razorpay_order_failed(pool: &PgPool, order_id: &str) -> Result<(), sqlx::Error> {
+async fn mark_razorpay_order_failed(
+    pool: &PgPool,
+    order_id: &str,
+    reason: &str,
+) -> Result<(), sqlx::Error> {
+    let reason: String = reason.chars().take(500).collect();
     sqlx::query(
-        "UPDATE donations SET payment_status = 'failed'
-         WHERE gateway = 'razorpay' AND gateway_order_id = $1 AND payment_status = 'pending'",
+        "UPDATE donations SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
+    .bind(&reason)
     .bind(order_id)
     .execute(pool)
     .await?;
     sqlx::query(
-        "UPDATE event_donations SET payment_status = 'failed'
-         WHERE gateway = 'razorpay' AND gateway_order_id = $1 AND payment_status = 'pending'",
+        "UPDATE event_donations SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
+    .bind(&reason)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE seva_bookings SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(&reason)
     .bind(order_id)
     .execute(pool)
     .await?;
@@ -1101,7 +1168,7 @@ pub async fn donation_checkout(
     let Some(amount_paise) = amount_to_paise(body.amount) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "amount must be at least ₹1"
+            "error": "amount must be at least ₹100"
         }));
     };
 
@@ -1203,7 +1270,7 @@ pub async fn event_donation_checkout(
     let Some(amount_paise) = amount_to_paise(body.amount) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "amount must be at least ₹1"
+            "error": "amount must be at least ₹100"
         }));
     };
 
@@ -1293,7 +1360,7 @@ pub async fn razorpay_verify_payment(
                 Ok(true) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "duplicate": true })),
                 Ok(false) => HttpResponse::NotFound().json(serde_json::json!({
                     "success": false,
-                    "error": "No pending donation for this order"
+                    "error": "No pending payment for this order"
                 })),
                 Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
                     "success": false,
@@ -1363,7 +1430,11 @@ pub async fn razorpay_webhook(
                 .unwrap_or(Value::Null);
             let order_id = pay.get("order_id").and_then(|x| x.as_str()).unwrap_or("");
             if !order_id.is_empty() {
-                let _ = mark_razorpay_order_failed(pool.get_ref(), order_id).await;
+                let mut reason = razorpay_payment_failure_reason(&pay);
+                if reason.is_empty() {
+                    reason = "payment failed".to_string();
+                }
+                let _ = mark_razorpay_order_failed(pool.get_ref(), order_id, &reason).await;
             }
             HttpResponse::Ok().finish()
         }
@@ -1540,16 +1611,15 @@ pub async fn create_seva_booking(
             .unwrap_or("0000")
     );
 
-    // Validate item is available
-    let exists = sqlx::query_scalar::<_, i32>(
-        "SELECT id FROM seva_items WHERE id = $1 AND available = TRUE",
+    let price_row = sqlx::query_scalar::<_, f64>(
+        "SELECT price FROM seva_items WHERE id = $1 AND available = TRUE",
     )
     .bind(body.seva_item_id)
     .fetch_optional(pool.get_ref())
     .await;
 
-    match exists {
-        Ok(Some(_)) => {}
+    let item_price = match price_row {
+        Ok(Some(p)) => p,
         Ok(None) => {
             return HttpResponse::BadRequest().json(serde_json::json!({
                 "success": false,
@@ -1562,11 +1632,13 @@ pub async fn create_seva_booking(
                 "error": format!("Database error: {}", e)
             }))
         }
-    }
+    };
+    let amount_paise = (item_price * 100.0).round() as i32;
 
     let result = sqlx::query(
-        "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id)
-         VALUES ($1,$2,$3,$4,$5,$6)"
+        "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id,
+         payment_status, amount_paise, paid_at)
+         VALUES ($1,$2,$3,$4,$5,$6,'paid',$7,NOW())"
     )
     .bind(body.seva_item_id)
     .bind(&body.name)
@@ -1574,6 +1646,7 @@ pub async fn create_seva_booking(
     .bind(&body.preferred_date)
     .bind(&body.notes)
     .bind(&reference_id)
+    .bind(amount_paise)
     .execute(pool.get_ref())
     .await;
 
@@ -1588,6 +1661,114 @@ pub async fn create_seva_booking(
             "error": format!("Failed to create seva booking: {}", e)
         })),
     }
+}
+
+#[post("/api/seva/booking/checkout")]
+pub async fn seva_booking_checkout(
+    pool: web::Data<PgPool>,
+    rz: web::Data<Option<RazorpayConfig>>,
+    body: web::Json<SevaBookingRequest>,
+) -> HttpResponse {
+    let Some(cfg) = rz.as_ref().as_ref() else {
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "success": false,
+            "error": "Online payments are not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
+        }));
+    };
+
+    let price_row = sqlx::query_scalar::<_, f64>(
+        "SELECT price FROM seva_items WHERE id = $1 AND available = TRUE",
+    )
+    .bind(body.seva_item_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let item_price = match price_row {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Seva item not available"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if item_price < 100.0 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "This seva item price must be at least ₹100 for online payment"
+        }));
+    }
+
+    let amount_paise = (item_price * 100.0).round() as i64;
+    if amount_paise < 10_000 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid amount for checkout"
+        }));
+    }
+
+    let reference_id = format!(
+        "SEVA-{}",
+        uuid::Uuid::new_v4()
+            .to_string()
+            .split('-')
+            .next()
+            .unwrap_or("0000")
+    );
+    let receipt: String = reference_id.chars().take(40).collect();
+    let notes = json!({
+        "dm_kind": "seva",
+        "reference_id": reference_id.clone(),
+    });
+
+    let order = match razorpay::create_order(cfg, amount_paise, &receipt, notes).await {
+        Ok(o) => o,
+        Err(e) => {
+            return HttpResponse::BadGateway().json(serde_json::json!({
+                "success": false,
+                "error": format!("Could not start payment: {}", e)
+            }));
+        }
+    };
+
+    let insert = sqlx::query(
+        "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id,
+         payment_status, gateway, gateway_order_id, amount_paise, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', 'razorpay', $7, $8, 'pending')",
+    )
+    .bind(body.seva_item_id)
+    .bind(&body.name)
+    .bind(&body.phone)
+    .bind(&body.preferred_date)
+    .bind(&body.notes)
+    .bind(&reference_id)
+    .bind(&order.id)
+    .bind(amount_paise as i32)
+    .execute(pool.get_ref())
+    .await;
+
+    if let Err(e) = insert {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to save seva booking: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(DonationCheckoutResponse {
+        success: true,
+        key_id: cfg.key_id.clone(),
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        reference_id,
+    })
 }
 
 #[derive(serde::Deserialize)]
@@ -1815,7 +1996,13 @@ pub async fn list_seva_bookings(
             b.seva_item_id,
             s.name as seva_name,
             s.category as seva_category,
-            s.price as seva_price
+            s.price as seva_price,
+            b.payment_status,
+            b.gateway,
+            b.gateway_order_id,
+            b.gateway_payment_id,
+            b.payment_failure_reason,
+            b.payment_updated_at
          FROM seva_bookings b
          JOIN seva_items s ON s.id = b.seva_item_id
          WHERE b.phone = $1

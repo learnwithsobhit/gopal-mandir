@@ -549,6 +549,27 @@ class ApiService {
     return false;
   }
 
+  Future<DonationCheckoutResponse> createSevaBookingCheckout(SevaBookingRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/seva/booking/checkout'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return DonationCheckoutResponse.fromJson(json);
+      }
+      return DonationCheckoutResponse(
+        success: false,
+        error: (json['error'] ?? 'Could not start payment').toString(),
+      );
+    } catch (e) {
+      print('seva booking checkout error: $e');
+      return DonationCheckoutResponse(success: false, error: 'Network error. Please try again.');
+    }
+  }
+
   Future<PrasadOrderResponse> submitPrasadOrder(PrasadOrderRequest req) async {
     try {
       final response = await http.post(
@@ -1292,6 +1313,35 @@ class ApiService {
         referenceId: '',
       );
     }
+  }
+
+  Future<List<AdminDonationView>> adminListDonations(
+    String token, {
+    String? paymentStatus,
+    String? search,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (paymentStatus != null && paymentStatus.isNotEmpty) 'payment_status': paymentStatus,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/donations').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => AdminDonationView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin donations list: $e');
+    }
+    return [];
   }
 
   Future<List<EventDonationView>> adminListEventDonations(

@@ -17,14 +17,16 @@ class _DonateScreenState extends State<DonateScreen> {
   final ApiService _api = ApiService();
   final _formKey = GlobalKey<FormState>();
 
-  int _selectedAmount = 501;
+  int _presetAmount = 501;
+  bool _useCustomAmount = false;
+  final _customAmountController = TextEditingController(text: '500');
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   String _purpose = 'General Donation';
   bool _submitting = false;
 
-  final List<int> _amounts = [101, 251, 501, 1001, 2101, 5001];
+  final List<int> _presetAmounts = [100, 251, 501, 1001, 2101, 5001];
   final List<String> _purposes = [
     'General Donation',
     'Annadan Seva',
@@ -113,35 +115,100 @@ class _DonateScreenState extends State<DonateScreen> {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children: _amounts.map((amount) {
-                  final selected = _selectedAmount == amount;
-                  return GestureDetector(
-                    onTap: _submitting ? null : () => setState(() => _selectedAmount = amount),
+                children: [
+                  ..._presetAmounts.map((amount) {
+                    final selected = !_useCustomAmount && _presetAmount == amount;
+                    return GestureDetector(
+                      onTap: _submitting
+                          ? null
+                          : () => setState(() {
+                                _useCustomAmount = false;
+                                _presetAmount = amount;
+                              }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: selected ? AppColors.krishnaBlue : AppColors.softWhite,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
+                          ),
+                          boxShadow: selected
+                              ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
+                              : null,
+                        ),
+                        child: Text(
+                          '₹$amount',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: selected ? Colors.white : AppColors.darkBrown,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  GestureDetector(
+                    onTap: _submitting ? null : () => setState(() => _useCustomAmount = true),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       decoration: BoxDecoration(
-                        color: selected ? AppColors.krishnaBlue : AppColors.softWhite,
+                        color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.softWhite,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: selected ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
+                          color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
                         ),
-                        boxShadow: selected
+                        boxShadow: _useCustomAmount
                             ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
                             : null,
                       ),
                       child: Text(
-                        '₹$amount',
+                        'Other',
                         style: TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppColors.darkBrown,
+                          color: _useCustomAmount ? Colors.white : AppColors.darkBrown,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  ),
+                ],
               ),
+              if (_useCustomAmount) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _customAmountController,
+                  enabled: !_submitting,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'Amount (₹, min 100)',
+                    labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
+                    prefixText: '₹ ',
+                    prefixStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.darkBrown),
+                    filled: true,
+                    fillColor: AppColors.softWhite,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.krishnaBlue),
+                    ),
+                  ),
+                  validator: (v) {
+                    final raw = (v ?? '').trim().replaceAll(',', '');
+                    if (raw.isEmpty) return 'Enter an amount';
+                    final n = double.tryParse(raw);
+                    if (n == null) return 'Enter a valid number';
+                    if (n < 100) return 'Minimum donation is ₹100';
+                    if (n > 500000) return 'Maximum amount is ₹5,00,000';
+                    return null;
+                  },
+                ),
+              ],
 
               const SizedBox(height: 24),
 
@@ -271,7 +338,7 @@ class _DonateScreenState extends State<DonateScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
                       : Text(
-                          'Donate ₹$_selectedAmount',
+                          'Donate ₹${_donateAmountLabel()}',
                           style: const TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 18,
@@ -296,17 +363,49 @@ class _DonateScreenState extends State<DonateScreen> {
     );
   }
 
+  String _donateAmountLabel() {
+    if (_useCustomAmount) {
+      final raw = _customAmountController.text.trim().replaceAll(',', '');
+      final n = double.tryParse(raw);
+      if (n == null) return '…';
+      if (n == n.roundToDouble()) return n.round().toString();
+      return n.toStringAsFixed(2);
+    }
+    return _presetAmount.toString();
+  }
+
+  double? _effectiveDonationAmount() {
+    if (_useCustomAmount) {
+      final raw = _customAmountController.text.trim().replaceAll(',', '');
+      final n = double.tryParse(raw);
+      if (n == null || n < 100 || n > 500000) return null;
+      return n;
+    }
+    return _presetAmount.toDouble();
+  }
+
   Future<void> _submit() async {
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
+
+    final amount = _effectiveDonationAmount();
+    if (amount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid amount (minimum ₹100).'),
+          backgroundColor: AppColors.urgentRed,
+        ),
+      );
+      return;
+    }
 
     setState(() => _submitting = true);
     try {
       final checkout = await _api.createDonationCheckout(
         DonationRequest(
           name: _nameController.text.trim(),
-          amount: _selectedAmount.toDouble(),
+          amount: amount,
           purpose: _purpose,
           phone: _phoneController.text.trim(),
           email: _emailController.text.trim(),
@@ -371,7 +470,7 @@ class _DonateScreenState extends State<DonateScreen> {
       if (!mounted) return;
 
       final thankYou = verified
-          ? 'Dhanyavaad! Your donation of ₹$_selectedAmount for $_purpose was received. Jai Gopal!'
+          ? 'Dhanyavaad! Your donation of ₹${_donateAmountLabel()} for $_purpose was received. Jai Gopal!'
           : 'Dhanyavaad! Your payment completed. Confirmation may arrive in a moment (we will update via server). Jai Gopal!';
 
       await showDialog<void>(
@@ -444,6 +543,7 @@ class _DonateScreenState extends State<DonateScreen> {
 
   @override
   void dispose() {
+    _customAmountController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();

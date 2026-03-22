@@ -66,6 +66,21 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
     if (resp.success) _load();
   }
 
+  String _paymentLine(SevaBookingView b) {
+    final buf = StringBuffer('Pay: ${b.paymentStatus}');
+    if (b.gateway != null && b.gateway!.isNotEmpty) buf.write(' • ${b.gateway}');
+    if (b.gatewayOrderId != null && b.gatewayOrderId!.isNotEmpty) {
+      buf.write('\nOrder: ${b.gatewayOrderId}');
+    }
+    if (b.gatewayPaymentId != null && b.gatewayPaymentId!.isNotEmpty) {
+      buf.write('\nPayment: ${b.gatewayPaymentId}');
+    }
+    if (b.paymentFailureReason != null && b.paymentFailureReason!.isNotEmpty) {
+      buf.write('\nFailure: ${b.paymentFailureReason}');
+    }
+    return buf.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,7 +131,8 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
                                 subtitle: Text(
                                   '${b.referenceId}\n${b.name} · ${b.phone}'
                                   '${b.preferredDate != null ? '\nDate: ${b.preferredDate}' : ''}'
-                                  '\n${b.sevaCategory} · ₹${b.sevaPrice.toStringAsFixed(0)}',
+                                  '\n${b.sevaCategory} · ₹${b.sevaPrice.toStringAsFixed(0)}'
+                                  '\n${_paymentLine(b)}',
                                 ),
                                 isThreeLine: true,
                                 trailing: Chip(

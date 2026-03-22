@@ -275,6 +275,12 @@ pub struct SevaBookingView {
     pub seva_name: String,
     pub seva_category: String,
     pub seva_price: f64,
+    pub payment_status: String,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -494,7 +500,35 @@ pub struct AdminEventDonationView {
     pub gateway: Option<String>,
     pub gateway_order_id: Option<String>,
     pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminDonationView {
+    pub id: i32,
+    pub name: String,
+    pub amount: f64,
+    pub purpose: String,
+    pub phone: Option<String>,
+    pub email: Option<String>,
+    pub reference_id: String,
+    pub payment_status: String,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminDonationsQuery {
+    pub payment_status: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
