@@ -436,6 +436,13 @@ class _DonateScreenState extends State<DonateScreen> {
           description: _purpose,
         );
       } catch (e) {
+        if (checkout.referenceId.isNotEmpty) {
+          await _api.notifyRazorpayClientPaymentFailed(
+            orderId: checkout.orderId,
+            referenceId: checkout.referenceId,
+            reason: e.toString(),
+          );
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

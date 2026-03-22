@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
+import '../widgets/admin_payment_status_dialog.dart';
 
 class AdminDonationsScreen extends StatefulWidget {
   const AdminDonationsScreen({super.key, required this.token});
@@ -69,7 +70,30 @@ class _AdminDonationsScreenState extends State<AdminDonationsScreen> {
     if (d.paymentFailureReason != null && d.paymentFailureReason!.isNotEmpty) {
       buf.write('\nFailure: ${d.paymentFailureReason}');
     }
+    if (d.paymentAdminNote != null && d.paymentAdminNote!.isNotEmpty) {
+      buf.write('\nAdmin note: ${d.paymentAdminNote}');
+    }
     return buf.toString();
+  }
+
+  Future<void> _patchPayment(AdminDonationView d) async {
+    if (!adminCanPatchPaymentStatus(d.paymentStatus)) return;
+    final result = await showAdminPaymentResolveDialog(
+      context,
+      title: 'Update payment — ${d.referenceId}',
+      currentPaymentStatus: d.paymentStatus,
+    );
+    if (result == null || !mounted) return;
+    final resp = await _api.adminPatchDonationPayment(
+      widget.token,
+      d.id,
+      paymentStatus: result.paymentStatus,
+      gatewayPaymentId: result.gatewayPaymentId,
+      adminNote: result.adminNote,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resp.message)));
+    if (resp.success) _load();
   }
 
   @override
@@ -153,6 +177,13 @@ class _AdminDonationsScreenState extends State<AdminDonationsScreen> {
                                   '\n${_paymentLine(d)}',
                                 ),
                                 isThreeLine: true,
+                                trailing: adminCanPatchPaymentStatus(d.paymentStatus)
+                                    ? IconButton(
+                                        icon: const Icon(Icons.payments_outlined),
+                                        tooltip: 'Update payment',
+                                        onPressed: () => _patchPayment(d),
+                                      )
+                                    : null,
                               ),
                             );
                           },

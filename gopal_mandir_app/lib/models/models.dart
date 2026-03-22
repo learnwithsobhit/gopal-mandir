@@ -884,6 +884,8 @@ class SevaBookingView {
   final String? gatewayPaymentId;
   final String? paymentFailureReason;
   final String? paymentUpdatedAt;
+  /// Present on admin list only; omitted on public member APIs.
+  final String? paymentAdminNote;
 
   SevaBookingView({
     required this.id,
@@ -904,6 +906,7 @@ class SevaBookingView {
     this.gatewayPaymentId,
     this.paymentFailureReason,
     this.paymentUpdatedAt,
+    this.paymentAdminNote,
   });
 
   factory SevaBookingView.fromJson(Map<String, dynamic> json) {
@@ -926,6 +929,7 @@ class SevaBookingView {
       gatewayPaymentId: json['gateway_payment_id']?.toString(),
       paymentFailureReason: json['payment_failure_reason']?.toString(),
       paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      paymentAdminNote: json['payment_admin_note']?.toString(),
     );
   }
 }
@@ -1097,6 +1101,7 @@ class EventDonationView {
   final String? gatewayPaymentId;
   final String? paymentFailureReason;
   final String? paymentUpdatedAt;
+  final String? paymentAdminNote;
   final String createdAt;
 
   EventDonationView({
@@ -1115,6 +1120,7 @@ class EventDonationView {
     this.gatewayPaymentId,
     this.paymentFailureReason,
     this.paymentUpdatedAt,
+    this.paymentAdminNote,
     required this.createdAt,
   });
 
@@ -1135,6 +1141,7 @@ class EventDonationView {
       gatewayPaymentId: json['gateway_payment_id']?.toString(),
       paymentFailureReason: json['payment_failure_reason']?.toString(),
       paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      paymentAdminNote: json['payment_admin_note']?.toString(),
       createdAt: (json['created_at'] ?? '').toString(),
     );
   }
@@ -1155,6 +1162,7 @@ class AdminDonationView {
   final String? gatewayPaymentId;
   final String? paymentFailureReason;
   final String? paymentUpdatedAt;
+  final String? paymentAdminNote;
   final String createdAt;
 
   AdminDonationView({
@@ -1171,6 +1179,7 @@ class AdminDonationView {
     this.gatewayPaymentId,
     this.paymentFailureReason,
     this.paymentUpdatedAt,
+    this.paymentAdminNote,
     required this.createdAt,
   });
 
@@ -1189,6 +1198,7 @@ class AdminDonationView {
       gatewayPaymentId: json['gateway_payment_id']?.toString(),
       paymentFailureReason: json['payment_failure_reason']?.toString(),
       paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      paymentAdminNote: json['payment_admin_note']?.toString(),
       createdAt: (json['created_at'] ?? '').toString(),
     );
   }

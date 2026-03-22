@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
+import '../widgets/admin_payment_status_dialog.dart';
 
 class AdminSevaBookingsScreen extends StatefulWidget {
   const AdminSevaBookingsScreen({super.key, required this.token});
@@ -78,7 +79,30 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
     if (b.paymentFailureReason != null && b.paymentFailureReason!.isNotEmpty) {
       buf.write('\nFailure: ${b.paymentFailureReason}');
     }
+    if (b.paymentAdminNote != null && b.paymentAdminNote!.isNotEmpty) {
+      buf.write('\nAdmin note: ${b.paymentAdminNote}');
+    }
     return buf.toString();
+  }
+
+  Future<void> _patchPayment(SevaBookingView b) async {
+    if (!adminCanPatchPaymentStatus(b.paymentStatus)) return;
+    final result = await showAdminPaymentResolveDialog(
+      context,
+      title: 'Update payment — ${b.referenceId}',
+      currentPaymentStatus: b.paymentStatus,
+    );
+    if (result == null || !mounted) return;
+    final resp = await _api.adminPatchSevaBookingPayment(
+      widget.token,
+      b.referenceId,
+      paymentStatus: result.paymentStatus,
+      gatewayPaymentId: result.gatewayPaymentId,
+      adminNote: result.adminNote,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resp.message)));
+    if (resp.success) _load();
   }
 
   @override
@@ -124,8 +148,11 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
                           itemCount: _bookings.length,
                           itemBuilder: (context, i) {
                             final b = _bookings[i];
+                            final payHighlight =
+                                b.paymentStatus == 'failed' || b.paymentStatus == 'pending';
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              color: payHighlight ? AppColors.urgentRed.withAlpha(14) : null,
                               child: ListTile(
                                 title: Text(b.sevaName),
                                 subtitle: Text(
@@ -135,9 +162,20 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
                                   '\n${_paymentLine(b)}',
                                 ),
                                 isThreeLine: true,
-                                trailing: Chip(
-                                  label: Text(b.status, style: const TextStyle(fontSize: 11)),
-                                  backgroundColor: AppColors.krishnaBlue.withAlpha(28),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (adminCanPatchPaymentStatus(b.paymentStatus))
+                                      IconButton(
+                                        icon: const Icon(Icons.payments_outlined),
+                                        tooltip: 'Update payment',
+                                        onPressed: () => _patchPayment(b),
+                                      ),
+                                    Chip(
+                                      label: Text(b.status, style: const TextStyle(fontSize: 11)),
+                                      backgroundColor: AppColors.krishnaBlue.withAlpha(28),
+                                    ),
+                                  ],
                                 ),
                                 onTap: () => _changeStatus(b),
                               ),

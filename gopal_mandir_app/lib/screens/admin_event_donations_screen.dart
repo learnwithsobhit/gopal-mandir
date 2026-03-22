@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../models/models.dart';
+import '../widgets/admin_payment_status_dialog.dart';
 
 class AdminEventDonationsScreen extends StatefulWidget {
   const AdminEventDonationsScreen({
@@ -74,7 +75,30 @@ class _AdminEventDonationsScreenState
     if (d.paymentFailureReason != null && d.paymentFailureReason!.isNotEmpty) {
       buf.write('\nFailure: ${d.paymentFailureReason}');
     }
+    if (d.paymentAdminNote != null && d.paymentAdminNote!.isNotEmpty) {
+      buf.write('\nAdmin note: ${d.paymentAdminNote}');
+    }
     return buf.toString();
+  }
+
+  Future<void> _patchPayment(EventDonationView d) async {
+    if (!adminCanPatchPaymentStatus(d.paymentStatus)) return;
+    final result = await showAdminPaymentResolveDialog(
+      context,
+      title: 'Update payment — ${d.referenceId}',
+      currentPaymentStatus: d.paymentStatus,
+    );
+    if (result == null || !mounted) return;
+    final resp = await _api.adminPatchEventDonationPayment(
+      widget.token,
+      d.id,
+      paymentStatus: result.paymentStatus,
+      gatewayPaymentId: result.gatewayPaymentId,
+      adminNote: result.adminNote,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resp.message)));
+    if (resp.success) _load();
   }
 
   @override
@@ -123,8 +147,11 @@ class _AdminEventDonationsScreenState
                           itemCount: _items.length,
                           itemBuilder: (context, i) {
                             final d = _items[i];
+                            final payHighlight =
+                                d.paymentStatus == 'failed' || d.paymentStatus == 'pending';
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              color: payHighlight ? AppColors.urgentRed.withAlpha(14) : null,
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: AppColors.peacockGreen.withAlpha(24),
@@ -142,6 +169,13 @@ class _AdminEventDonationsScreenState
                                   '${d.message != null && d.message!.isNotEmpty ? "\nMsg: ${d.message}" : ""}',
                                 ),
                                 isThreeLine: true,
+                                trailing: adminCanPatchPaymentStatus(d.paymentStatus)
+                                    ? IconButton(
+                                        icon: const Icon(Icons.payments_outlined),
+                                        tooltip: 'Update payment',
+                                        onPressed: () => _patchPayment(d),
+                                      )
+                                    : null,
                               ),
                             );
                           },

@@ -1006,6 +1006,26 @@ fn amount_to_paise(amount: f64) -> Option<i64> {
     Some(p)
 }
 
+fn json_nonempty_order_id(val: Option<&Value>) -> Option<String> {
+    let v = val?;
+    match v {
+        Value::String(s) if !s.is_empty() => Some(s.clone()),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
+}
+
+/// Razorpay `payment.failed` sometimes omits `order_id` on the payment entity; `order.payment_failed` carries it on the order entity.
+fn webhook_failure_order_id(v: &Value) -> Option<String> {
+    if let Some(pay) = v.pointer("/payload/payment/entity") {
+        if let Some(oid) = json_nonempty_order_id(pay.get("order_id")) {
+            return Some(oid);
+        }
+    }
+    v.pointer("/payload/order/entity/id")
+        .and_then(|x| json_nonempty_order_id(Some(x)))
+}
+
 fn razorpay_payment_failure_reason(pay: &Value) -> String {
     let code = pay
         .get("error_code")
@@ -1150,6 +1170,54 @@ async fn mark_razorpay_order_failed(
     .execute(pool)
     .await?;
     Ok(())
+}
+
+/// Mark pending rows failed when app reports gateway error; requires order_id + reference_id match (no Razorpay signature).
+async fn mark_razorpay_client_reported_failed(
+    pool: &PgPool,
+    order_id: &str,
+    reference_id: &str,
+    reason: &str,
+) -> Result<u64, sqlx::Error> {
+    let reason: String = reason.chars().take(500).collect();
+    let mut total: u64 = 0;
+    let r = sqlx::query(
+        "UPDATE donations SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND reference_id = $3
+           AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .bind(reference_id)
+    .execute(pool)
+    .await?;
+    total += r.rows_affected();
+    let r2 = sqlx::query(
+        "UPDATE event_donations SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND reference_id = $3
+           AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .bind(reference_id)
+    .execute(pool)
+    .await?;
+    total += r2.rows_affected();
+    let r3 = sqlx::query(
+        "UPDATE seva_bookings SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND reference_id = $3
+           AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .bind(reference_id)
+    .execute(pool)
+    .await?;
+    total += r3.rows_affected();
+    Ok(total)
 }
 
 #[post("/api/donation/checkout")]
@@ -1375,6 +1443,42 @@ pub async fn razorpay_verify_payment(
     }
 }
 
+#[post("/api/payments/razorpay/client-failed")]
+pub async fn razorpay_client_failed(
+    pool: web::Data<PgPool>,
+    body: web::Json<RazorpayClientFailedRequest>,
+) -> HttpResponse {
+    let order_id = body.order_id.trim();
+    let reference_id = body.reference_id.trim();
+    if order_id.is_empty() || reference_id.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "order_id and reference_id are required"
+        }));
+    }
+    let reason = body
+        .reason
+        .as_deref()
+        .unwrap_or("Payment failed in checkout")
+        .trim();
+    let reason = if reason.is_empty() {
+        "Payment failed in checkout"
+    } else {
+        reason
+    };
+    match mark_razorpay_client_reported_failed(pool.get_ref(), order_id, reference_id, reason).await {
+        Ok(0) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "No matching pending payment for this order and reference"
+        })),
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": e.to_string()
+        })),
+    }
+}
+
 #[post("/api/payments/razorpay/webhook")]
 pub async fn razorpay_webhook(
     pool: web::Data<PgPool>,
@@ -1428,13 +1532,37 @@ pub async fn razorpay_webhook(
                 .pointer("/payload/payment/entity")
                 .cloned()
                 .unwrap_or(Value::Null);
-            let order_id = pay.get("order_id").and_then(|x| x.as_str()).unwrap_or("");
+            let order_id = webhook_failure_order_id(&v).unwrap_or_default();
             if !order_id.is_empty() {
                 let mut reason = razorpay_payment_failure_reason(&pay);
                 if reason.is_empty() {
                     reason = "payment failed".to_string();
                 }
-                let _ = mark_razorpay_order_failed(pool.get_ref(), order_id, &reason).await;
+                let _ = mark_razorpay_order_failed(pool.get_ref(), &order_id, &reason).await;
+            } else {
+                eprintln!(
+                    "Razorpay webhook payment.failed: could not resolve order_id (set RAZORPAY_WEBHOOK_SECRET and enable order.payment_failed too)"
+                );
+            }
+            HttpResponse::Ok().finish()
+        }
+        "order.payment_failed" => {
+            let order_id = v
+                .pointer("/payload/order/entity/id")
+                .and_then(|x| json_nonempty_order_id(Some(x)))
+                .unwrap_or_default();
+            let pay = v
+                .pointer("/payload/payment/entity")
+                .cloned()
+                .unwrap_or(Value::Null);
+            let mut reason = razorpay_payment_failure_reason(&pay);
+            if reason.is_empty() {
+                reason = "order payment failed".to_string();
+            }
+            if !order_id.is_empty() {
+                let _ = mark_razorpay_order_failed(pool.get_ref(), &order_id, &reason).await;
+            } else {
+                eprintln!("Razorpay webhook order.payment_failed: missing order id");
             }
             HttpResponse::Ok().finish()
         }

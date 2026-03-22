@@ -118,6 +118,14 @@ pub struct RazorpayVerifyRequest {
     pub signature: String,
 }
 
+/// App-reported checkout failure (gateway error). Secured by matching order_id + reference_id to a pending row.
+#[derive(Debug, Deserialize)]
+pub struct RazorpayClientFailedRequest {
+    pub order_id: String,
+    pub reference_id: String,
+    pub reason: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct EventParticipationRequest {
     pub name: String,
@@ -281,6 +289,30 @@ pub struct SevaBookingView {
     pub gateway_payment_id: Option<String>,
     pub payment_failure_reason: Option<String>,
     pub payment_updated_at: Option<DateTime<Utc>>,
+}
+
+/// Admin seva bookings list (includes internal payment note; not exposed on public APIs).
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminSevaBookingView {
+    pub id: i32,
+    pub reference_id: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub name: String,
+    pub phone: String,
+    pub preferred_date: Option<String>,
+    pub notes: Option<String>,
+    pub seva_item_id: i32,
+    pub seva_name: String,
+    pub seva_category: String,
+    pub seva_price: f64,
+    pub payment_status: String,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -502,6 +534,7 @@ pub struct AdminEventDonationView {
     pub gateway_payment_id: Option<String>,
     pub payment_failure_reason: Option<String>,
     pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -520,7 +553,16 @@ pub struct AdminDonationView {
     pub gateway_payment_id: Option<String>,
     pub payment_failure_reason: Option<String>,
     pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
     pub created_at: DateTime<Utc>,
+}
+
+/// Admin-only: set payment to paid/refunded after offline donor follow-up.
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPaymentRequest {
+    pub payment_status: String,
+    pub gateway_payment_id: Option<String>,
+    pub admin_note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

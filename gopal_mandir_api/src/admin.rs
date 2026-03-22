@@ -49,6 +49,21 @@ async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpRe
     }
 }
 
+fn admin_parse_patch_payment_status(body: &AdminPatchPaymentRequest) -> Result<String, &'static str> {
+    let s = body.payment_status.trim().to_lowercase();
+    if s != "paid" && s != "refunded" {
+        return Err("payment_status must be paid or refunded");
+    }
+    Ok(s)
+}
+
+fn optional_payment_trim(opt: &Option<String>, max_chars: usize) -> Option<String> {
+    opt.as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.chars().take(max_chars).collect())
+}
+
 fn validate_media_type(ct: &str, ext_in: &str) -> Option<&'static str> {
     let ct = ct.trim().to_lowercase();
     let ext_lower = ext_in.trim().to_lowercase();
@@ -1378,7 +1393,7 @@ pub async fn admin_list_seva_bookings(
     let offset = q.offset.unwrap_or(0).max(0);
     let status_filter = q.status.as_ref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
 
-    let rows = sqlx::query_as::<_, SevaBookingView>(
+    let rows = sqlx::query_as::<_, AdminSevaBookingView>(
         "SELECT
             b.id,
             b.reference_id,
@@ -1397,7 +1412,8 @@ pub async fn admin_list_seva_bookings(
             b.gateway_order_id,
             b.gateway_payment_id,
             b.payment_failure_reason,
-            b.payment_updated_at
+            b.payment_updated_at,
+            b.payment_admin_note
          FROM seva_bookings b
          JOIN seva_items s ON s.id = b.seva_item_id
          WHERE ($1::TEXT IS NULL OR b.status = $1)
@@ -1465,6 +1481,66 @@ pub async fn admin_patch_seva_booking(
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Booking not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/seva/bookings/payment/{reference_id}")]
+pub async fn admin_patch_seva_booking_payment(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    reference_id: web::Path<String>,
+    body: web::Json<AdminPatchPaymentRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let new_status = match admin_parse_patch_payment_status(&body) {
+        Ok(s) => s,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }))
+        }
+    };
+    let gateway_id = optional_payment_trim(&body.gateway_payment_id, 64);
+    let admin_note = optional_payment_trim(&body.admin_note, 500);
+    let reference_id = reference_id.into_inner();
+
+    let r = sqlx::query(
+        "UPDATE seva_bookings SET
+            payment_status = $1,
+            payment_updated_at = NOW(),
+            paid_at = CASE WHEN $1 = 'paid' THEN NOW() ELSE paid_at END,
+            payment_failure_reason = CASE WHEN $1 IN ('paid','refunded') THEN NULL ELSE payment_failure_reason END,
+            gateway_payment_id = CASE WHEN $2 IS NOT NULL THEN $2 ELSE gateway_payment_id END,
+            payment_admin_note = CASE WHEN $3 IS NOT NULL THEN $3 ELSE payment_admin_note END
+         WHERE reference_id = $4
+           AND (
+             (payment_status IN ('failed','pending') AND $1 IN ('paid','refunded'))
+             OR (payment_status = 'paid' AND $1 = 'refunded')
+           )",
+    )
+    .bind(&new_status)
+    .bind(&gateway_id)
+    .bind(&admin_note)
+    .bind(&reference_id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Payment updated".to_string(),
+        }),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Seva booking not found or payment status cannot be changed"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -1758,6 +1834,7 @@ pub async fn admin_list_donations(
             d.gateway_payment_id,
             d.payment_failure_reason,
             d.payment_updated_at,
+            d.payment_admin_note,
             d.created_at
          FROM donations d
          WHERE ($1::TEXT IS NULL OR d.payment_status = $1)
@@ -1823,6 +1900,7 @@ pub async fn admin_list_event_donations(
             d.gateway_payment_id,
             d.payment_failure_reason,
             d.payment_updated_at,
+            d.payment_admin_note,
             d.created_at
          FROM event_donations d
          JOIN events e ON e.id = d.event_id
@@ -1840,6 +1918,126 @@ pub async fn admin_list_event_donations(
         Ok(data) => HttpResponse::Ok().json(serde_json::json!({
             "success": true,
             "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/donations/{id}")]
+pub async fn admin_patch_donation_payment(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchPaymentRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let new_status = match admin_parse_patch_payment_status(&body) {
+        Ok(s) => s,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }))
+        }
+    };
+    let gateway_id = optional_payment_trim(&body.gateway_payment_id, 64);
+    let admin_note = optional_payment_trim(&body.admin_note, 500);
+    let id = id.into_inner();
+
+    let r = sqlx::query(
+        "UPDATE donations SET
+            payment_status = $1,
+            payment_updated_at = NOW(),
+            paid_at = CASE WHEN $1 = 'paid' THEN NOW() ELSE paid_at END,
+            payment_failure_reason = CASE WHEN $1 IN ('paid','refunded') THEN NULL ELSE payment_failure_reason END,
+            gateway_payment_id = CASE WHEN $2 IS NOT NULL THEN $2 ELSE gateway_payment_id END,
+            payment_admin_note = CASE WHEN $3 IS NOT NULL THEN $3 ELSE payment_admin_note END
+         WHERE id = $4
+           AND (
+             (payment_status IN ('failed','pending') AND $1 IN ('paid','refunded'))
+             OR (payment_status = 'paid' AND $1 = 'refunded')
+           )",
+    )
+    .bind(&new_status)
+    .bind(&gateway_id)
+    .bind(&admin_note)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Payment updated".to_string(),
+        }),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Donation not found or payment status cannot be changed"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/events/donations/{id}")]
+pub async fn admin_patch_event_donation_payment(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchPaymentRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let new_status = match admin_parse_patch_payment_status(&body) {
+        Ok(s) => s,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }))
+        }
+    };
+    let gateway_id = optional_payment_trim(&body.gateway_payment_id, 64);
+    let admin_note = optional_payment_trim(&body.admin_note, 500);
+    let id = id.into_inner();
+
+    let r = sqlx::query(
+        "UPDATE event_donations SET
+            payment_status = $1,
+            payment_updated_at = NOW(),
+            paid_at = CASE WHEN $1 = 'paid' THEN NOW() ELSE paid_at END,
+            payment_failure_reason = CASE WHEN $1 IN ('paid','refunded') THEN NULL ELSE payment_failure_reason END,
+            gateway_payment_id = CASE WHEN $2 IS NOT NULL THEN $2 ELSE gateway_payment_id END,
+            payment_admin_note = CASE WHEN $3 IS NOT NULL THEN $3 ELSE payment_admin_note END
+         WHERE id = $4
+           AND (
+             (payment_status IN ('failed','pending') AND $1 IN ('paid','refunded'))
+             OR (payment_status = 'paid' AND $1 = 'refunded')
+           )",
+    )
+    .bind(&new_status)
+    .bind(&gateway_id)
+    .bind(&admin_note)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Payment updated".to_string(),
+        }),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Event donation not found or payment status cannot be changed"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,

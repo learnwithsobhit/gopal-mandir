@@ -549,6 +549,32 @@ class ApiService {
     return false;
   }
 
+  /// Records gateway/checkout failure on the server (pending row → failed) when webhooks are unavailable.
+  Future<void> notifyRazorpayClientPaymentFailed({
+    required String orderId,
+    required String referenceId,
+    String? reason,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/payments/razorpay/client-failed'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'order_id': orderId,
+          'reference_id': referenceId,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+        }),
+      );
+      if (response.statusCode != 200) {
+        print(
+          'razorpay client-failed: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('razorpay client-failed error: $e');
+    }
+  }
+
   Future<DonationCheckoutResponse> createSevaBookingCheckout(SevaBookingRequest req) async {
     try {
       final response = await http.post(
@@ -1371,6 +1397,72 @@ class ApiService {
     return [];
   }
 
+  Future<SimpleActionResponse> adminPatchDonationPayment(
+    String token,
+    int id, {
+    required String paymentStatus,
+    String? gatewayPaymentId,
+    String? adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'payment_status': paymentStatus,
+        if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
+          'gateway_payment_id': gatewayPaymentId,
+        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/donations/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin patch donation payment: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchEventDonationPayment(
+    String token,
+    int id, {
+    required String paymentStatus,
+    String? gatewayPaymentId,
+    String? adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'payment_status': paymentStatus,
+        if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
+          'gateway_payment_id': gatewayPaymentId,
+        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/events/donations/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin patch event donation payment: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
   // ──────────────────────────────────────────────
   // Admin Aarti CRUD
   // ──────────────────────────────────────────────
@@ -1570,6 +1662,41 @@ class ApiService {
       return SimpleActionResponse(success: false, message: msg);
     } catch (e) {
       print('admin seva booking patch: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchSevaBookingPayment(
+    String token,
+    String referenceId, {
+    required String paymentStatus,
+    String? gatewayPaymentId,
+    String? adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'payment_status': paymentStatus,
+        if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
+          'gateway_payment_id': gatewayPaymentId,
+        if (adminNote != null && adminNote.isNotEmpty) 'admin_note': adminNote,
+      };
+      final response = await http.patch(
+        Uri.parse(
+          '$baseUrl/api/admin/seva/bookings/payment/${Uri.encodeComponent(referenceId)}',
+        ),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('admin patch seva booking payment: $e');
       return SimpleActionResponse(success: false, message: 'Network error');
     }
   }
