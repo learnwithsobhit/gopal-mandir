@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
+import '../widgets/app_surface.dart';
 import '../services/api_service.dart';
 import '../payments/razorpay_donation.dart';
 
@@ -208,31 +210,17 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
     return VrindavanBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text('Book Seva'),
-          backgroundColor: AppColors.krishnaBlue,
-          foregroundColor: Colors.white,
-        ),
+        appBar: AppBar(title: const Text('Book Seva')),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: AppSpacing.screenInsets,
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.softWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.krishnaBlue.withAlpha(10),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                AppSurface(
+                  level: AppSurfaceLevel.low,
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Row(
                     children: [
                       Container(
@@ -241,148 +229,109 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              AppColors.krishnaBlue.withAlpha(40),
-                              AppColors.krishnaBlue.withAlpha(20),
+                              Theme.of(context).colorScheme.primary.withAlpha(100),
+                              Theme.of(context).colorScheme.primary.withAlpha(50),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.self_improvement, color: Colors.white, size: 28),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               widget.item.name,
-                              style: const TextStyle(
-                                fontFamily: 'PlayfairDisplay',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontFamily: 'Playfair Display',
+                                  ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(
                               widget.item.description,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 12,
-                                color: AppColors.warmGrey,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.sm),
                       Text(
                         '₹${widget.item.price.toInt()}',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.peacockGreen,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.peacockGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 if (widget.item.price < 100)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: Text(
                       'This seva is listed under ₹100 — your booking is submitted without online payment.',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.softWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.krishnaBlue.withAlpha(8),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                AppSurface(
+                  level: AppSurfaceLevel.low,
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Your Details',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Full Name',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Full Name'),
                         validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your name' : null,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Phone Number'),
                         validator: (v) => v == null || v.trim().length < 8 ? 'Please enter a valid phone' : null,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _preferredDateController,
                         readOnly: true,
                         decoration: const InputDecoration(
                           labelText: 'Preferred date (optional)',
-                          border: OutlineInputBorder(),
                           suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
                         ),
                         onTap: _pickPreferredDate,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _notesController,
                         minLines: 2,
                         maxLines: 4,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes (optional)',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: 'Notes (optional)'),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : _confirm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.krishnaBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      textStyle: const TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _submitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(widget.item.price < 100 ? 'Confirm Seva Booking' : 'Pay & book seva'),
+                const SizedBox(height: AppSpacing.xxl),
+                FilledButton(
+                  onPressed: _submitting ? null : _confirm,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
                   ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(widget.item.price < 100 ? 'Confirm Seva Booking' : 'Pay & book seva'),
                 ),
               ],
             ),

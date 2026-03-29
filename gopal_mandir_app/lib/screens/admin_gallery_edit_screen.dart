@@ -222,8 +222,6 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? 'New gallery item' : 'Edit gallery item'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

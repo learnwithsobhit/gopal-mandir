@@ -64,8 +64,6 @@ class _AdminPanchangListScreenState extends State<AdminPanchangListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Panchang (admin)'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

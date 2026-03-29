@@ -53,8 +53,6 @@ class _AdminEventParticipationsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event Participations'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

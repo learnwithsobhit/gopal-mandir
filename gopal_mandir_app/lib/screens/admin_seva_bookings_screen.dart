@@ -110,8 +110,6 @@ class _AdminSevaBookingsScreenState extends State<AdminSevaBookingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seva Bookings'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
       ),
       body: Column(

@@ -100,8 +100,6 @@ class _AdminSevaItemEditScreenState extends State<AdminSevaItemEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Seva Item' : 'New Seva Item'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

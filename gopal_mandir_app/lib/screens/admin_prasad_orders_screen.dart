@@ -99,8 +99,6 @@ class _AdminPrasadOrdersScreenState extends State<AdminPrasadOrdersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Prasad orders'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
       ),
       body: Column(

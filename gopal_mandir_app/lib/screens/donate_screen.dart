@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../payments/razorpay_donation.dart';
+import '../widgets/app_amount_chips.dart';
+import '../widgets/app_screen_header.dart';
+import '../widgets/app_section_title.dart';
+import '../widgets/app_text_form_field.dart';
 
 class DonateScreen extends StatefulWidget {
   final String? initialPurpose;
@@ -41,162 +46,74 @@ class _DonateScreenState extends State<DonateScreen> {
     if (widget.initialPurpose != null && _purpose == 'General Donation') {
       _purpose = widget.initialPurpose!;
     }
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('दान'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('दान')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.screenInsets,
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.peacockGreen,
-                      AppColors.peacockGreenLight,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.favorite, color: Colors.white, size: 40),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'सेवा में दान',
-                            style: TextStyle(
-                              fontFamily: 'PlayfairDisplay',
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            'Your contribution supports temple seva and community welfare',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 12,
-                              color: Colors.white.withAlpha(200),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              AppScreenHeader(
+                title: 'सेवा में दान',
+                subtitle: 'Your contribution supports temple seva and community welfare',
+                icon: Icons.favorite_rounded,
               ),
-
-              const SizedBox(height: 24),
-
-              // Amount selection
-              const Text(
-                'Select Amount (₹)',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.darkBrown,
-                ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xxl),
+              AppSectionTitle(title: 'Select Amount (₹)'),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  ..._presetAmounts.map((amount) {
-                    final selected = !_useCustomAmount && _presetAmount == amount;
-                    return GestureDetector(
-                      onTap: _submitting
-                          ? null
-                          : () => setState(() {
-                                _useCustomAmount = false;
-                                _presetAmount = amount;
-                              }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.krishnaBlue : AppColors.softWhite,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: selected ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
-                          ),
-                          boxShadow: selected
-                              ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
-                              : null,
-                        ),
-                        child: Text(
-                          '₹$amount',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : AppColors.darkBrown,
-                          ),
-                        ),
+                  AppAmountChips(
+                    amounts: _presetAmounts,
+                    selectedAmount: _useCustomAmount ? -1 : _presetAmount,
+                    enabled: !_submitting,
+                    onSelect: (a) => setState(() {
+                      _useCustomAmount = false;
+                      _presetAmount = a;
+                    }),
+                  ),
+                  FilterChip(
+                    label: Text(
+                      'Other',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: _useCustomAmount ? Colors.white : cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
-                    );
-                  }),
-                  GestureDetector(
-                    onTap: _submitting ? null : () => setState(() => _useCustomAmount = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.softWhite,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
-                        ),
-                        boxShadow: _useCustomAmount
-                            ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
-                            : null,
-                      ),
-                      child: Text(
-                        'Other',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: _useCustomAmount ? Colors.white : AppColors.darkBrown,
-                        ),
-                      ),
+                    ),
+                    selected: _useCustomAmount,
+                    onSelected: _submitting
+                        ? null
+                        : (v) => setState(() => _useCustomAmount = v),
+                    showCheckmark: false,
+                    selectedColor: cs.primary,
+                    backgroundColor: cs.surfaceContainerHigh,
+                    side: BorderSide(
+                      color: _useCustomAmount ? cs.primary : cs.outline.withAlpha(120),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.fieldRadius),
                     ),
                   ),
                 ],
               ),
               if (_useCustomAmount) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextFormField(
                   controller: _customAmountController,
                   enabled: !_submitting,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: 'Amount (₹, min 100)',
-                    labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
                     prefixText: '₹ ',
-                    prefixStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.darkBrown),
-                    filled: true,
-                    fillColor: AppColors.softWhite,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.krishnaBlue),
-                    ),
+                    prefixStyle: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                   ),
                   validator: (v) {
                     final raw = (v ?? '').trim().replaceAll(',', '');
@@ -209,64 +126,22 @@ class _DonateScreenState extends State<DonateScreen> {
                   },
                 ),
               ],
-
-              const SizedBox(height: 24),
-
-              // Purpose dropdown
-              const Text(
-                'Purpose',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.darkBrown,
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.xxl),
+              AppSectionTitle(title: 'Purpose'),
               DropdownMenu<String>(
                 initialSelection: _purpose,
                 enabled: !_submitting,
-                width: double.infinity,
-                textStyle: const TextStyle(fontFamily: 'Poppins', fontSize: 14, color: AppColors.darkBrown),
-                inputDecorationTheme: InputDecorationTheme(
-                  filled: true,
-                  fillColor: AppColors.softWhite,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.krishnaBlue),
-                  ),
-                ),
+                width: MediaQuery.sizeOf(context).width - 2 * AppSpacing.screenPadding,
+                textStyle: theme.textTheme.bodyLarge,
+                inputDecorationTheme: theme.inputDecorationTheme,
                 dropdownMenuEntries: _purposes
                     .map(
                       (p) => DropdownMenuEntry<String>(
                         value: p,
                         label: p,
                         trailingIcon: p == _purpose
-                            ? const Icon(Icons.check, size: 18, color: AppColors.krishnaBlue)
+                            ? Icon(Icons.check, size: 18, color: cs.primary)
                             : null,
-                        style: ButtonStyle(
-                          textStyle: const WidgetStatePropertyAll(TextStyle(fontFamily: 'Poppins')),
-                          foregroundColor: const WidgetStatePropertyAll(AppColors.darkBrown),
-                          overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                            (states) {
-                              if (states.contains(WidgetState.selected)) {
-                                return AppColors.krishnaBlue.withAlpha(16);
-                              }
-                              if (states.contains(WidgetState.pressed)) {
-                                return AppColors.krishnaBlue.withAlpha(22);
-                              }
-                              if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
-                                return AppColors.krishnaBlue.withAlpha(12);
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
                       ),
                     )
                     .toList(),
@@ -275,26 +150,26 @@ class _DonateScreenState extends State<DonateScreen> {
                   setState(() => _purpose = v);
                 },
               ),
-
-              const SizedBox(height: 24),
-
-              _buildField(
-                'Your Name',
-                _nameController,
-                Icons.person,
+              const SizedBox(height: AppSpacing.xxl),
+              AppTextFormField(
+                labelText: 'Your Name',
+                prefixIcon: Icon(Icons.person_outline, color: cs.primary),
+                controller: _nameController,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Please enter your name';
                   if (v.trim().length < 2) return 'Name is too short';
                   return null;
                 },
-                enabled: !_submitting,
               ),
-              const SizedBox(height: 16),
-              _buildField(
-                'Phone Number',
-                _phoneController,
-                Icons.phone,
-                keyboard: TextInputType.phone,
+              AppTextFormField(
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined, color: cs.primary),
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
                   final raw = (v ?? '').trim();
                   if (raw.isEmpty) return 'Please enter phone number';
@@ -302,58 +177,49 @@ class _DonateScreenState extends State<DonateScreen> {
                   if (digits.length < 10) return 'Enter a valid phone number';
                   return null;
                 },
-                enabled: !_submitting,
               ),
-              const SizedBox(height: 16),
-              _buildField(
-                'Email (optional)',
-                _emailController,
-                Icons.email,
-                keyboard: TextInputType.emailAddress,
+              AppTextFormField(
+                labelText: 'Email (optional)',
+                prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.done,
                 validator: (v) {
                   final raw = (v ?? '').trim();
                   if (raw.isEmpty) return null;
                   final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(raw);
                   return ok ? null : 'Enter a valid email';
                 },
-                enabled: !_submitting,
               ),
-
-              const SizedBox(height: 32),
-
-              // Donate button
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.templeGold,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              const SizedBox(height: AppSpacing.xl),
+              FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.templeGold,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                        )
-                      : Text(
-                          'Donate ₹${_donateAmountLabel()}',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
+                  textStyle: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : Text('Donate ₹${_donateAmountLabel()}'),
               ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               Center(
                 child: Text(
                   'Secure & Trusted',
-                  style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                  style: theme.textTheme.bodySmall,
                 ),
               ),
             ],
@@ -392,8 +258,8 @@ class _DonateScreenState extends State<DonateScreen> {
     final amount = _effectiveDonationAmount();
     if (amount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid amount (minimum ₹100).'),
+        SnackBar(
+          content: const Text('Enter a valid amount (minimum ₹100).'),
           backgroundColor: AppColors.urgentRed,
         ),
       );
@@ -516,41 +382,6 @@ class _DonateScreenState extends State<DonateScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  Widget _buildField(
-    String label,
-    TextEditingController ctrl,
-    IconData icon, {
-    TextInputType? keyboard,
-    String? Function(String?)? validator,
-    bool enabled = true,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: keyboard,
-      validator: validator,
-      enabled: enabled,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
-        prefixIcon: Icon(icon, color: AppColors.krishnaBlue),
-        filled: true,
-        fillColor: AppColors.softWhite,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.krishnaBlue),
-        ),
-      ),
-    );
   }
 
   @override

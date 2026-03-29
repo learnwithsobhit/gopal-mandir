@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../models/models.dart';
+import '../widgets/app_surface.dart';
 
 class MembershipScreen extends StatefulWidget {
   const MembershipScreen({super.key});
@@ -225,119 +227,78 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final member = _member;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Membership'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Membership')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
+          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : (member != null ? _buildLoggedIn(member) : _buildJoinFlow()),
     );
   }
 
   Widget _buildLoggedIn(MemberProfile member) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.screenInsets,
       children: [
         if (_error != null) _errorBanner(_error!),
         _profileCard(member),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _logout,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.krishnaBlue,
-              foregroundColor: Colors.white,
-              textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Logout'),
-          ),
+        const SizedBox(height: AppSpacing.md),
+        FilledButton(
+          onPressed: _logout,
+          child: const Text('Logout'),
         ),
       ],
     );
   }
 
   Widget _buildJoinFlow() {
+    final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: AppSpacing.screenInsets,
       children: [
         if (_error != null) _errorBanner(_error!),
         _sectionTitle('Join as a member'),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _phoneCtrl,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Phone number',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Phone number'),
         ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _sendOtp,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.krishnaBlue,
-              foregroundColor: Colors.white,
-              textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Send OTP'),
-          ),
+        const SizedBox(height: AppSpacing.md),
+        FilledButton(
+          onPressed: _sendOtp,
+          child: const Text('Send OTP'),
         ),
         if (_devOtp != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'Dev OTP: $_devOtp',
-            style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+            style: theme.textTheme.bodySmall,
           ),
         ],
-        const SizedBox(height: 14),
+        const SizedBox(height: AppSpacing.lg),
         TextField(
           controller: _otpCtrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Enter OTP',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Enter OTP'),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _nameCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Name (optional)',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Name (optional)'),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            labelText: 'Email (optional)',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'Email (optional)'),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _verifyOtp,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.templeGold,
-              foregroundColor: Colors.black87,
-              textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Verify & Join'),
+        const SizedBox(height: AppSpacing.lg),
+        FilledButton(
+          onPressed: _verifyOtp,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.templeGold,
+            foregroundColor: Colors.black87,
           ),
+          child: const Text('Verify & Join'),
         ),
       ],
     );
@@ -345,16 +306,16 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   Widget _errorBanner(String text) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.urgentRed.withAlpha(18),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.fieldRadius),
         border: Border.all(color: AppColors.urgentRed.withAlpha(50)),
       ),
       child: Text(
         text,
-        style: const TextStyle(fontFamily: 'Poppins', color: AppColors.urgentRed),
+        style: TextStyle(color: AppColors.urgentRed, fontSize: 14, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -362,37 +323,22 @@ class _MembershipScreenState extends State<MembershipScreen> {
   Widget _sectionTitle(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        fontFamily: 'PlayfairDisplay',
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: AppColors.darkBrown,
-      ),
+      style: Theme.of(context).textTheme.headlineSmall,
     );
   }
 
   Widget _profileCard(MemberProfile member) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.softWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.krishnaBlue.withAlpha(10),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return AppSurface(
+      level: AppSurfaceLevel.low,
+      padding: AppSpacing.screenInsets,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your membership',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 16),
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.md),
           _kv('Phone', member.phone),
           _kv('Name', member.name.isEmpty ? '—' : member.name),
           _kv('Email', member.email.isEmpty ? '—' : member.email),
@@ -403,8 +349,9 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Widget _kv(String k, String v) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -412,13 +359,13 @@ class _MembershipScreenState extends State<MembershipScreen> {
             width: 72,
             child: Text(
               k,
-              style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+              style: theme.textTheme.bodySmall,
             ),
           ),
           Expanded(
             child: Text(
               v,
-              style: const TextStyle(fontFamily: 'Poppins', fontSize: 13),
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurface),
             ),
           ),
         ],

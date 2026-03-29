@@ -123,8 +123,6 @@ class _AdminPanchangEditScreenState extends State<AdminPanchangEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Panchang' : 'New Panchang'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

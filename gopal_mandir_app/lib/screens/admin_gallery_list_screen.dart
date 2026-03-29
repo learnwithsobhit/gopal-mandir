@@ -64,8 +64,6 @@ class _AdminGalleryListScreenState extends State<AdminGalleryListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gallery (admin)'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

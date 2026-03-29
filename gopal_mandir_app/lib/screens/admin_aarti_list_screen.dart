@@ -64,8 +64,6 @@ class _AdminAartiListScreenState extends State<AdminAartiListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Aarti Schedule (admin)'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

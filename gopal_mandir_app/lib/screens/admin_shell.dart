@@ -93,8 +93,6 @@ class _AdminShellState extends State<AdminShell> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_admin?.name.trim().isNotEmpty == true ? _admin!.name : 'Admin'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),

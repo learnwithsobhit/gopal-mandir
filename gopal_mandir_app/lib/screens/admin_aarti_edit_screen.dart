@@ -89,8 +89,6 @@ class _AdminAartiEditScreenState extends State<AdminAartiEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Aarti' : 'New Aarti'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
@@ -384,15 +385,8 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: Text(s.myBookings),
-          backgroundColor: AppColors.krishnaBlue,
-          foregroundColor: Colors.white,
           bottom: TabBar(
             controller: _tabs,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: AppColors.templeGold,
-            labelStyle: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: GoogleFonts.poppins(fontSize: 14),
             tabs: [
               Tab(text: s.prasad),
               Tab(text: s.seva),
@@ -402,46 +396,24 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: AppSpacing.screenInsets,
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
-                      style: GoogleFonts.poppins(fontSize: 14, color: AppColors.darkBrown),
                       decoration: InputDecoration(
                         labelText: s.phoneNumber,
-                        labelStyle: GoogleFonts.poppins(color: AppColors.warmGrey, fontSize: 14),
-                        filled: true,
-                        fillColor: AppColors.softWhite,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(76)),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.krishnaBlue),
-                        ),
                       ),
                       onSubmitted: (_) => _load(context),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.md),
                   SizedBox(
                     height: 52,
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: _loading ? null : () => _load(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.krishnaBlue,
-                        foregroundColor: Colors.white,
-                        textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
                       child: _loading
                           ? const SizedBox(
                               width: 18,
@@ -456,10 +428,13 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
             ),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                 child: Text(
                   _error!,
-                  style: GoogleFonts.poppins(fontSize: 14, color: AppColors.urgentRed),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
                 ),
               ),
             Expanded(

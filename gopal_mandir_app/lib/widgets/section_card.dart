@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 class SectionCard extends StatelessWidget {
   final String title;
@@ -17,14 +17,17 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.softWhite,
-        borderRadius: BorderRadius.circular(16),
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         boxShadow: [
           BoxShadow(
-            color: AppColors.krishnaBlue.withAlpha(15),
+            color: cs.shadow.withAlpha(24),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -34,7 +37,7 @@ class SectionCard extends StatelessWidget {
             : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -44,7 +47,9 @@ class SectionCard extends StatelessWidget {
                 Flexible(
                   child: Text(
                     title,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: cs.onSurface,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -53,17 +58,16 @@ class SectionCard extends StatelessWidget {
                     onPressed: onViewAll,
                     child: Text(
                       'View All',
-                      style: TextStyle(
-                        color: AppColors.krishnaBlue,
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: theme.textTheme.labelLarge,
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            child,
+            const SizedBox(height: AppSpacing.md),
+            DefaultTextStyle.merge(
+              style: TextStyle(color: cs.onSurface),
+              child: child,
+            ),
           ],
         ),
       ),

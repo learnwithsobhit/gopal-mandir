@@ -43,6 +43,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/images/laddu_gopal_landing.png
     - assets/images/gopal_darshan_1.jpg
     - assets/images/gopal_darshan_2.jpg
     - assets/images/gopal_darshan_3.jpg

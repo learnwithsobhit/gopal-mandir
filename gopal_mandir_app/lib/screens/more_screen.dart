@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
@@ -177,13 +178,9 @@ class _MoreScreenState extends State<MoreScreen> {
     final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(s.more),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text(s.more)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.screenInsets,
         children: [
           // Temple info card
           if (_info != null)

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../payments/razorpay_donation.dart';
+import '../widgets/app_amount_chips.dart';
+import '../widgets/app_screen_header.dart';
+import '../widgets/app_section_title.dart';
+import '../widgets/app_text_form_field.dart';
 
 class EventDonateScreen extends StatefulWidget {
   final Event event;
@@ -30,161 +35,74 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('दान'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('दान')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: AppSpacing.screenInsets,
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.peacockGreen,
-                      AppColors.peacockGreenLight,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.favorite, color: Colors.white, size: 40),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.event.title,
-                            style: const TextStyle(
-                              fontFamily: 'PlayfairDisplay',
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Donate for this event',
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontSize: 12,
-                              color: Colors.white.withAlpha(200),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              AppScreenHeader(
+                title: widget.event.title,
+                subtitle: 'Donate for this event',
+                icon: Icons.favorite_rounded,
               ),
-
-              const SizedBox(height: 24),
-
-              const Text(
-                'Select Amount (₹)',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.darkBrown,
-                ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.xxl),
+              AppSectionTitle(title: 'Select Amount (₹)'),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  ..._presetAmounts.map((amount) {
-                    final selected = !_useCustomAmount && _presetAmount == amount;
-                    return GestureDetector(
-                      onTap: _submitting
-                          ? null
-                          : () => setState(() {
-                                _useCustomAmount = false;
-                                _presetAmount = amount;
-                              }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.krishnaBlue : AppColors.softWhite,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: selected ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
-                          ),
-                          boxShadow: selected
-                              ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
-                              : null,
-                        ),
-                        child: Text(
-                          '₹$amount',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : AppColors.darkBrown,
-                          ),
-                        ),
+                  AppAmountChips(
+                    amounts: _presetAmounts,
+                    selectedAmount: _useCustomAmount ? -1 : _presetAmount,
+                    enabled: !_submitting,
+                    onSelect: (a) => setState(() {
+                      _useCustomAmount = false;
+                      _presetAmount = a;
+                    }),
+                  ),
+                  FilterChip(
+                    label: Text(
+                      'Other',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: _useCustomAmount ? Colors.white : cs.onSurface,
+                        fontWeight: FontWeight.w600,
                       ),
-                    );
-                  }),
-                  GestureDetector(
-                    onTap: _submitting ? null : () => setState(() => _useCustomAmount = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.softWhite,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _useCustomAmount ? AppColors.krishnaBlue : AppColors.krishnaBlue.withAlpha(30),
-                        ),
-                        boxShadow: _useCustomAmount
-                            ? [BoxShadow(color: AppColors.krishnaBlue.withAlpha(30), blurRadius: 8)]
-                            : null,
-                      ),
-                      child: Text(
-                        'Other',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: _useCustomAmount ? Colors.white : AppColors.darkBrown,
-                        ),
-                      ),
+                    ),
+                    selected: _useCustomAmount,
+                    onSelected: _submitting
+                        ? null
+                        : (v) => setState(() => _useCustomAmount = v),
+                    showCheckmark: false,
+                    selectedColor: cs.primary,
+                    backgroundColor: cs.surfaceContainerHigh,
+                    side: BorderSide(
+                      color: _useCustomAmount ? cs.primary : cs.outline.withAlpha(120),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.fieldRadius),
                     ),
                   ),
                 ],
               ),
               if (_useCustomAmount) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextFormField(
                   controller: _customAmountController,
                   enabled: !_submitting,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: 'Amount (₹, min 100)',
-                    labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
                     prefixText: '₹ ',
-                    prefixStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.darkBrown),
-                    filled: true,
-                    fillColor: AppColors.softWhite,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.krishnaBlue),
-                    ),
+                    prefixStyle: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                   ),
                   validator: (v) {
                     final raw = (v ?? '').trim().replaceAll(',', '');
@@ -197,26 +115,26 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   },
                 ),
               ],
-
-              const SizedBox(height: 24),
-
-              _buildField(
-                'Your Name',
-                _nameController,
-                Icons.person,
+              const SizedBox(height: AppSpacing.xxl),
+              AppTextFormField(
+                labelText: 'Your Name',
+                prefixIcon: Icon(Icons.person_outline, color: cs.primary),
+                controller: _nameController,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Please enter your name';
                   if (v.trim().length < 2) return 'Name is too short';
                   return null;
                 },
-                enabled: !_submitting,
               ),
-              const SizedBox(height: 16),
-              _buildField(
-                'Phone Number',
-                _phoneController,
-                Icons.phone,
-                keyboard: TextInputType.phone,
+              AppTextFormField(
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined, color: cs.primary),
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
                   final raw = (v ?? '').trim();
                   if (raw.isEmpty) return 'Please enter phone number';
@@ -224,65 +142,62 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   if (digits.length < 10) return 'Enter a valid phone number';
                   return null;
                 },
-                enabled: !_submitting,
               ),
-              const SizedBox(height: 16),
-              _buildField(
-                'Email (optional)',
-                _emailController,
-                Icons.email,
-                keyboard: TextInputType.emailAddress,
+              AppTextFormField(
+                labelText: 'Email (optional)',
+                prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                enabled: !_submitting,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
                   final raw = (v ?? '').trim();
                   if (raw.isEmpty) return null;
                   final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(raw);
                   return ok ? null : 'Enter a valid email';
                 },
-                enabled: !_submitting,
               ),
-              const SizedBox(height: 16),
-              _buildField(
-                'Message (optional)',
-                _messageController,
-                Icons.message,
-                enabled: !_submitting,
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.templeGold,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                child: TextFormField(
+                  controller: _messageController,
+                  enabled: !_submitting,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: 'Message (optional)',
+                    prefixIcon: Icon(Icons.message_outlined, color: cs.primary),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                        )
-                      : Text(
-                          'Donate ₹${_donateAmountLabel()}',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
                 ),
               ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.md),
+              FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.templeGold,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : Text('Donate ₹${_donateAmountLabel()}'),
+              ),
+              const SizedBox(height: AppSpacing.lg),
               Center(
                 child: Text(
                   'Secure & Trusted',
-                  style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                  style: theme.textTheme.bodySmall,
                 ),
               ),
             ],
@@ -321,8 +236,8 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
     final amount = _effectiveDonationAmount();
     if (amount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid amount (minimum ₹100).'),
+        SnackBar(
+          content: const Text('Enter a valid amount (minimum ₹100).'),
           backgroundColor: AppColors.urgentRed,
         ),
       );
@@ -447,43 +362,6 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  Widget _buildField(
-    String label,
-    TextEditingController ctrl,
-    IconData icon, {
-    TextInputType? keyboard,
-    String? Function(String?)? validator,
-    bool enabled = true,
-    int maxLines = 1,
-  }) {
-    return TextFormField(
-      controller: ctrl,
-      keyboardType: keyboard,
-      validator: validator,
-      enabled: enabled,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
-        prefixIcon: Icon(icon, color: AppColors.krishnaBlue),
-        filled: true,
-        fillColor: AppColors.softWhite,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.krishnaBlue),
-        ),
-      ),
-    );
   }
 
   @override

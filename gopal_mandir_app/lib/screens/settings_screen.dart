@@ -5,6 +5,7 @@ import '../l10n/locale_scope.dart';
 import '../l10n/app_language.dart';
 import '../services/settings_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -68,7 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(s.settings)),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         children: [
           _sectionHeader(s.settingsAppearance),
           _themeSelector(s, isDark),

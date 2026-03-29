@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../widgets/vrindavan_background.dart';
 import '../widgets/darshan_banner.dart';
 import '../widgets/quick_action_button.dart';
 import '../widgets/section_card.dart';
 import '../services/api_service.dart';
+import '../services/home_preload_cache.dart';
 import '../models/models.dart';
 import '../l10n/app_language.dart';
 import '../l10n/locale_scope.dart';
@@ -35,6 +37,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    final fresh = HomePreloadCache.instance.peekIfFresh();
+    if (fresh != null) {
+      _quote = fresh.quote;
+      _announcements = fresh.announcements;
+      _events = fresh.events;
+    }
     _loadData();
   }
 
@@ -101,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverAppBar(
               expandedHeight: 0,
               floating: true,
-              backgroundColor: AppColors.krishnaBlue,
               title: Row(
                 children: [
                   SizedBox(
@@ -170,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Quick Actions
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                     child: GridView.count(
                       crossAxisCount: 4,
                       shrinkWrap: true,

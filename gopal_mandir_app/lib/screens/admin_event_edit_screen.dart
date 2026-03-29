@@ -207,8 +207,6 @@ class _AdminEventEditScreenState extends State<AdminEventEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Event' : 'New Event'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

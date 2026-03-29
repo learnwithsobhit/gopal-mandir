@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../models/models.dart';
 import '../widgets/vrindavan_background.dart';
+import '../widgets/app_surface.dart';
 import '../services/api_service.dart';
 import '../payments/razorpay_donation.dart';
 
@@ -232,31 +234,17 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     return VrindavanBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          title: const Text('Book Prasad'),
-          backgroundColor: AppColors.krishnaBlue,
-          foregroundColor: Colors.white,
-        ),
+        appBar: AppBar(title: const Text('Book Prasad')),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: AppSpacing.screenInsets,
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.softWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.krishnaBlue.withAlpha(10),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+                AppSurface(
+                  level: AppSurfaceLevel.low,
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Row(
                     children: [
                       Container(
@@ -270,68 +258,50 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                         ),
                         child: const Icon(Icons.cookie, color: AppColors.templeGoldDark, size: 28),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               widget.item.name,
-                              style: const TextStyle(
-                                fontFamily: 'PlayfairDisplay',
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontFamily: 'Playfair Display',
+                                  ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(
                               widget.item.description,
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 12,
-                                color: AppColors.warmGrey,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.sm),
                       Text(
                         '₹${widget.item.price.toInt()}',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.peacockGreen,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: AppColors.peacockGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                     ],
                   ),
                 ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
 
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.softWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.krishnaBlue.withAlpha(8),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+              AppSurface(
+                level: AppSurfaceLevel.low,
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Quantity',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.md),
                     Row(
                       children: [
                         IconButton(
@@ -346,7 +316,9 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           ),
                           child: Text(
                             '$_qty',
-                            style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                         ),
                         IconButton(
@@ -358,24 +330,24 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'Subtotal: ₹${_subtotal.toStringAsFixed(2)}',
-                      style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.darkBrown),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                     ),
                     if (_fulfillment == PrasadFulfillment.delivery) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         'Delivery (10%): ₹${_deliveryFee.toStringAsFixed(2)}',
-                        style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       'Total: ₹${_grandTotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.peacockGreen,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.peacockGreen,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                     if (_needsOnlinePayment && _grandTotal < 100)
                       const Padding(
@@ -385,12 +357,12 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.urgentRed),
                         ),
                       ),
-                    const SizedBox(height: 12),
-                    const Text(
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
                       'Fulfillment',
-                      style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.sm),
                     SegmentedButton<PrasadFulfillment>(
                       segments: const [
                         ButtonSegment(
@@ -410,12 +382,12 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                           : (value) => setState(() => _fulfillment = value.first),
                     ),
                     if (_fulfillment == PrasadFulfillment.pickup) ...[
-                      const SizedBox(height: 14),
-                      const Text(
+                      const SizedBox(height: AppSpacing.lg),
+                      Text(
                         'Payment',
-                        style: TextStyle(fontFamily: 'Poppins', fontSize: 14, fontWeight: FontWeight.w600),
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       SegmentedButton<PrasadPickupPayment>(
                         segments: const [
                           ButtonSegment(
@@ -439,7 +411,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
 
               _field(
                 label: 'Your Name',
@@ -451,7 +423,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               _field(
                 label: 'Phone Number',
                 icon: Icons.phone,
@@ -465,7 +437,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               if (_fulfillment == PrasadFulfillment.delivery) ...[
                 _field(
                   label: 'Delivery Address',
@@ -480,7 +452,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
               ],
               _field(
                 label: 'Notes (optional)',
@@ -490,35 +462,28 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                 maxLines: 3,
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.xl),
 
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: _submitting ? null : _confirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.peacockGreen,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                        )
-                      : Text(
-                          _needsOnlinePayment
-                              ? 'Pay ₹${_grandTotal.toStringAsFixed(2)}'
-                              : 'Book • Pay ₹${_grandTotal.toStringAsFixed(2)} at temple',
-                          style: const TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
+              FilledButton(
+                onPressed: _submitting ? null : _confirm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.peacockGreen,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 54),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : Text(
+                        _needsOnlinePayment
+                            ? 'Pay ₹${_grandTotal.toStringAsFixed(2)}'
+                            : 'Book • Pay ₹${_grandTotal.toStringAsFixed(2)} at temple',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
               ),
               ],
             ),
@@ -537,6 +502,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     int minLines = 1,
     int maxLines = 1,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -545,22 +511,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
-        prefixIcon: Icon(icon, color: AppColors.krishnaBlue),
-        filled: true,
-        fillColor: AppColors.softWhite,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.krishnaBlue.withAlpha(30)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.krishnaBlue),
-        ),
+        prefixIcon: Icon(icon, color: cs.primary),
       ),
     );
   }

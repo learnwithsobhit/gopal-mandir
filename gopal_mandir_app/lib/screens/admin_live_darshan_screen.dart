@@ -69,8 +69,6 @@ class _AdminLiveDarshanScreenState extends State<AdminLiveDarshanScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live Darshan'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
       ),
       body: _loading

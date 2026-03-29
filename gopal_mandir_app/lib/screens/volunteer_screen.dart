@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 
@@ -13,7 +14,7 @@ class VolunteerScreen extends StatefulWidget {
 class _VolunteerScreenState extends State<VolunteerScreen> {
   final ApiService _api = ApiService();
   final ScrollController _scrollController = ScrollController();
-  static const double _bottomButtonHeight = 48;
+  static const double _bottomButtonHeight = 52;
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -118,131 +119,120 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Volunteer'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Volunteer')),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+          ),
           child: SizedBox(
             height: _bottomButtonHeight,
             width: double.infinity,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: _loading ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.krishnaBlue,
-                foregroundColor: Colors.white,
-                textStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
               child: const Text('Submit'),
             ),
           ),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
+          ? Center(child: CircularProgressIndicator(color: cs.primary))
           : ListView(
               controller: _scrollController,
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomSafe + _bottomButtonHeight + 28),
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg + bottomSafe + _bottomButtonHeight + 28,
+              ),
               children: [
-                const Text(
+                Text(
                   'Join our sevak team',
-                  style: TextStyle(
-                    fontFamily: 'PlayfairDisplay',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.darkBrown,
-                  ),
+                  style: theme.textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Share your availability and interests. We will contact you soon.',
-                  style: TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey),
+                  style: theme.textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 if (_error != null) _banner(_error!, isError: true),
                 if (_success != null) _banner(_success!, isError: false),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Name *',
-                    border: OutlineInputBorder(),
-                  ),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Name *'),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone *',
-                    border: OutlineInputBorder(),
-                  ),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Phone *'),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email (optional)',
-                    border: OutlineInputBorder(),
-                  ),
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Email (optional)'),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 DropdownButtonFormField<String>(
+                  // ignore: deprecated_member_use — value tracks controlled selection
                   value: _selectedArea,
-                  decoration: const InputDecoration(
-                    labelText: 'Area of interest',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Area of interest'),
                   items: _areas.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
                   onChanged: (v) {
                     if (v == null) return;
                     setState(() => _selectedArea = v);
                   },
                 ),
-                const SizedBox(height: 12),
-                const Text(
+                const SizedBox(height: AppSpacing.md),
+                Text(
                   'Availability',
-                  style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600),
+                  style: theme.textTheme.titleMedium,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
                   children: _availabilityChips.entries.map((e) {
                     return FilterChip(
                       label: Text(e.key),
                       selected: e.value,
                       onSelected: (v) => setState(() => _availabilityChips[e.key] = v),
-                      selectedColor: AppColors.krishnaBlue.withAlpha(20),
-                      checkmarkColor: AppColors.krishnaBlue,
+                      selectedColor: cs.primary.withAlpha(48),
+                      checkmarkColor: cs.primary,
+                      side: BorderSide(color: cs.outline.withAlpha(100)),
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _availabilityCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Other availability (optional)',
-                    border: OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _messageCtrl,
                   minLines: 3,
                   maxLines: 5,
                   decoration: const InputDecoration(
                     labelText: 'Message (optional)',
-                    border: OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -251,19 +241,18 @@ class _VolunteerScreenState extends State<VolunteerScreen> {
   }
 
   Widget _banner(String text, {required bool isError}) {
-    final color = isError ? AppColors.urgentRed : AppColors.krishnaBlue;
+    final color = isError ? AppColors.urgentRed : Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: color.withAlpha(18),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.fieldRadius),
         border: Border.all(color: color.withAlpha(50)),
       ),
       child: Text(
         text,
-        style: TextStyle(fontFamily: 'Poppins', color: color),
+        style: TextStyle(color: color, fontWeight: FontWeight.w500),
       ),
     );
   }
 }
-

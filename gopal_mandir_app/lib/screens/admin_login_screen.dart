@@ -93,8 +93,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       backgroundColor: AppColors.softWhite,
       appBar: AppBar(
         title: const Text('Temple staff login'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

@@ -106,8 +106,6 @@ class _AdminEventDonationsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Event Donations'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],

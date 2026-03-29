@@ -64,8 +64,6 @@ class _AdminSevaItemsListScreenState extends State<AdminSevaItemsListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seva Items (admin)'),
-        backgroundColor: AppColors.krishnaBlue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
