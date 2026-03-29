@@ -10,6 +10,7 @@ import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import 'landing_web_audio.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -31,6 +32,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final Map<int, int> _likeCounts = {};
   final Map<int, int> _commentCounts = {};
   AudioPlayer? _galleryAudioPlayer;
+  LandingWebAudio? _webGalleryAudio;
 
   List<String> get _categories {
     final set = <String>{'All'};
@@ -151,6 +153,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   void dispose() {
+    _webGalleryAudio?.dispose();
+    _webGalleryAudio = null;
     unawaited(_galleryAudioPlayer?.dispose());
     _galleryAudioPlayer = null;
     _scrollController.removeListener(_onScroll);
@@ -301,28 +305,27 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   );
                 }
                 final item = _filteredItems[index];
-                return GestureDetector(
-                  onTap: () {
-                    if (item.isAudio) {
-                      _openAudio(item);
-                    } else if (item.isVideo) {
-                      _openVideo(context, item);
-                    } else {
-                      _showFullImage(context, item);
-                    }
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.softWhite,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.krishnaBlue.withAlpha(12),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                return Material(
+                  color: AppColors.softWhite,
+                  elevation: 3,
+                  shadowColor: AppColors.krishnaBlue.withAlpha(48),
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      if (item.isAudio) {
+                        if (kIsWeb) {
+                          _openAudioWebFromTap(item);
+                        } else {
+                          unawaited(_openAudio(item));
+                        }
+                      } else if (item.isVideo) {
+                        _openVideo(context, item);
+                      } else {
+                        _showFullImage(context, item);
+                      }
+                    },
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -466,6 +469,130 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       ),
     );
+  }
+
+  /// Web: `just_audio` awaits before `play()`, which loses mobile Safari user activation.
+  /// HTML [AudioElement.play] runs in the same turn as the grid tap.
+  void _openAudioWebFromTap(GalleryItem item) {
+    if (!mounted) return;
+    final s = AppLocaleScope.of(context).strings;
+    final raw = item.videoUrl.trim();
+    if (raw.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.galleryAudioUrlMissing)),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !uri.hasScheme) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.galleryInvalidAudioUrl)),
+      );
+      return;
+    }
+    final url = _effectiveAudioUrl(raw);
+
+    _webGalleryAudio?.dispose();
+    _webGalleryAudio = LandingWebAudio();
+    final w = _webGalleryAudio!;
+    w.prepare(url, volume: 1, loop: false);
+    w.playFromUserGesture((Object? e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${s.galleryCouldNotLoadAudio}: $e')),
+      );
+    });
+    unawaited(_showGalleryAudioBottomSheetWeb(item, w));
+  }
+
+  Future<void> _showGalleryAudioBottomSheetWeb(GalleryItem item, LandingWebAudio w) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewPadding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.audiotrack, color: AppColors.krishnaBlue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: AppColors.darkBrown,
+                          ),
+                        ),
+                        Text(
+                          item.category,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            color: AppColors.krishnaBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(sheetContext),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<bool>(
+                valueListenable: w.playing,
+                builder: (context, playing, _) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        iconSize: 56,
+                        onPressed: () {
+                          if (playing) {
+                            w.pause();
+                          } else {
+                            w.playFromUserGesture();
+                          }
+                        },
+                        icon: Icon(
+                          playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                          size: 56,
+                          color: AppColors.krishnaBlue,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    w.dispose();
+    if (identical(_webGalleryAudio, w)) {
+      _webGalleryAudio = null;
+    }
   }
 
   Future<void> _openAudio(GalleryItem item) async {
