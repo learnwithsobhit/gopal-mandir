@@ -139,10 +139,13 @@ class _LandingScreenState extends State<LandingScreen> {
                   borderRadius: BorderRadius.circular(28),
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Image.asset(
-                      'assets/images/laddu_gopal_landing.png',
-                      fit: BoxFit.contain,
-                      semanticLabel: 'Tap to enter',
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(28),
+                      child: Image.asset(
+                        'assets/images/laddu_gopal_landing.png',
+                        fit: BoxFit.contain,
+                        semanticLabel: 'Tap to enter',
+                      ),
                     ),
                   ),
                 ),
