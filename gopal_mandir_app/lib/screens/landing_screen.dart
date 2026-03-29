@@ -27,6 +27,9 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen> {
   final ApiService _api = ApiService();
   AudioPlayer? _player;
+  /// Source loaded; button enables. Playback starts only after user taps unmute.
+  bool _audioSourceReady = false;
+  bool _audioUnmuted = false;
 
   static String _playbackUrl(String raw) {
     final trimmed = raw.trim();
@@ -68,9 +71,30 @@ class _LandingScreenState extends State<LandingScreen> {
         return;
       }
       _player = player;
-      unawaited(player.play());
+      if (mounted) setState(() => _audioSourceReady = true);
     } catch (e) {
       debugPrint('Landing audio failed: $e');
+    }
+  }
+
+  Future<void> _toggleLandingSound() async {
+    final p = _player;
+    if (p == null || !_audioSourceReady) return;
+
+    if (_audioUnmuted) {
+      try {
+        await p.pause();
+      } catch (_) {}
+      if (mounted) setState(() => _audioUnmuted = false);
+      return;
+    }
+
+    if (mounted) setState(() => _audioUnmuted = true);
+    try {
+      await p.play();
+    } catch (e) {
+      debugPrint('Landing audio play() failed: $e');
+      if (mounted) setState(() => _audioUnmuted = false);
     }
   }
 
@@ -80,6 +104,8 @@ class _LandingScreenState extends State<LandingScreen> {
       await _player?.dispose();
     } catch (_) {}
     _player = null;
+    _audioSourceReady = false;
+    _audioUnmuted = false;
   }
 
   Future<void> _enter() async {
@@ -99,26 +125,50 @@ class _LandingScreenState extends State<LandingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: VrindavanBackground(
-        child: Center(
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(28),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: _enter,
-              borderRadius: BorderRadius.circular(28),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Image.asset(
-                  'assets/images/laddu_gopal_landing.png',
-                  fit: BoxFit.contain,
-                  semanticLabel: 'Tap to enter',
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          VrindavanBackground(
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(28),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: _enter,
+                  borderRadius: BorderRadius.circular(28),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Image.asset(
+                      'assets/images/laddu_gopal_landing.png',
+                      fit: BoxFit.contain,
+                      semanticLabel: 'Tap to enter',
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Material(
+                  color: Colors.black38,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: IconButton(
+                    icon: Icon(_audioUnmuted ? Icons.volume_up_rounded : Icons.volume_off_rounded),
+                    color: Colors.white,
+                    onPressed: _audioSourceReady ? _toggleLandingSound : null,
+                    tooltip: _audioUnmuted ? 'Mute' : 'Unmute',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
