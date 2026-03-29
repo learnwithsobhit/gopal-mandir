@@ -137,6 +137,57 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
     if (resp.success) _load();
   }
 
+  static String _formatYmd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _pickFromDate() async {
+    final now = DateTime.now();
+    DateTime initial = now;
+    if (_fromCtrl.text.trim().isNotEmpty) {
+      try {
+        initial = DateTime.parse(_fromCtrl.text.trim());
+      } catch (_) {}
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _fromCtrl.text = _formatYmd(picked));
+    _load();
+  }
+
+  Future<void> _pickToDate() async {
+    final now = DateTime.now();
+    DateTime first = DateTime(now.year - 1);
+    if (_fromCtrl.text.trim().isNotEmpty) {
+      try {
+        final from = DateTime.parse(_fromCtrl.text.trim());
+        if (from.isAfter(first)) first = from;
+      } catch (_) {}
+    }
+    DateTime initial = now;
+    if (_toCtrl.text.trim().isNotEmpty) {
+      try {
+        initial = DateTime.parse(_toCtrl.text.trim());
+      } catch (_) {}
+    }
+    if (initial.isBefore(first)) initial = first;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _toCtrl.text = _formatYmd(picked));
+    _load();
+  }
+
   String _payLine(PoojaBookingView b) {
     final buf = StringBuffer('Pay: ${b.paymentStatus}');
     if (b.paymentExpected != null && b.paymentExpected!.isNotEmpty) {
@@ -168,6 +219,7 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
                         value: _statusFilter,
                         decoration: const InputDecoration(
                           labelText: 'Status',
@@ -177,7 +229,10 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
                         items: [
                           const DropdownMenuItem(value: null, child: Text('All')),
                           for (final s in _statusChoices)
-                            DropdownMenuItem(value: s, child: Text(s)),
+                            DropdownMenuItem(
+                              value: s,
+                              child: Text(s, overflow: TextOverflow.ellipsis),
+                            ),
                         ],
                         onChanged: (v) {
                           setState(() => _statusFilter = v);
@@ -188,6 +243,7 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String?>(
+                        isExpanded: true,
                         value: _officiantFilter,
                         decoration: const InputDecoration(
                           labelText: 'Officiant',
@@ -213,27 +269,45 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
                     Expanded(
                       child: TextField(
                         controller: _fromCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'From YYYY-MM-DD',
-                          border: OutlineInputBorder(),
+                        readOnly: true,
+                        onTap: _pickFromDate,
+                        decoration: InputDecoration(
+                          labelText: 'From date',
+                          hintText: 'YYYY-MM-DD',
+                          border: const OutlineInputBorder(),
                           isDense: true,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.calendar_today_outlined, size: 20),
+                            tooltip: 'Pick from date',
+                            onPressed: _pickFromDate,
+                          ),
                         ),
-                        onSubmitted: (_) => _load(),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _toCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'To YYYY-MM-DD',
-                          border: OutlineInputBorder(),
+                        readOnly: true,
+                        onTap: _pickToDate,
+                        decoration: InputDecoration(
+                          labelText: 'To date',
+                          hintText: 'YYYY-MM-DD',
+                          border: const OutlineInputBorder(),
                           isDense: true,
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.calendar_today_outlined, size: 20),
+                            tooltip: 'Pick to date',
+                            onPressed: _pickToDate,
+                          ),
                         ),
-                        onSubmitted: (_) => _load(),
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.search), onPressed: _load),
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Search',
+                      onPressed: _load,
+                    ),
                   ],
                 ),
               ],
@@ -256,29 +330,74 @@ class _AdminPoojaBookingsScreenState extends State<AdminPoojaBookingsScreen> {
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               color: payHighlight ? AppColors.urgentRed.withAlpha(14) : null,
-                              child: ListTile(
-                                title: Text(b.offeringName),
-                                subtitle: Text(
-                                  '${b.referenceId}\n${b.name} · ${b.phone}\n'
-                                  '${b.bookingDate} · ${b.slotLabel} · ${b.officiant}\n'
-                                  '${_payLine(b)}',
-                                ),
-                                isThreeLine: true,
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (adminCanPatchPaymentStatus(b.paymentStatus))
-                                      IconButton(
-                                        icon: const Icon(Icons.payments_outlined),
-                                        tooltip: 'Update payment',
-                                        onPressed: () => _patchPayment(b),
-                                      ),
-                                    Chip(
-                                      label: Text(b.bookingStatus, style: const TextStyle(fontSize: 11)),
-                                    ),
-                                  ],
-                                ),
+                              child: InkWell(
                                 onTap: () => _onTapBooking(b),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              b.offeringName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              '${b.referenceId}\n${b.name} · ${b.phone}\n'
+                                              '${b.bookingDate} · ${b.slotLabel} · ${b.officiant}\n'
+                                              '${_payLine(b)}',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Not inside ListTile.trailing — avoids ~48px height cap that caused bottom overflow
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Chip(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                                            labelPadding: EdgeInsets.zero,
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            visualDensity: VisualDensity.compact,
+                                            label: Text(
+                                              b.bookingStatus,
+                                              style: const TextStyle(fontSize: 11),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (adminCanPatchPaymentStatus(b.paymentStatus))
+                                            IconButton(
+                                              visualDensity: VisualDensity.compact,
+                                              constraints: const BoxConstraints(
+                                                minWidth: 40,
+                                                minHeight: 36,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(Icons.payments_outlined, size: 22),
+                                              tooltip: 'Update payment',
+                                              onPressed: () => _patchPayment(b),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             );
                           },

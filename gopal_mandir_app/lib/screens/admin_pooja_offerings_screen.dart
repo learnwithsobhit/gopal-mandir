@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'admin_pooja_availability_screen.dart';
 
 class AdminPoojaOfferingsScreen extends StatefulWidget {
   const AdminPoojaOfferingsScreen({super.key, required this.token});
@@ -16,7 +17,6 @@ class _AdminPoojaOfferingsScreenState extends State<AdminPoojaOfferingsScreen> {
   final _api = ApiService();
   List<AdminPoojaCatalogItem> _items = [];
   bool _loading = true;
-  PoojaMetaData? _meta;
 
   @override
   void initState() {
@@ -26,55 +26,12 @@ class _AdminPoojaOfferingsScreenState extends State<AdminPoojaOfferingsScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final m = await _api.adminPoojaMeta(widget.token);
     final list = await _api.adminListPoojaOfferings(widget.token);
     if (!mounted) return;
     setState(() {
-      _meta = m;
       _items = list;
       _loading = false;
     });
-  }
-
-  Future<void> _editCapacity() async {
-    final guru = TextEditingController(text: '${_meta?.guruMaxPerSlot ?? 1}');
-    final baba = TextEditingController(text: '${_meta?.babaMaxPerSlot ?? 1}');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Slot capacity per day'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: guru,
-              decoration: const InputDecoration(labelText: 'Guru Ji max per slot'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: baba,
-              decoration: const InputDecoration(labelText: 'Baba Ji max per slot'),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final g = int.tryParse(guru.text.trim());
-    final b = int.tryParse(baba.text.trim());
-    final resp = await _api.adminPoojaPatchCapacity(
-      widget.token,
-      guruMaxPerSlot: g,
-      babaMaxPerSlot: b,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(resp.message)));
-    _load();
   }
 
   Future<void> _addOffering() async {
@@ -166,7 +123,6 @@ class _AdminPoojaOfferingsScreenState extends State<AdminPoojaOfferingsScreen> {
       appBar: AppBar(
         title: const Text('Pooja offerings'),
         actions: [
-          IconButton(icon: const Icon(Icons.tune), onPressed: _editCapacity, tooltip: 'Capacity'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
@@ -176,52 +132,66 @@ class _AdminPoojaOfferingsScreenState extends State<AdminPoojaOfferingsScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
-          : ListView.builder(
+          : ListView(
               padding: const EdgeInsets.all(12),
-              itemCount: _items.length,
-              itemBuilder: (context, i) {
-                final o = _items[i];
-                return Card(
-                  child: ExpansionTile(
-                    title: Text(o.name),
-                    subtitle: Text(
-                      '₹${o.basePricePaise / 100} · ${o.packages.length} packages · ${o.active ? "active" : "inactive"}',
+              children: [
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.schedule, color: AppColors.krishnaBlue),
+                    title: const Text('Slot schedule & capacity'),
+                    subtitle: const Text('Guru Ji & Baba Ji — daily time bands and limits'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => AdminPoojaAvailabilityScreen(token: widget.token),
+                      ),
                     ),
-                    children: [
-                      SwitchListTile(
-                        title: const Text('Active'),
-                        value: o.active,
-                        onChanged: (_) => _toggleActive(o),
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.add_box_outlined),
-                        title: const Text('Add package'),
-                        onTap: () => _addPackage(o),
-                      ),
-                      for (final p in o.packages)
-                        ListTile(
-                          dense: true,
-                          title: Text(p.name),
-                          subtitle: Text('+₹${p.additionalPricePaise / 100} · ${p.active ? "on" : "off"}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.toggle_on_outlined),
-                            onPressed: () async {
-                              final r = await _api.adminPatchPoojaPackage(
-                                widget.token,
-                                p.id,
-                                active: !p.active,
-                              );
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
-                                _load();
-                              }
-                            },
-                          ),
-                        ),
-                    ],
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 8),
+                for (final o in _items)
+                  Card(
+                    child: ExpansionTile(
+                      title: Text(o.name),
+                      subtitle: Text(
+                        '₹${o.basePricePaise / 100} · ${o.packages.length} packages · ${o.active ? "active" : "inactive"}',
+                      ),
+                      children: [
+                        SwitchListTile(
+                          title: const Text('Active'),
+                          value: o.active,
+                          onChanged: (_) => _toggleActive(o),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.add_box_outlined),
+                          title: const Text('Add package'),
+                          onTap: () => _addPackage(o),
+                        ),
+                        for (final p in o.packages)
+                          ListTile(
+                            dense: true,
+                            title: Text(p.name),
+                            subtitle: Text('+₹${p.additionalPricePaise / 100} · ${p.active ? "on" : "off"}'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.toggle_on_outlined),
+                              onPressed: () async {
+                                final r = await _api.adminPatchPoojaPackage(
+                                  widget.token,
+                                  p.id,
+                                  active: !p.active,
+                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(r.message)));
+                                  _load();
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
     );
   }

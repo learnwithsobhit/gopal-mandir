@@ -77,7 +77,7 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
                     height: 320,
                     margin: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.krishnaBlue.withAlpha(30),
@@ -85,16 +85,17 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
                           offset: const Offset(0, 6),
                         ),
                       ],
+                      image: DecorationImage(
+                        image: AssetImage(DefaultImages.darshan2),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24),
+                      clipBehavior: Clip.antiAlias,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.asset(
-                            DefaultImages.darshan2,
-                            fit: BoxFit.cover,
-                          ),
                           Center(
                             child: GestureDetector(
                               onTap: live ? _openStream : null,

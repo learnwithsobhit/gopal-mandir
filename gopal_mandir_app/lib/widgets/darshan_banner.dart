@@ -5,13 +5,16 @@ import '../theme/default_images.dart';
 class DarshanBanner extends StatelessWidget {
   const DarshanBanner({super.key});
 
+  static const double _bannerRadius = 24;
+
   @override
   Widget build(BuildContext context) {
+    final r = BorderRadius.circular(_bannerRadius);
     return Container(
       height: 260,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: r,
         boxShadow: [
           BoxShadow(
             color: AppColors.krishnaBlue.withAlpha(60),
@@ -19,18 +22,18 @@ class DarshanBanner extends StatelessWidget {
             offset: const Offset(0, 8),
           ),
         ],
+        // Painted inside the rounded rect by BoxDecoration (reliable on web; Image.asset often ignores clip)
+        image: DecorationImage(
+          image: AssetImage(DefaultImages.darshan1),
+          fit: BoxFit.cover,
+        ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: r,
+        clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Real Gopal Ji darshan image
-            Image.asset(
-              DefaultImages.darshan1,
-              fit: BoxFit.cover,
-            ),
-            // Gradient overlay for text readability
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -45,7 +48,6 @@ class DarshanBanner extends StatelessWidget {
                 ),
               ),
             ),
-            // Top-right golden badge
             Positioned(
               right: 12,
               top: 12,
@@ -73,7 +75,6 @@ class DarshanBanner extends StatelessWidget {
                 ),
               ),
             ),
-            // Bottom text content
             Positioned(
               left: 20,
               right: 20,

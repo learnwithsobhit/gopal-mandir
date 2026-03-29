@@ -11,6 +11,7 @@ import 'admin_panchang_list_screen.dart';
 import 'admin_seva_items_list_screen.dart';
 import 'admin_seva_bookings_screen.dart';
 import 'admin_pooja_offerings_screen.dart';
+import 'admin_pooja_availability_screen.dart';
 import 'admin_pooja_bookings_screen.dart';
 import 'admin_events_list_screen.dart';
 import 'admin_event_participations_screen.dart';
@@ -175,11 +176,22 @@ class _AdminShellState extends State<AdminShell> {
           _tile(
             Icons.event_available,
             'Pooja offerings',
-            'Ceremonies, packages & slot capacity',
+            'Ceremonies & packages',
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminPoojaOfferingsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.schedule,
+            'Pooja availability',
+            'Guru Ji & Baba Ji — slots and daily limits',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminPoojaAvailabilityScreen(token: _token!),
               ),
             ),
           ),
