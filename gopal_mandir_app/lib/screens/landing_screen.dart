@@ -77,25 +77,34 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
-  Future<void> _toggleLandingSound() async {
+  /// Sync handler: mobile Safari only unlocks audio if `play()` runs in the same
+  /// synchronous turn as the tap; `async`/`await` defers past user activation.
+  void _toggleLandingSound() {
     final p = _player;
     if (p == null || !_audioSourceReady) return;
 
     if (_audioUnmuted) {
-      try {
-        await p.pause();
-      } catch (_) {}
-      if (mounted) setState(() => _audioUnmuted = false);
+      unawaited(_pauseLanding(p));
       return;
     }
 
     if (mounted) setState(() => _audioUnmuted = true);
+    unawaited(
+      p.play().then<void>(
+        (_) {},
+        onError: (Object e, StackTrace _) {
+          debugPrint('Landing audio play() failed: $e');
+          if (mounted) setState(() => _audioUnmuted = false);
+        },
+      ),
+    );
+  }
+
+  Future<void> _pauseLanding(AudioPlayer p) async {
     try {
-      await p.play();
-    } catch (e) {
-      debugPrint('Landing audio play() failed: $e');
-      if (mounted) setState(() => _audioUnmuted = false);
-    }
+      await p.pause();
+    } catch (_) {}
+    if (mounted) setState(() => _audioUnmuted = false);
   }
 
   Future<void> _stopAudio() async {
