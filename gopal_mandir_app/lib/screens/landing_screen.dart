@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../services/home_preload_cache.dart';
 import '../theme/default_images.dart';
 import '../widgets/vrindavan_background.dart';
+import 'landing_web_audio.dart';
 
 /// Root widget after the user leaves the landing screen (e.g. swap for auth later).
 Widget buildPostLandingRoot() => const MainShell();
@@ -27,6 +28,7 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen> {
   final ApiService _api = ApiService();
   AudioPlayer? _player;
+  LandingWebAudio? _webAudio;
   /// Source loaded; button enables. Playback starts only after user taps unmute.
   bool _audioSourceReady = false;
   bool _audioUnmuted = false;
@@ -62,6 +64,18 @@ class _LandingScreenState extends State<LandingScreen> {
     if (url.isEmpty) return;
 
     try {
+      if (kIsWeb) {
+        final w = LandingWebAudio();
+        await w.prepare(url, volume: 0.85, loop: true);
+        if (!mounted) {
+          w.dispose();
+          return;
+        }
+        _webAudio = w;
+        if (mounted) setState(() => _audioSourceReady = true);
+        return;
+      }
+
       final player = AudioPlayer();
       await player.setUrl(url);
       await player.setLoopMode(LoopMode.one);
@@ -77,11 +91,30 @@ class _LandingScreenState extends State<LandingScreen> {
     }
   }
 
-  /// Sync handler: mobile Safari only unlocks audio if `play()` runs in the same
-  /// synchronous turn as the tap; `async`/`await` defers past user activation.
+  /// Synchronous entry from [IconButton]: web uses HTML audio so `play()` is not
+  /// behind `just_audio`'s `await AudioSession.instance` (that yields a microtask
+  /// and breaks mobile Safari user activation).
   void _toggleLandingSound() {
+    if (!_audioSourceReady) return;
+
+    if (kIsWeb) {
+      final w = _webAudio;
+      if (w == null) return;
+      if (_audioUnmuted) {
+        w.pause();
+        if (mounted) setState(() => _audioUnmuted = false);
+        return;
+      }
+      if (mounted) setState(() => _audioUnmuted = true);
+      w.playFromUserGesture((Object? e) {
+        debugPrint('Landing audio play() failed: $e');
+        if (mounted) setState(() => _audioUnmuted = false);
+      });
+      return;
+    }
+
     final p = _player;
-    if (p == null || !_audioSourceReady) return;
+    if (p == null) return;
 
     if (_audioUnmuted) {
       unawaited(_pauseLanding(p));
@@ -108,6 +141,8 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Future<void> _stopAudio() async {
+    _webAudio?.dispose();
+    _webAudio = null;
     try {
       await _player?.stop();
       await _player?.dispose();
