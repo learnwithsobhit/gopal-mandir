@@ -870,6 +870,21 @@ pub async fn get_temple_info(pool: web::Data<PgPool>) -> HttpResponse {
     }
 }
 
+#[get("/api/site/landing-audio")]
+pub async fn get_landing_audio(pool: web::Data<PgPool>) -> HttpResponse {
+    let url: Option<String> = sqlx::query_scalar(
+        "SELECT value FROM site_kv WHERE key = 'landing_audio_url'",
+    )
+    .fetch_optional(pool.get_ref())
+    .await
+    .unwrap_or(None);
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "url": url.unwrap_or_default()
+    }))
+}
+
 #[post("/api/donation")]
 pub async fn submit_donation(
     pool: web::Data<PgPool>,

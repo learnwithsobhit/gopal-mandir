@@ -1076,6 +1076,12 @@ pub struct AdminPatchPoojaCapacityRequest {
     pub baba_max_per_slot: Option<i32>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchLandingAudioRequest {
+    /// Empty string disables landing audio.
+    pub audio_url: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct PoojaCapacityRulesView {
     pub guru_max_per_slot: i32,

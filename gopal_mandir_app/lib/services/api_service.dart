@@ -450,6 +450,22 @@ class ApiService {
     return _defaultTempleInfo();
   }
 
+  /// Public URL for MP3 played on the app landing screen (may be empty).
+  Future<String?> getLandingAudioUrl() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/site/landing-audio'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        if (json?['success'] == true) {
+          return (json!['url'] ?? '').toString();
+        }
+      }
+    } catch (e) {
+      print('landing audio url: $e');
+    }
+    return null;
+  }
+
   Future<DonationResponse> submitDonation(DonationRequest req) async {
     try {
       final response = await http.post(
@@ -1186,6 +1202,30 @@ class ApiService {
       print('admin gallery delete: $e');
     }
     return false;
+  }
+
+  Future<SimpleActionResponse> adminPatchLandingAudio(String token, String audioUrl) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/site/landing-audio'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'audio_url': audioUrl}),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      }
+      final msg = () {
+        try {
+          final j = jsonDecode(response.body) as Map<String, dynamic>?;
+          return (j?['error'] ?? j?['message'] ?? 'Request failed').toString();
+        } catch (_) {
+          return 'Request failed';
+        }
+      }();
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
   }
 
   Future<LiveDarshanConfig?> adminGetLiveDarshan(String token) async {

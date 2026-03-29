@@ -2844,3 +2844,60 @@ pub async fn admin_feedback_analytics(
         })),
     }
 }
+
+fn validate_landing_audio_url(raw: &str) -> Result<(), &'static str> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return Ok(());
+    }
+    let u = match url::Url::parse(t) {
+        Ok(u) => u,
+        Err(_) => return Err("invalid URL"),
+    };
+    if u.scheme() != "https" {
+        return Err("only https URLs are allowed");
+    }
+    Ok(())
+}
+
+#[patch("/api/admin/site/landing-audio")]
+pub async fn admin_patch_landing_audio(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminPatchLandingAudioRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let url = body.audio_url.trim().to_string();
+    if let Err(msg) = validate_landing_audio_url(&url) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": msg
+        }));
+    }
+
+    let res = sqlx::query(
+        "INSERT INTO site_kv (key, value, updated_at) VALUES ('landing_audio_url', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
+    )
+    .bind(&url)
+    .execute(pool.get_ref())
+    .await;
+
+    match res {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: if url.is_empty() {
+                "Landing audio disabled".to_string()
+            } else {
+                "Landing audio updated".to_string()
+            },
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
