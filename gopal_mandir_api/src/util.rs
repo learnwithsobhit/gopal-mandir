@@ -31,6 +31,10 @@ pub fn sha256_hex(input: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+pub fn truncate_payment_reason(s: &str) -> String {
+    s.chars().take(500).collect()
+}
+
 pub fn bearer_token(req: &HttpRequest) -> Option<String> {
     let header = req.headers().get("authorization")?.to_str().ok()?;
     let header = header.trim();

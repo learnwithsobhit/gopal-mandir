@@ -70,6 +70,8 @@ class GalleryItem {
     this.mediaType = 'image',
   });
 
+  bool get isAudio => mediaType.toLowerCase() == 'audio' && videoUrl.trim().isNotEmpty;
+
   bool get isVideo => mediaType.toLowerCase() == 'video' && videoUrl.trim().isNotEmpty;
 
   factory GalleryItem.fromJson(Map<String, dynamic> json) {
@@ -982,6 +984,386 @@ class UpdateSevaBookingRequest {
         'preferred_date': preferredDate,
         'notes': notes,
       };
+}
+
+// ── Pooja / Guru-Baba appointments ──
+
+class PoojaOfferingPackage {
+  final int id;
+  final int offeringId;
+  final String name;
+  final String description;
+  final int additionalPricePaise;
+  final int sortOrder;
+
+  PoojaOfferingPackage({
+    required this.id,
+    required this.offeringId,
+    required this.name,
+    required this.description,
+    required this.additionalPricePaise,
+    required this.sortOrder,
+  });
+
+  factory PoojaOfferingPackage.fromJson(Map<String, dynamic> json) {
+    return PoojaOfferingPackage(
+      id: json['id'] as int,
+      offeringId: json['offering_id'] as int,
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      additionalPricePaise: (json['additional_price_paise'] as num?)?.toInt() ?? 0,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  int totalPaiseWithBase(int basePaise) => basePaise + additionalPricePaise;
+}
+
+class PoojaOfferingWithPackages {
+  final int id;
+  final String name;
+  final String description;
+  final int basePricePaise;
+  final int slotsConsumed;
+  final int sortOrder;
+  final List<PoojaOfferingPackage> packages;
+
+  PoojaOfferingWithPackages({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.basePricePaise,
+    required this.slotsConsumed,
+    required this.sortOrder,
+    required this.packages,
+  });
+
+  factory PoojaOfferingWithPackages.fromJson(Map<String, dynamic> json) {
+    final pk = json['packages'];
+    return PoojaOfferingWithPackages(
+      id: json['id'] as int,
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      basePricePaise: (json['base_price_paise'] as num).toInt(),
+      slotsConsumed: (json['slots_consumed'] as num?)?.toInt() ?? 1,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      packages: pk is List
+          ? pk.map((e) => PoojaOfferingPackage.fromJson(e as Map<String, dynamic>)).toList()
+          : [],
+    );
+  }
+}
+
+class PoojaAvailabilitySlot {
+  final int slotId;
+  final String label;
+  final int capacity;
+  final int booked;
+  final int available;
+
+  PoojaAvailabilitySlot({
+    required this.slotId,
+    required this.label,
+    required this.capacity,
+    required this.booked,
+    required this.available,
+  });
+
+  factory PoojaAvailabilitySlot.fromJson(Map<String, dynamic> json) {
+    return PoojaAvailabilitySlot(
+      slotId: json['slot_id'] as int,
+      label: (json['label'] ?? '').toString(),
+      capacity: (json['capacity'] as num?)?.toInt() ?? 0,
+      booked: (json['booked'] as num?)?.toInt() ?? 0,
+      available: (json['available'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class PoojaAvailabilityDay {
+  final String date;
+  final String officiant;
+  final List<PoojaAvailabilitySlot> slots;
+
+  PoojaAvailabilityDay({
+    required this.date,
+    required this.officiant,
+    required this.slots,
+  });
+
+  factory PoojaAvailabilityDay.fromJson(Map<String, dynamic> json) {
+    final sl = json['slots'];
+    return PoojaAvailabilityDay(
+      date: (json['date'] ?? '').toString(),
+      officiant: (json['officiant'] ?? '').toString(),
+      slots: sl is List
+          ? sl.map((e) => PoojaAvailabilitySlot.fromJson(e as Map<String, dynamic>)).toList()
+          : [],
+    );
+  }
+}
+
+class PoojaBookingCreateRequest {
+  final int offeringId;
+  final int? packageId;
+  final String officiant;
+  final String bookingDate;
+  final int slotId;
+  final String venue;
+  final String? address;
+  final String name;
+  final String phone;
+  final String? notes;
+
+  PoojaBookingCreateRequest({
+    required this.offeringId,
+    this.packageId,
+    required this.officiant,
+    required this.bookingDate,
+    required this.slotId,
+    required this.venue,
+    this.address,
+    required this.name,
+    required this.phone,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'offering_id': offeringId,
+        if (packageId != null) 'package_id': packageId,
+        'officiant': officiant,
+        'booking_date': bookingDate,
+        'slot_id': slotId,
+        'venue': venue,
+        'address': address,
+        'name': name,
+        'phone': phone,
+        'notes': notes,
+      };
+}
+
+class PoojaBookingSubmitResponse {
+  final bool success;
+  final String message;
+  final String referenceId;
+
+  PoojaBookingSubmitResponse({
+    required this.success,
+    required this.message,
+    required this.referenceId,
+  });
+
+  factory PoojaBookingSubmitResponse.fromJson(Map<String, dynamic> json) {
+    return PoojaBookingSubmitResponse(
+      success: json['success'] == true,
+      message: (json['message'] ?? '').toString(),
+      referenceId: (json['reference_id'] ?? '').toString(),
+    );
+  }
+}
+
+class PoojaBookingView {
+  final int id;
+  final String referenceId;
+  final String bookingStatus;
+  final String? paymentExpected;
+  final String paymentStatus;
+  final String createdAt;
+  final String bookingDate;
+  final String scheduledAt;
+  final String officiant;
+  final int slotId;
+  final String slotLabel;
+  final String venue;
+  final String? address;
+  final String name;
+  final String phone;
+  final String? notes;
+  final int offeringId;
+  final String offeringName;
+  final int? packageId;
+  final String? packageName;
+  final int? amountPaise;
+  final String? gateway;
+  final String? gatewayOrderId;
+  final String? gatewayPaymentId;
+  final String? paymentFailureReason;
+  final String? paymentUpdatedAt;
+  final String? paymentAdminNote;
+
+  PoojaBookingView({
+    required this.id,
+    required this.referenceId,
+    required this.bookingStatus,
+    this.paymentExpected,
+    required this.paymentStatus,
+    required this.createdAt,
+    required this.bookingDate,
+    required this.scheduledAt,
+    required this.officiant,
+    required this.slotId,
+    required this.slotLabel,
+    required this.venue,
+    this.address,
+    required this.name,
+    required this.phone,
+    this.notes,
+    required this.offeringId,
+    required this.offeringName,
+    this.packageId,
+    this.packageName,
+    this.amountPaise,
+    this.gateway,
+    this.gatewayOrderId,
+    this.gatewayPaymentId,
+    this.paymentFailureReason,
+    this.paymentUpdatedAt,
+    this.paymentAdminNote,
+  });
+
+  factory PoojaBookingView.fromJson(Map<String, dynamic> json) {
+    String d(dynamic v) {
+      if (v == null) return '';
+      return v.toString();
+    }
+
+    return PoojaBookingView(
+      id: json['id'] as int,
+      referenceId: (json['reference_id'] ?? '').toString(),
+      bookingStatus: (json['booking_status'] ?? '').toString(),
+      paymentExpected: json['payment_expected']?.toString(),
+      paymentStatus: (json['payment_status'] ?? '').toString(),
+      createdAt: d(json['created_at']),
+      bookingDate: d(json['booking_date']),
+      scheduledAt: d(json['scheduled_at']),
+      officiant: (json['officiant'] ?? '').toString(),
+      slotId: json['slot_id'] as int,
+      slotLabel: (json['slot_label'] ?? '').toString(),
+      venue: (json['venue'] ?? '').toString(),
+      address: json['address']?.toString(),
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      notes: json['notes']?.toString(),
+      offeringId: json['offering_id'] as int,
+      offeringName: (json['offering_name'] ?? '').toString(),
+      packageId: json['package_id'] as int?,
+      packageName: json['package_name']?.toString(),
+      amountPaise: (json['amount_paise'] as num?)?.toInt(),
+      gateway: json['gateway']?.toString(),
+      gatewayOrderId: json['gateway_order_id']?.toString(),
+      gatewayPaymentId: json['gateway_payment_id']?.toString(),
+      paymentFailureReason: json['payment_failure_reason']?.toString(),
+      paymentUpdatedAt: json['payment_updated_at']?.toString(),
+      paymentAdminNote: json['payment_admin_note']?.toString(),
+    );
+  }
+}
+
+class PoojaRescheduleRequest {
+  final String bookingDate;
+  final int slotId;
+
+  PoojaRescheduleRequest({required this.bookingDate, required this.slotId});
+
+  Map<String, dynamic> toJson() => {
+        'booking_date': bookingDate,
+        'slot_id': slotId,
+      };
+}
+
+/// Admin catalog row (+ packages). API flattens offering fields with a `packages` array.
+class AdminPoojaCatalogItem {
+  final int id;
+  final String name;
+  final String description;
+  final int basePricePaise;
+  final int slotsConsumed;
+  final bool active;
+  final int sortOrder;
+  final String createdAt;
+  final List<AdminPoojaPackageItem> packages;
+
+  AdminPoojaCatalogItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.basePricePaise,
+    required this.slotsConsumed,
+    required this.active,
+    required this.sortOrder,
+    required this.createdAt,
+    required this.packages,
+  });
+
+  factory AdminPoojaCatalogItem.fromJson(Map<String, dynamic> json) {
+    final pk = json['packages'];
+    return AdminPoojaCatalogItem(
+      id: json['id'] as int,
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      basePricePaise: (json['base_price_paise'] as num).toInt(),
+      slotsConsumed: (json['slots_consumed'] as num?)?.toInt() ?? 1,
+      active: json['active'] == true,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      createdAt: (json['created_at'] ?? '').toString(),
+      packages: pk is List
+          ? pk.map((e) => AdminPoojaPackageItem.fromJson(e as Map<String, dynamic>)).toList()
+          : [],
+    );
+  }
+}
+
+class AdminPoojaPackageItem {
+  final int id;
+  final int offeringId;
+  final String name;
+  final String description;
+  final int additionalPricePaise;
+  final bool active;
+  final int sortOrder;
+
+  AdminPoojaPackageItem({
+    required this.id,
+    required this.offeringId,
+    required this.name,
+    required this.description,
+    required this.additionalPricePaise,
+    required this.active,
+    required this.sortOrder,
+  });
+
+  factory AdminPoojaPackageItem.fromJson(Map<String, dynamic> json) {
+    return AdminPoojaPackageItem(
+      id: json['id'] as int,
+      offeringId: json['offering_id'] as int,
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      additionalPricePaise: (json['additional_price_paise'] as num?)?.toInt() ?? 0,
+      active: json['active'] != false,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class PoojaMetaData {
+  final List<Map<String, dynamic>> slots;
+  final int guruMaxPerSlot;
+  final int babaMaxPerSlot;
+
+  PoojaMetaData({
+    required this.slots,
+    required this.guruMaxPerSlot,
+    required this.babaMaxPerSlot,
+  });
+
+  factory PoojaMetaData.fromJson(Map<String, dynamic> json) {
+    final sl = json['slots'];
+    return PoojaMetaData(
+      slots: sl is List ? sl.map((e) => e as Map<String, dynamic>).toList() : [],
+      guruMaxPerSlot: (json['guru_max_per_slot'] as num?)?.toInt() ?? 1,
+      babaMaxPerSlot: (json['baba_max_per_slot'] as num?)?.toInt() ?? 1,
+    );
+  }
 }
 
 class SimpleActionResponse {

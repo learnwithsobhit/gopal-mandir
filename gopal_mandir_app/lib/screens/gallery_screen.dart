@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -26,6 +30,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final ScrollController _scrollController = ScrollController();
   final Map<int, int> _likeCounts = {};
   final Map<int, int> _commentCounts = {};
+  AudioPlayer? _galleryAudioPlayer;
 
   List<String> get _categories {
     final set = <String>{'All'};
@@ -111,6 +116,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return imageUrl;
   }
 
+  static String _effectiveAudioUrl(String audioUrl) {
+    final trimmed = audioUrl.trim();
+    if (kIsWeb) {
+      return '${ApiService.baseUrl}/api/gallery/proxy?url=${Uri.encodeComponent(trimmed)}';
+    }
+    return trimmed;
+  }
+
   Widget _buildImageShimmer() {
     return Shimmer.fromColors(
       baseColor: AppColors.warmGrey.withAlpha(80),
@@ -138,6 +151,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   void dispose() {
+    unawaited(_galleryAudioPlayer?.dispose());
+    _galleryAudioPlayer = null;
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -199,10 +214,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('चित्र गैलरी'),
+        title: Text(s.galleryScreenTitle),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
@@ -286,7 +302,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 }
                 final item = _filteredItems[index];
                 return GestureDetector(
-                  onTap: () => item.isVideo ? _openVideo(context, item) : _showFullImage(context, item),
+                  onTap: () {
+                    if (item.isAudio) {
+                      _openAudio(item);
+                    } else if (item.isVideo) {
+                      _openVideo(context, item);
+                    } else {
+                      _showFullImage(context, item);
+                    }
+                  },
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.softWhite,
@@ -334,11 +358,41 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                       ),
                                     ],
                                   )
-                                : _GalleryGridImage(
-                                    imageUrl: _effectiveImageUrl(item.imageUrl),
-                                    gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
-                                    placeholder: _buildImageShimmer(),
-                                  ),
+                                : item.isAudio
+                                    ? Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          if (item.imageUrl.trim().isNotEmpty)
+                                            _GalleryGridImage(
+                                              imageUrl: _effectiveImageUrl(item.imageUrl),
+                                              gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                              placeholder: _buildImageShimmer(),
+                                            )
+                                          else
+                                            ColoredBox(
+                                              color: AppColors.peacockGreen.withAlpha(50),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.audiotrack,
+                                                  size: 52,
+                                                  color: AppColors.krishnaBlue,
+                                                ),
+                                              ),
+                                            ),
+                                          const Center(
+                                            child: Icon(
+                                              Icons.play_circle_fill,
+                                              size: 52,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : _GalleryGridImage(
+                                        imageUrl: _effectiveImageUrl(item.imageUrl),
+                                        gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                        placeholder: _buildImageShimmer(),
+                                      ),
                           ),
                         ),
                         Padding(
@@ -358,7 +412,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               ),
                               Text(
                                 item.category,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontFamily: 'Poppins',
                                   fontSize: 11,
                                   color: AppColors.krishnaBlue,
@@ -386,7 +440,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
                                     icon: const Icon(Icons.chat_bubble_outline, size: 18, color: AppColors.krishnaBlue),
-                                    onPressed: () => _showCommentsSheet(context, item),
+                                    onPressed: () => _showCommentsSheet(item),
                                   ),
                                   Text(
                                     '${_commentCounts[item.id] ?? 0}',
@@ -412,6 +466,204 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       ),
     );
+  }
+
+  Future<void> _openAudio(GalleryItem item) async {
+    if (!mounted) return;
+    final s = AppLocaleScope.of(context).strings;
+    final raw = item.videoUrl.trim();
+    if (raw.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(s.galleryAudioUrlMissing)),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !uri.hasScheme) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.galleryInvalidAudioUrl)));
+      return;
+    }
+
+    await _galleryAudioPlayer?.stop();
+    await _galleryAudioPlayer?.dispose();
+    _galleryAudioPlayer = AudioPlayer();
+
+    final url = _effectiveAudioUrl(raw);
+    try {
+      await _galleryAudioPlayer!.setUrl(url);
+    } catch (e) {
+      await _galleryAudioPlayer?.dispose();
+      _galleryAudioPlayer = null;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${s.galleryCouldNotLoadAudio}: $e')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final player = _galleryAudioPlayer!;
+    unawaited(player.play());
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(sheetContext).viewPadding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.audiotrack, color: AppColors.krishnaBlue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: AppColors.darkBrown,
+                          ),
+                        ),
+                        Text(
+                          item.category,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            color: AppColors.krishnaBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(sheetContext),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              StreamBuilder<PlayerState>(
+                stream: player.playerStateStream,
+                builder: (context, snap) {
+                  final playing = snap.data?.playing ?? false;
+                  final processing = snap.data?.processingState ?? ProcessingState.idle;
+                  final busy = processing == ProcessingState.loading || processing == ProcessingState.buffering;
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        iconSize: 56,
+                        onPressed: busy
+                            ? null
+                            : () {
+                                if (playing) {
+                                  player.pause();
+                                } else {
+                                  player.play();
+                                }
+                              },
+                        icon: Icon(
+                          playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                          size: 56,
+                          color: AppColors.krishnaBlue,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              StreamBuilder<Duration?>(
+                stream: player.durationStream,
+                initialData: player.duration,
+                builder: (context, durSnap) {
+                  final total = durSnap.data ?? Duration.zero;
+                  return StreamBuilder<Duration>(
+                    stream: player.positionStream,
+                    initialData: player.position,
+                    builder: (context, posSnap) {
+                      final pos = posSnap.data ?? Duration.zero;
+                      final maxMs = total.inMilliseconds > 0 ? total.inMilliseconds.toDouble() : 1.0;
+                      final value = pos.inMilliseconds.clamp(0, total.inMilliseconds).toDouble();
+                      return Slider(
+                        value: value,
+                        max: maxMs,
+                        onChanged: total.inMilliseconds > 0
+                            ? (v) {
+                                player.seek(Duration(milliseconds: v.round()));
+                              }
+                            : null,
+                        activeColor: AppColors.krishnaBlue,
+                      );
+                    },
+                  );
+                },
+              ),
+              StreamBuilder<Duration?>(
+                stream: player.durationStream,
+                initialData: player.duration,
+                builder: (context, durSnap) {
+                  final total = durSnap.data ?? Duration.zero;
+                  return StreamBuilder<Duration>(
+                    stream: player.positionStream,
+                    initialData: player.position,
+                    builder: (context, posSnap) {
+                      final pos = posSnap.data ?? Duration.zero;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDuration(pos),
+                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                          ),
+                          Text(
+                            _formatDuration(total),
+                            style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    await player.stop();
+    await player.dispose();
+    if (identical(_galleryAudioPlayer, player)) {
+      _galleryAudioPlayer = null;
+    }
+  }
+
+  static String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (d.inHours > 0) {
+      final h = d.inHours.toString();
+      return '$h:$m:$s';
+    }
+    return '$m:$s';
   }
 
   Future<void> _openVideo(BuildContext context, GalleryItem item) async {
@@ -518,29 +770,31 @@ class _GalleryScreenState extends State<GalleryScreen> {
     }
   }
 
-  Future<void> _showCommentsSheet(BuildContext context, GalleryItem item) async {
+  Future<void> _showCommentsSheet(GalleryItem item) async {
     List<GalleryComment> comments = await _api.getGalleryComments(item.id);
+    if (!mounted) return;
     _commentCounts[item.id] = comments.length;
 
     final nameCtrl = TextEditingController();
     final commentCtrl = TextEditingController();
 
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(
             left: 16,
             right: 16,
             top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
           ),
           child: StatefulBuilder(
-            builder: (context, setModalState) {
+            builder: (modalContext, setModalState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -559,7 +813,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(modalContext),
                       ),
                     ],
                   ),
@@ -626,7 +880,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         final name = nameCtrl.text.trim();
                         final text = commentCtrl.text.trim();
                         if (name.isEmpty || text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(modalContext).showSnackBar(
                             const SnackBar(
                               content: Text('Please enter name and comment'),
                               backgroundColor: AppColors.urgentRed,
@@ -639,8 +893,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           NewCommentRequest(name: name, comment: text),
                         );
                         if (count == null) {
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          if (!modalContext.mounted) return;
+                          ScaffoldMessenger.of(modalContext).showSnackBar(
                             const SnackBar(
                               content: Text('Failed to add comment'),
                               backgroundColor: AppColors.urgentRed,

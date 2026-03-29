@@ -32,8 +32,54 @@ class AppStrings {
   String get quickEvents => isHindi ? 'कार्यक्रम' : 'Events';
   String get quickSeva => isHindi ? 'सेवा' : 'Seva';
   String get quickGallery => isHindi ? 'गैलरी' : 'Gallery';
+  String get galleryScreenTitle => isHindi ? 'चित्र व ध्वनि गैलरी' : 'Photo & audio gallery';
+  String get galleryAudioUrlMissing =>
+      isHindi ? 'ऑडियो लिंक उपलब्ध नहीं है' : 'Audio URL missing';
+  String get galleryInvalidAudioUrl =>
+      isHindi ? 'अमान्य ऑडियो लिंक' : 'Invalid audio URL';
+  String get galleryCouldNotLoadAudio =>
+      isHindi ? 'ऑडियो लोड नहीं हो सका' : 'Could not load audio';
   String get quickLiveDarshan => isHindi ? 'लाइव\nदर्शन' : 'Live\nDarshan';
   String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
+  String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';
+
+  // ── Pooja appointment ──
+  String get poojaAppointmentTitle => isHindi ? 'गुरु/बाबा पूजा बुकिंग' : 'Guru/Baba pooja booking';
+  String get poojaAppointmentSubtitle =>
+      isHindi ? 'अनुष्ठान के लिए समय निर्धारित करें' : 'Schedule a ceremony with Guru Ji or Baba Ji';
+  String get poojaMenuTitle => isHindi ? 'पूजा बुकिंग' : 'Pooja booking';
+  String get poojaMenuSub =>
+      isHindi ? 'गृह प्रवेश, विवाह, हवन आदि' : 'Griha pravesh, marriage, hawan & more';
+  String get poojaOffering => isHindi ? 'अनुष्ठान चुनें' : 'Select ceremony';
+  String get poojaPackage => isHindi ? 'पैकेज' : 'Package';
+  String get poojaOfficiant => isHindi ? 'किसके साथ' : 'Officiant';
+  String get poojaGuru => isHindi ? 'गुरु जी' : 'Guru Ji';
+  String get poojaBaba => isHindi ? 'बाबा जी' : 'Baba Ji';
+  String get poojaDateSlot => isHindi ? 'तारीख और समय स्लॉट' : 'Date & time slot';
+  String get poojaPickDate => isHindi ? 'तारीख चुनें' : 'Pick a date';
+  String get poojaVenue => isHindi ? 'स्थान' : 'Venue';
+  String get poojaVenueTemple => isHindi ? 'मंदिर में' : 'At temple';
+  String get poojaVenueHome => isHindi ? 'घर पर (गृह प्रवेश आदि)' : 'At your home';
+  String get poojaEstimated => isHindi ? 'अनुमानित शुल्क' : 'Estimated fee';
+  String get poojaYourName => isHindi ? 'आपका नाम' : 'Your name';
+  String get poojaNameRequired => isHindi ? 'नाम आवश्यक है' : 'Name is required';
+  String get poojaSubmit => isHindi ? 'बुकिंग भेजें' : 'Submit booking';
+  String get poojaSelectOffering => isHindi ? 'कृपया अनुष्ठान चुनें' : 'Please select a ceremony';
+  String get poojaDateSlotRequired =>
+      isHindi ? 'तारीख और स्लॉट चुनें' : 'Please choose date and slot';
+  String get poojaAddressRequired => isHindi ? 'घर का पता दर्ज करें' : 'Enter home address';
+  String get poojaNoSlots =>
+      isHindi ? 'इस अवधि में कोई खाली स्लॉट नहीं। मंदिर से संपर्क करें।' : 'No free slots in this range. Please call the temple.';
+  String get poojaNoOfferings =>
+      isHindi ? 'अभी कोई सेवा सूचीबद्ध नहीं।' : 'No ceremonies listed yet.';
+  String get poojaBookedTitle => isHindi ? 'अनुरोध भेजा गया' : 'Request sent';
+  String get poojaRefCopied => isHindi ? 'संदर्भ नंबर कॉपी हो गया' : 'Reference copied';
+  String get poojaCopyRef => isHindi ? 'संदर्भ कॉपी करें' : 'Copy reference';
+  String get tabPoojaBookings => isHindi ? 'पूजा' : 'Pooja';
+  String get noPoojaBookings => isHindi ? 'कोई पूजा बुकिंग नहीं' : 'No pooja bookings found';
+  String get poojaReschedule => isHindi ? 'समय बदलें' : 'Reschedule';
+  String get poojaPayOnline => isHindi ? 'ऑनलाइन भुगतान' : 'Pay online';
+  String get editPoojaTitle => isHindi ? 'पूजा बुकिंग बदलें' : 'Reschedule pooja booking';
 
   // ── More screen ──
   String get more => isHindi ? 'अधिक' : 'More';
@@ -69,7 +115,8 @@ class AppStrings {
   String get settings => isHindi ? 'सेटिंग्स' : 'Settings';
   String get settingsSub => isHindi ? 'ऐप प्राथमिकताएं' : 'App preferences';
   String get myBookings => isHindi ? 'मेरी बुकिंग' : 'My Bookings';
-  String get myBookingsSub => isHindi ? 'प्रसाद/सेवा बुकिंग देखें और प्रबंधित करें' : 'View & manage prasad/seva bookings';
+  String get myBookingsSub =>
+      isHindi ? 'प्रसाद, सेवा और पूजा बुकिंग देखें' : 'View prasad, seva & pooja bookings';
   String get viewOnMap => isHindi ? 'मैप पर देखें' : 'View on map';
   String get callTempleOffice => isHindi ? 'मंदिर ऑफिस पर कॉल करें' : 'Call temple office';
   String get comingSoon => isHindi ? 'जल्द आ रहा है! 🙏' : 'Coming soon! 🙏';

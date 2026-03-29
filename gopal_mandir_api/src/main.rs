@@ -1,5 +1,8 @@
 mod admin;
+mod admin_pooja;
 mod models;
+mod pooja_logic;
+mod pooja_routes;
 mod razorpay;
 mod routes;
 mod s3_presign;
@@ -155,6 +158,23 @@ async fn main() -> std::io::Result<()> {
             .service(routes::list_seva_bookings)
             .service(routes::update_seva_booking)
             .service(routes::cancel_seva_booking)
+            .service(pooja_routes::pooja_list_offerings)
+            .service(pooja_routes::pooja_availability)
+            .service(pooja_routes::pooja_create_booking)
+            .service(pooja_routes::pooja_booking_checkout)
+            .service(pooja_routes::pooja_list_bookings)
+            .service(pooja_routes::pooja_reschedule_booking)
+            .service(pooja_routes::pooja_cancel_booking)
+            .service(admin_pooja::admin_pooja_meta)
+            .service(admin_pooja::admin_pooja_patch_capacity)
+            .service(admin_pooja::admin_pooja_list_offerings)
+            .service(admin_pooja::admin_pooja_create_offering)
+            .service(admin_pooja::admin_pooja_patch_offering)
+            .service(admin_pooja::admin_pooja_create_package)
+            .service(admin_pooja::admin_pooja_patch_package)
+            .service(admin_pooja::admin_pooja_list_bookings)
+            .service(admin_pooja::admin_pooja_patch_booking)
+            .service(admin_pooja::admin_pooja_patch_booking_payment)
     })
     .bind(&bind_addr)?
     .run()

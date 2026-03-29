@@ -13,6 +13,7 @@ import 'membership_screen.dart';
 import 'rate_us_screen.dart';
 import 'settings_screen.dart';
 import 'volunteer_screen.dart';
+import 'pooja_appointment_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -236,6 +237,20 @@ class _MoreScreenState extends State<MoreScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const VrindavanBackground(child: BookingsScreen()),
+                ),
+              );
+            },
+          ),
+          _menuItem(
+            context,
+            Icons.event_available,
+            s.poojaMenuTitle,
+            s.poojaMenuSub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: PoojaAppointmentScreen()),
                 ),
               );
             },

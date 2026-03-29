@@ -10,6 +10,8 @@ import 'admin_prasad_orders_screen.dart';
 import 'admin_panchang_list_screen.dart';
 import 'admin_seva_items_list_screen.dart';
 import 'admin_seva_bookings_screen.dart';
+import 'admin_pooja_offerings_screen.dart';
+import 'admin_pooja_bookings_screen.dart';
 import 'admin_events_list_screen.dart';
 import 'admin_event_participations_screen.dart';
 import 'admin_event_donations_screen.dart';
@@ -167,6 +169,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminSevaBookingsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.event_available,
+            'Pooja offerings',
+            'Ceremonies, packages & slot capacity',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminPoojaOfferingsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.calendar_today,
+            'Pooja bookings',
+            'Confirm requests, payment mode, offline paid',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminPoojaBookingsScreen(token: _token!),
               ),
             ),
           ),

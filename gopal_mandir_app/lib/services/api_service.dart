@@ -768,6 +768,143 @@ class ApiService {
   }
 
   // ──────────────────────────────────────────────
+  // Pooja / Guru-Baba appointments (public)
+  // ──────────────────────────────────────────────
+
+  Future<List<PoojaOfferingWithPackages>> getPoojaOfferings() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/pooja/offerings'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => PoojaOfferingWithPackages.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('getPoojaOfferings: $e');
+    }
+    return [];
+  }
+
+  Future<List<PoojaAvailabilityDay>> getPoojaAvailability({
+    required String officiant,
+    required String from,
+    required String to,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pooja/availability').replace(
+        queryParameters: {'officiant': officiant, 'from': from, 'to': to},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => PoojaAvailabilityDay.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('getPoojaAvailability: $e');
+    }
+    return [];
+  }
+
+  Future<PoojaBookingSubmitResponse> createPoojaBooking(PoojaBookingCreateRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/pooja/booking'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final r = PoojaBookingSubmitResponse.fromJson(json);
+      if (response.statusCode == 200 && r.success) return r;
+      final err = json['error']?.toString() ?? r.message;
+      return PoojaBookingSubmitResponse(success: false, message: err.isEmpty ? 'Request failed' : err, referenceId: r.referenceId);
+    } catch (e) {
+      print('createPoojaBooking: $e');
+      return PoojaBookingSubmitResponse(success: false, message: 'Network error', referenceId: '');
+    }
+  }
+
+  Future<DonationCheckoutResponse> createPoojaBookingCheckout(String referenceId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/pooja/booking/checkout'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'reference_id': referenceId}),
+      );
+      return DonationCheckoutResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    } catch (e) {
+      print('createPoojaBookingCheckout: $e');
+      return DonationCheckoutResponse(success: false, error: 'Network error');
+    }
+  }
+
+  Future<List<PoojaBookingView>> getPoojaBookingsByPhone(String phone) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pooja/bookings').replace(queryParameters: {'phone': phone});
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => PoojaBookingView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('getPoojaBookingsByPhone: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> reschedulePoojaBooking(
+    String referenceId,
+    PoojaRescheduleRequest req,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/pooja/booking/${Uri.encodeComponent(referenceId)}/reschedule'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Reschedule failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('reschedulePoojaBooking: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> cancelPoojaBooking(String referenceId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/pooja/booking/${Uri.encodeComponent(referenceId)}/cancel'),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Cancel failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('cancelPoojaBooking: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  // ──────────────────────────────────────────────
   // Public live darshan config
   // ──────────────────────────────────────────────
 
@@ -1757,6 +1894,318 @@ class ApiService {
       return SimpleActionResponse(success: false, message: msg);
     } catch (e) {
       print('admin patch seva booking payment: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Pooja appointments
+  // ──────────────────────────────────────────────
+
+  Future<PoojaMetaData?> adminPoojaMeta(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/pooja/meta'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return PoojaMetaData.fromJson(data);
+      }
+    } catch (e) {
+      print('adminPoojaMeta: $e');
+    }
+    return null;
+  }
+
+  Future<SimpleActionResponse> adminPoojaPatchCapacity(
+    String token, {
+    int? guruMaxPerSlot,
+    int? babaMaxPerSlot,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        if (guruMaxPerSlot != null) 'guru_max_per_slot': guruMaxPerSlot,
+        if (babaMaxPerSlot != null) 'baba_max_per_slot': babaMaxPerSlot,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/pooja/capacity'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Update failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      print('adminPoojaPatchCapacity: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<List<AdminPoojaCatalogItem>> adminListPoojaOfferings(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/pooja/offerings'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => AdminPoojaCatalogItem.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('adminListPoojaOfferings: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> adminCreatePoojaOffering(
+    String token, {
+    required String name,
+    String? description,
+    required int basePricePaise,
+    int? slotsConsumed,
+    bool? active,
+    int? sortOrder,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'name': name,
+        'description': description,
+        'base_price_paise': basePricePaise,
+        if (slotsConsumed != null) 'slots_consumed': slotsConsumed,
+        if (active != null) 'active': active,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/pooja/offerings'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse(success: true, message: 'Created');
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchPoojaOffering(
+    String token,
+    int id, {
+    String? name,
+    String? description,
+    int? basePricePaise,
+    int? slotsConsumed,
+    bool? active,
+    int? sortOrder,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        if (name != null) 'name': name,
+        if (description != null) 'description': description,
+        if (basePricePaise != null) 'base_price_paise': basePricePaise,
+        if (slotsConsumed != null) 'slots_consumed': slotsConsumed,
+        if (active != null) 'active': active,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/pooja/offerings/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminCreatePoojaPackage(
+    String token,
+    int offeringId, {
+    required String name,
+    String? description,
+    int? additionalPricePaise,
+    bool? active,
+    int? sortOrder,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'name': name,
+        'description': description,
+        if (additionalPricePaise != null) 'additional_price_paise': additionalPricePaise,
+        if (active != null) 'active': active,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/pooja/offerings/$offeringId/packages'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse(success: true, message: 'Created');
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchPoojaPackage(
+    String token,
+    int packageId, {
+    String? name,
+    String? description,
+    int? additionalPricePaise,
+    bool? active,
+    int? sortOrder,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        if (name != null) 'name': name,
+        if (description != null) 'description': description,
+        if (additionalPricePaise != null) 'additional_price_paise': additionalPricePaise,
+        if (active != null) 'active': active,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/pooja/packages/$packageId'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<List<PoojaBookingView>> adminListPoojaBookings(
+    String token, {
+    String? bookingStatus,
+    String? officiant,
+    String? fromDate,
+    String? toDate,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (bookingStatus != null && bookingStatus.isNotEmpty) 'booking_status': bookingStatus,
+        if (officiant != null && officiant.isNotEmpty) 'officiant': officiant,
+        if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
+        if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/pooja/bookings').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => PoojaBookingView.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('adminListPoojaBookings: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> adminPatchPoojaBooking(
+    String token,
+    String referenceId, {
+    String? bookingStatus,
+    String? paymentExpected,
+    String? rescheduleBookingDate,
+    int? rescheduleSlotId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        if (bookingStatus != null) 'booking_status': bookingStatus,
+        if (paymentExpected != null) 'payment_expected': paymentExpected,
+        if (rescheduleBookingDate != null) 'reschedule_booking_date': rescheduleBookingDate,
+        if (rescheduleSlotId != null) 'reschedule_slot_id': rescheduleSlotId,
+      };
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/pooja/booking/${Uri.encodeComponent(referenceId)}'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
+      return SimpleActionResponse(success: false, message: 'Network error');
+    }
+  }
+
+  Future<SimpleActionResponse> adminPatchPoojaBookingPayment(
+    String token,
+    String referenceId, {
+    required String paymentStatus,
+    String? gatewayPaymentId,
+    required String adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'payment_status': paymentStatus,
+        'admin_note': adminNote,
+        if (gatewayPaymentId != null && gatewayPaymentId.isNotEmpty)
+          'gateway_payment_id': gatewayPaymentId,
+      };
+      final response = await http.patch(
+        Uri.parse(
+          '$baseUrl/api/admin/pooja/bookings/payment/${Uri.encodeComponent(referenceId)}',
+        ),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        return SimpleActionResponse.fromJson(jsonDecode(response.body));
+      }
+      String msg = 'Failed';
+      try {
+        msg = (jsonDecode(response.body)['error'] ?? msg).toString();
+      } catch (_) {}
+      return SimpleActionResponse(success: false, message: msg);
+    } catch (e) {
       return SimpleActionResponse(success: false, message: 'Network error');
     }
   }

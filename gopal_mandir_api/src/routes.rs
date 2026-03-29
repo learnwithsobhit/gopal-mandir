@@ -2,7 +2,7 @@ use actix_web::{get, post, patch, web, HttpRequest, HttpResponse};
 use sqlx::PgPool;
 use crate::models::*;
 use crate::razorpay::{self, RazorpayConfig};
-use crate::util::{bearer_token, normalize_phone, sha256_hex};
+use crate::util::{bearer_token, normalize_phone, sha256_hex, truncate_payment_reason};
 use serde_json::{json, Value};
 use chrono::{Duration, Utc};
 use rand::Rng;
@@ -1006,10 +1006,6 @@ fn amount_to_paise(amount: f64) -> Option<i64> {
     Some(p)
 }
 
-fn truncate_payment_reason(s: &str) -> String {
-    s.chars().take(500).collect()
-}
-
 /// Line subtotal, 10% delivery fee (delivery only), and grand total (2 decimal places).
 fn prasad_order_totals(price: f64, quantity: i32, fulfillment: &str) -> (f64, f64, f64) {
     let subtotal = price * quantity as f64;
@@ -1105,6 +1101,18 @@ async fn mark_razorpay_order_paid(
     if r3.rows_affected() > 0 {
         return Ok(true);
     }
+    let r3p = sqlx::query(
+        "UPDATE pooja_bookings SET payment_status = 'paid', gateway_payment_id = $1,
+         paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(payment_id)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    if r3p.rows_affected() > 0 {
+        return Ok(true);
+    }
     let r4 = sqlx::query(
         "UPDATE prasad_orders SET payment_status = 'paid', gateway_payment_id = $1,
          paid_at = COALESCE(paid_at, NOW()), payment_updated_at = NOW(), payment_failure_reason = NULL
@@ -1164,6 +1172,20 @@ async fn razorpay_order_already_recorded_paid(
     if s {
         return Ok(true);
     }
+    let pj: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pooja_bookings
+            WHERE gateway = 'razorpay' AND gateway_order_id = $1
+              AND gateway_payment_id = $2 AND payment_status = 'paid'
+        )",
+    )
+    .bind(order_id)
+    .bind(payment_id)
+    .fetch_one(pool)
+    .await?;
+    if pj {
+        return Ok(true);
+    }
     let p: bool = sqlx::query_scalar(
         "SELECT EXISTS(
             SELECT 1 FROM prasad_orders
@@ -1204,6 +1226,15 @@ async fn mark_razorpay_order_failed(
     .await?;
     sqlx::query(
         "UPDATE seva_bookings SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "UPDATE pooja_bookings SET payment_status = 'failed', payment_failure_reason = $1,
          payment_updated_at = NOW()
          WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND payment_status = 'pending'",
     )
@@ -1268,6 +1299,18 @@ async fn mark_razorpay_client_reported_failed(
     .execute(pool)
     .await?;
     total += r3.rows_affected();
+    let r3p = sqlx::query(
+        "UPDATE pooja_bookings SET payment_status = 'failed', payment_failure_reason = $1,
+         payment_updated_at = NOW()
+         WHERE gateway = 'razorpay' AND gateway_order_id = $2 AND reference_id = $3
+           AND payment_status = 'pending'",
+    )
+    .bind(&reason)
+    .bind(order_id)
+    .bind(reference_id)
+    .execute(pool)
+    .await?;
+    total += r3p.rows_affected();
     let r4 = sqlx::query(
         "UPDATE prasad_orders SET payment_status = 'failed', payment_failure_reason = $1,
          payment_updated_at = NOW()
@@ -2350,11 +2393,6 @@ pub async fn seva_booking_checkout(
         currency: order.currency,
         reference_id,
     })
-}
-
-#[derive(serde::Deserialize)]
-pub struct PhoneQuery {
-    pub phone: String,
 }
 
 #[get("/api/prasad/orders")]

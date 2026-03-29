@@ -37,7 +37,14 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
       _categoryCtrl.text = e.category;
       _imageUrlCtrl.text = e.imageUrl;
       _videoUrlCtrl.text = e.videoUrl;
-      _mediaType = e.mediaType.toLowerCase() == 'video' ? 'video' : 'image';
+      final mt = e.mediaType.toLowerCase();
+      if (mt == 'video') {
+        _mediaType = 'video';
+      } else if (mt == 'audio') {
+        _mediaType = 'audio';
+      } else {
+        _mediaType = 'image';
+      }
     }
   }
 
@@ -72,6 +79,9 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
         break;
       case 'mov':
         mime = 'video/quicktime';
+        break;
+      case 'mp3':
+        mime = 'audio/mpeg';
         break;
       default:
         mime = 'application/octet-stream';
@@ -116,7 +126,13 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
       final presign = await _api.adminPresign(
         widget.token,
         contentType: mime,
-        fileExt: ext.isEmpty ? (mime.contains('video') ? 'mp4' : 'jpg') : ext,
+        fileExt: ext.isEmpty
+            ? (mime.contains('video')
+                ? 'mp4'
+                : mime.startsWith('audio/')
+                    ? 'mp3'
+                    : 'jpg')
+            : ext,
         objectKeyPrefix: 'gallery',
         sizeBytes: bytes.length,
       );
@@ -152,6 +168,11 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
           if (_imageUrlCtrl.text.trim().isEmpty) {
             _imageUrlCtrl.text = '';
           }
+        });
+      } else if (mime.startsWith('audio/')) {
+        setState(() {
+          _mediaType = 'audio';
+          _videoUrlCtrl.text = presign.publicUrl;
         });
       } else {
         setState(() {
@@ -243,6 +264,7 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
             items: const [
               DropdownMenuItem(value: 'image', child: Text('Image')),
               DropdownMenuItem(value: 'video', child: Text('Video')),
+              DropdownMenuItem(value: 'audio', child: Text('Audio (MP3)')),
             ],
             onChanged: (v) => setState(() => _mediaType = v ?? 'image'),
           ),
@@ -263,18 +285,19 @@ class _AdminGalleryEditScreenState extends State<AdminGalleryEditScreen> {
           TextField(
             controller: _imageUrlCtrl,
             maxLines: 2,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Image URL (thumbnail / poster)',
-              border: OutlineInputBorder(),
+              helperText: _mediaType == 'audio' ? 'Optional cover art for the gallery tile' : null,
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _videoUrlCtrl,
             maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'Video URL',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: _mediaType == 'audio' ? 'Audio URL (MP3)' : 'Video URL',
+              border: const OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 24),

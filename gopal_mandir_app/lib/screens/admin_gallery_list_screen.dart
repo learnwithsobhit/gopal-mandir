@@ -91,7 +91,11 @@ class _AdminGalleryListScreenState extends State<AdminGalleryListScreen> {
                     final item = _items[i];
                     return ListTile(
                       leading: Icon(
-                        item.isVideo ? Icons.videocam : Icons.image,
+                        item.isAudio
+                            ? Icons.audiotrack
+                            : item.isVideo
+                                ? Icons.videocam
+                                : Icons.image,
                         color: AppColors.krishnaBlue,
                       ),
                       title: Text(item.title),

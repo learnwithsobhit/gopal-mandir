@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
@@ -365,6 +365,11 @@ pub struct Member {
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PhoneQuery {
+    pub phone: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -886,4 +891,223 @@ pub struct VolunteerRequest {
     pub area: Option<String>,
     pub availability: Option<String>,
     pub message: Option<String>,
+}
+
+// ──────────────────────────────────────────────
+// Pooja / Guru-Baba appointments
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct PoojaSlotDefinition {
+    pub id: i32,
+    pub label: String,
+    pub start_time: NaiveTime,
+    pub end_time: NaiveTime,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct PoojaOfferingPackageRow {
+    pub id: i32,
+    pub offering_id: i32,
+    pub name: String,
+    pub description: String,
+    pub additional_price_paise: i32,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PoojaOfferingWithPackages {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+    pub base_price_paise: i32,
+    pub slots_consumed: i32,
+    pub sort_order: i32,
+    pub packages: Vec<PoojaOfferingPackageRow>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PoojaBookingCreateRequest {
+    pub offering_id: i32,
+    pub package_id: Option<i32>,
+    pub officiant: String,
+    pub booking_date: String,
+    pub slot_id: i32,
+    pub venue: String,
+    pub address: Option<String>,
+    pub name: String,
+    pub phone: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PoojaCheckoutRequest {
+    pub reference_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PoojaRescheduleRequest {
+    pub booking_date: String,
+    pub slot_id: i32,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct PoojaBookingView {
+    pub id: i32,
+    pub reference_id: String,
+    pub booking_status: String,
+    pub payment_expected: Option<String>,
+    pub payment_status: String,
+    pub created_at: DateTime<Utc>,
+    pub booking_date: NaiveDate,
+    pub scheduled_at: DateTime<Utc>,
+    pub officiant: String,
+    pub slot_id: i32,
+    pub slot_label: String,
+    pub venue: String,
+    pub address: Option<String>,
+    pub name: String,
+    pub phone: String,
+    pub notes: Option<String>,
+    pub offering_id: i32,
+    pub offering_name: String,
+    pub package_id: Option<i32>,
+    pub package_name: Option<String>, // NULL when no package
+    pub amount_paise: Option<i32>,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminPoojaBookingView {
+    pub id: i32,
+    pub reference_id: String,
+    pub booking_status: String,
+    pub payment_expected: Option<String>,
+    pub payment_status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub booking_date: NaiveDate,
+    pub scheduled_at: DateTime<Utc>,
+    pub officiant: String,
+    pub slot_id: i32,
+    pub slot_label: String,
+    pub venue: String,
+    pub address: Option<String>,
+    pub name: String,
+    pub phone: String,
+    pub notes: Option<String>,
+    pub offering_id: i32,
+    pub offering_name: String,
+    pub package_id: Option<i32>,
+    pub package_name: Option<String>, // NULL when no package
+    pub amount_paise: Option<i32>,
+    pub gateway: Option<String>,
+    pub gateway_order_id: Option<String>,
+    pub gateway_payment_id: Option<String>,
+    pub payment_failure_reason: Option<String>,
+    pub payment_updated_at: Option<DateTime<Utc>>,
+    pub payment_admin_note: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPoojaBookingsQuery {
+    pub booking_status: Option<String>,
+    pub officiant: Option<String>,
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPoojaBookingRequest {
+    pub booking_status: Option<String>,
+    pub payment_expected: Option<String>,
+    pub reschedule_booking_date: Option<String>,
+    pub reschedule_slot_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreatePoojaOfferingRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub base_price_paise: i32,
+    pub slots_consumed: Option<i32>,
+    pub active: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPoojaOfferingRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub base_price_paise: Option<i32>,
+    pub slots_consumed: Option<i32>,
+    pub active: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreatePoojaPackageRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub additional_price_paise: Option<i32>,
+    pub active: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPoojaPackageRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub additional_price_paise: Option<i32>,
+    pub active: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchPoojaCapacityRequest {
+    pub guru_max_per_slot: Option<i32>,
+    pub baba_max_per_slot: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PoojaCapacityRulesView {
+    pub guru_max_per_slot: i32,
+    pub baba_max_per_slot: i32,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+pub struct PoojaOfferingAdminRow {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+    pub base_price_paise: i32,
+    pub slots_consumed: i32,
+    pub active: bool,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct PoojaPackageAdminRow {
+    pub id: i32,
+    pub offering_id: i32,
+    pub name: String,
+    pub description: String,
+    pub additional_price_paise: i32,
+    pub active: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminPoojaOfferingOut {
+    #[serde(flatten)]
+    pub offering: PoojaOfferingAdminRow,
+    pub packages: Vec<PoojaPackageAdminRow>,
 }

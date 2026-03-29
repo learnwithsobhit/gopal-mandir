@@ -14,7 +14,7 @@ use crate::util::{bearer_token, normalize_phone, sha256_hex};
 
 const MAX_PRESIGN_BYTES: i64 = 50 * 1024 * 1024; // 50 MB
 
-async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpResponse> {
+pub(crate) async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpResponse> {
     let token = match bearer_token(req) {
         Some(t) => t,
         None => {
@@ -49,7 +49,7 @@ async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpRe
     }
 }
 
-fn admin_parse_patch_payment_status(body: &AdminPatchPaymentRequest) -> Result<String, &'static str> {
+pub(crate) fn admin_parse_patch_payment_status(body: &AdminPatchPaymentRequest) -> Result<String, &'static str> {
     let s = body.payment_status.trim().to_lowercase();
     if s != "paid" && s != "refunded" {
         return Err("payment_status must be paid or refunded");
@@ -57,7 +57,7 @@ fn admin_parse_patch_payment_status(body: &AdminPatchPaymentRequest) -> Result<S
     Ok(s)
 }
 
-fn optional_payment_trim(opt: &Option<String>, max_chars: usize) -> Option<String> {
+pub(crate) fn optional_payment_trim(opt: &Option<String>, max_chars: usize) -> Option<String> {
     opt.as_ref()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
@@ -68,7 +68,7 @@ const MIN_ADMIN_PAYMENT_NOTE_LEN: usize = 3;
 const MAX_ADMIN_PAYMENT_NOTE_LEN: usize = 500;
 
 /// Required audit note when admin changes payment status (trim, length bounds).
-fn required_admin_payment_note(opt: &Option<String>) -> Result<String, &'static str> {
+pub(crate) fn required_admin_payment_note(opt: &Option<String>) -> Result<String, &'static str> {
     let s = opt
         .as_ref()
         .map(|x| x.trim())
@@ -91,6 +91,7 @@ fn validate_media_type(ct: &str, ext_in: &str) -> Option<&'static str> {
         "gif" if ct == "image/gif" => Some("image/gif"),
         "mp4" if ct == "video/mp4" => Some("video/mp4"),
         "mov" if ct == "video/quicktime" => Some("video/quicktime"),
+        "mp3" if ct == "audio/mpeg" || ct == "audio/mp3" => Some("audio/mpeg"),
         _ => None,
     }
 }
@@ -628,10 +629,10 @@ pub async fn admin_create_gallery(
         .unwrap_or("image")
         .trim()
         .to_lowercase();
-    if media_type != "image" && media_type != "video" {
+    if media_type != "image" && media_type != "video" && media_type != "audio" {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "media_type must be image or video"
+            "error": "media_type must be image, video, or audio"
         }));
     }
 
@@ -647,6 +648,12 @@ pub async fn admin_create_gallery(
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
             "error": "video_url is required for video media"
+        }));
+    }
+    if media_type == "audio" && video_url.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "video_url is required for audio media (MP3 URL)"
         }));
     }
 
@@ -725,7 +732,7 @@ pub async fn admin_patch_gallery(
     }
     if let Some(ref m) = body.media_type {
         let m = m.trim().to_lowercase();
-        if m == "image" || m == "video" {
+        if m == "image" || m == "video" || m == "audio" {
             row.media_type = m;
         }
     }

@@ -37,7 +37,7 @@ class QuickActionButton extends StatelessWidget {
                     btnColor.withAlpha(50),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: btnColor.withAlpha(40),
                   width: 1,

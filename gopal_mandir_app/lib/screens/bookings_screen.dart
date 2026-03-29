@@ -5,6 +5,7 @@ import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../l10n/locale_scope.dart';
+import '../payments/razorpay_donation.dart';
 import '../widgets/vrindavan_background.dart';
 
 class BookingsScreen extends StatefulWidget {
@@ -18,12 +19,13 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
   final ApiService _api = ApiService();
   final _phoneController = TextEditingController();
 
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
 
   bool _loading = false;
   String? _error;
   List<PrasadOrderView> _prasad = [];
   List<SevaBookingView> _seva = [];
+  List<PoojaBookingView> _pooja = [];
 
   @override
   void dispose() {
@@ -49,11 +51,13 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
       final results = await Future.wait([
         _api.getPrasadOrdersByPhone(phone),
         _api.getSevaBookingsByPhone(phone),
+        _api.getPoojaBookingsByPhone(phone),
       ]);
       if (!mounted) return;
       setState(() {
         _prasad = results[0] as List<PrasadOrderView>;
         _seva = results[1] as List<SevaBookingView>;
+        _pooja = results[2] as List<PoojaBookingView>;
         _loading = false;
       });
     } catch (e) {
@@ -287,6 +291,291 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     if (resp.success) _load(context);
   }
 
+  Future<void> _cancelPooja(BuildContext context, PoojaBookingView b) async {
+    final s = AppLocaleScope.of(context).strings;
+    final ok = await _confirmDialog(
+      context: context,
+      title: s.cancelBooking,
+      message: '${s.ref}: ${b.referenceId}',
+      actionLabel: s.cancel,
+      destructive: true,
+    );
+    if (ok != true) return;
+    final resp = await _api.cancelPoojaBooking(b.referenceId);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(resp.message),
+        backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
+      ),
+    );
+    if (resp.success) _load(context);
+  }
+
+  Future<void> _reschedulePooja(BuildContext context, PoojaBookingView b) async {
+    final s = AppLocaleScope.of(context).strings;
+    final now = DateTime.now();
+    final from =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final end = now.add(const Duration(days: 90));
+    final to =
+        '${end.year.toString().padLeft(4, '0')}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
+    final days = await _api.getPoojaAvailability(officiant: b.officiant, from: from, to: to);
+    if (!mounted) return;
+    final items = days.where((d) => d.slots.any((sl) => sl.available > 0)).toList();
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.poojaNoSlots)));
+      return;
+    }
+
+    String? pickedDate;
+    int? pickedSlot;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            PoojaAvailabilityDay? day;
+            if (pickedDate != null) {
+              for (final d in items) {
+                if (d.date == pickedDate) {
+                  day = d;
+                  break;
+                }
+              }
+            }
+            return AlertDialog(
+              title: Text(s.editPoojaTitle),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(s.poojaPickDate, style: Theme.of(ctx).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: items
+                          .map(
+                            (d) => ActionChip(
+                              label: Text(d.date),
+                              onPressed: () => setLocal(() {
+                                pickedDate = d.date;
+                                pickedSlot = null;
+                              }),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    if (day != null) ...[
+                      const SizedBox(height: 12),
+                      Text(s.poojaDateSlot, style: Theme.of(ctx).textTheme.labelLarge),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: day!.slots.map((sl) {
+                          final en = sl.available > 0;
+                          return ChoiceChip(
+                            label: Text(sl.label),
+                            selected: pickedSlot == sl.slotId,
+                            onSelected: en
+                                ? (_) => setLocal(() => pickedSlot = sl.slotId)
+                                : null,
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(s.close)),
+                FilledButton(
+                  onPressed: pickedDate != null && pickedSlot != null ? () => Navigator.pop(ctx, true) : null,
+                  child: Text(s.save),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (saved != true || pickedDate == null || pickedSlot == null) return;
+    final resp = await _api.reschedulePoojaBooking(
+      b.referenceId,
+      PoojaRescheduleRequest(bookingDate: pickedDate!, slotId: pickedSlot!),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(resp.message),
+        backgroundColor: resp.success ? AppColors.peacockGreen : AppColors.urgentRed,
+      ),
+    );
+    if (resp.success) _load(context);
+  }
+
+  Future<void> _payPoojaOnline(BuildContext context, PoojaBookingView b) async {
+    final checkout = await _api.createPoojaBookingCheckout(b.referenceId);
+    if (!mounted) return;
+    if (!checkout.success || checkout.orderId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(checkout.error ?? 'Could not start payment'),
+          backgroundColor: AppColors.urgentRed,
+        ),
+      );
+      return;
+    }
+    RazorpayPaymentOutcome? outcome;
+    try {
+      outcome = await openRazorpayCheckout(
+        keyId: checkout.keyId,
+        orderId: checkout.orderId,
+        amountPaise: checkout.amount,
+        name: b.name,
+        contact: b.phone,
+        email: '',
+        description: b.offeringName,
+      );
+    } catch (e) {
+      await _api.notifyRazorpayClientPaymentFailed(
+        orderId: checkout.orderId,
+        referenceId: checkout.referenceId,
+        reason: e.toString(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (outcome == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            !isRazorpayCheckoutSupported
+                ? 'Online payment runs on Android or iOS.'
+                : 'Payment was cancelled.',
+          ),
+        ),
+      );
+      return;
+    }
+    final verified = await _api.verifyRazorpayPayment(
+      orderId: outcome.orderId,
+      paymentId: outcome.paymentId,
+      signature: outcome.signature,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          verified ? 'Payment received. Jai Gopal!' : 'Payment may take a moment to confirm.',
+        ),
+        backgroundColor: AppColors.peacockGreen,
+      ),
+    );
+    _load(context);
+  }
+
+  Widget _poojaCard(BuildContext context, PoojaBookingView b) {
+    final s = AppLocaleScope.of(context).strings;
+    final st = b.bookingStatus.toLowerCase();
+    final canMemberChange = st != 'cancelled';
+    final canPay = st == 'confirmed' &&
+        (b.paymentExpected ?? '').toLowerCase() == 'online' &&
+        b.paymentStatus.toLowerCase() == 'pending' &&
+        (b.gatewayOrderId == null || b.gatewayOrderId!.isEmpty);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.softWhite,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: AppColors.krishnaBlue.withAlpha(10), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  b.offeringName,
+                  style: GoogleFonts.playfairDisplay(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: AppColors.darkBrown,
+                  ),
+                ),
+              ),
+              _statusChip(b.bookingStatus),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${s.ref}: ${b.referenceId}',
+            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${b.officiant} · ${b.slotLabel} · ${b.bookingDate}',
+            style: GoogleFonts.poppins(fontSize: 13, color: AppColors.darkBrown),
+          ),
+          if ((b.packageName ?? '').isNotEmpty)
+            Text(
+              '${s.poojaPackage}: ${b.packageName}',
+              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+            ),
+          Text(
+            '${b.venue}${(b.address ?? '').isNotEmpty ? ' · ${b.address}' : ''}',
+            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+          ),
+          if (b.amountPaise != null)
+            Text(
+              '₹${(b.amountPaise! / 100).toStringAsFixed(0)} · ${b.paymentStatus}'
+              '${(b.paymentExpected ?? '').isNotEmpty ? ' (${b.paymentExpected})' : ''}',
+              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.warmGrey),
+            ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (canMemberChange)
+                OutlinedButton(
+                  onPressed: () => _reschedulePooja(context, b),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.krishnaBlue,
+                    side: const BorderSide(color: AppColors.krishnaBlue),
+                  ),
+                  child: Text(s.poojaReschedule),
+                ),
+              if (canPay)
+                FilledButton(
+                  onPressed: () => _payPoojaOnline(context, b),
+                  child: Text(s.poojaPayOnline),
+                ),
+              if (canMemberChange)
+                TextButton(
+                  onPressed: () => _cancelPooja(context, b),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.urgentRed),
+                  child: Text(s.cancel),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
@@ -390,6 +679,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
             tabs: [
               Tab(text: s.prasad),
               Tab(text: s.seva),
+              Tab(text: s.tabPoojaBookings),
             ],
           ),
         ),
@@ -464,6 +754,18 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: _seva.length,
                           itemBuilder: (context, i) => _sevaCard(context, _seva[i]),
+                        ),
+                  _pooja.isEmpty && !_loading
+                      ? Center(
+                          child: Text(
+                            s.noPoojaBookings,
+                            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.warmGrey),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          itemCount: _pooja.length,
+                          itemBuilder: (context, i) => _poojaCard(context, _pooja[i]),
                         ),
                 ],
               ),

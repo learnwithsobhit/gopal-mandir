@@ -17,6 +17,7 @@ import 'donate_screen.dart';
 import 'prasad_screen.dart';
 import 'seva_screen.dart';
 import 'gallery_screen.dart';
+import 'pooja_appointment_screen.dart';
 import 'announcements_screen.dart';
 import 'live_darshan_screen.dart';
 import 'hindu_panchang_screen.dart';
@@ -221,6 +222,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: s.quickSeva,
                           color: AppColors.peacockGreen,
                           onTap: () => _navigateTo(context, const SevaScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.event_available,
+                          label: s.quickPoojaAppointment,
+                          color: AppColors.templeGoldDark,
+                          onTap: () => _navigateTo(context, const PoojaAppointmentScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.photo_library,
