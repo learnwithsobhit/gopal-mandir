@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+
+import 'festival_web_video_view.dart';
 
 class FestivalVideoPlayerScreen extends StatefulWidget {
   const FestivalVideoPlayerScreen({
@@ -22,15 +25,35 @@ class _FestivalVideoPlayerScreenState extends State<FestivalVideoPlayerScreen> {
   VideoPlayerController? _controller;
   bool _loading = true;
   String? _error;
+  late final String _playableUrl;
 
   @override
   void initState() {
     super.initState();
+    _playableUrl = _normalizePlayableUrl(widget.videoUrl);
     _initPlayer();
   }
 
+  String _normalizePlayableUrl(String raw) {
+    final parsed = Uri.tryParse(raw.trim());
+    if (parsed == null) return raw.trim();
+
+    // Firebase Storage download links often require alt=media for direct bytes.
+    final isFirebaseHost = parsed.host.contains('firebasestorage.googleapis.com');
+    if (isFirebaseHost && !parsed.queryParameters.containsKey('alt')) {
+      final next = parsed.replace(
+        queryParameters: <String, String>{
+          ...parsed.queryParameters,
+          'alt': 'media',
+        },
+      );
+      return next.toString();
+    }
+    return parsed.toString();
+  }
+
   Future<void> _initPlayer() async {
-    final raw = widget.videoUrl.trim();
+    final raw = _playableUrl.trim();
     final parsed = Uri.tryParse(raw);
     if (parsed == null || (!parsed.hasScheme || parsed.host.isEmpty)) {
       setState(() {
@@ -41,6 +64,13 @@ class _FestivalVideoPlayerScreenState extends State<FestivalVideoPlayerScreen> {
     }
 
     try {
+      if (kIsWeb) {
+        setState(() {
+          _loading = false;
+          _error = null;
+        });
+        return;
+      }
       final c = VideoPlayerController.networkUrl(parsed);
       await c.initialize();
       await c.setLooping(false);
@@ -102,42 +132,57 @@ class _FestivalVideoPlayerScreenState extends State<FestivalVideoPlayerScreen> {
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    AspectRatio(
-                      aspectRatio: c.value.aspectRatio == 0 ? 16 / 9 : c.value.aspectRatio,
-                      child: VideoPlayer(c),
-                    ),
+                    if (kIsWeb)
+                      buildFestivalWebVideoView(_playableUrl)
+                    else
+                      AspectRatio(
+                        aspectRatio: c.value.aspectRatio == 0 ? 16 / 9 : c.value.aspectRatio,
+                        child: VideoPlayer(c),
+                      ),
                     const SizedBox(height: 8),
-                    VideoProgressIndicator(
-                      c,
-                      allowScrubbing: true,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            if (!mounted) return;
-                            if (c.value.isPlaying) {
-                              c.pause();
-                            } else {
-                              c.play();
-                            }
-                            setState(() {});
-                          },
-                          icon: Icon(c.value.isPlaying ? Icons.pause : Icons.play_arrow),
-                        ),
-                        Text(
-                          c.value.isPlaying ? 'Playing' : 'Paused',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: _openExternally,
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Open externally'),
-                        ),
-                      ],
-                    ),
+                    if (!kIsWeb) ...[
+                      VideoProgressIndicator(
+                        c,
+                        allowScrubbing: true,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              if (!mounted) return;
+                              if (c.value.isPlaying) {
+                                c.pause();
+                              } else {
+                                c.play();
+                              }
+                              setState(() {});
+                            },
+                            icon: Icon(c.value.isPlaying ? Icons.pause : Icons.play_arrow),
+                          ),
+                          Text(
+                            c.value.isPlaying ? 'Playing' : 'Paused',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: _openExternally,
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('Open externally'),
+                          ),
+                        ],
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: _openExternally,
+                            icon: const Icon(Icons.open_in_new),
+                            label: const Text('Open externally'),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
     );
