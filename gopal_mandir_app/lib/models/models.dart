@@ -190,6 +190,44 @@ class DailyQuote {
   }
 }
 
+class DailyUpasanaItem {
+  final int id;
+  final String forDate;
+  final String title;
+  final String category;
+  final String content;
+  final int sortOrder;
+  final bool isPublished;
+  final String createdAt;
+  final String updatedAt;
+
+  DailyUpasanaItem({
+    required this.id,
+    required this.forDate,
+    required this.title,
+    required this.category,
+    required this.content,
+    required this.sortOrder,
+    required this.isPublished,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory DailyUpasanaItem.fromJson(Map<String, dynamic> json) {
+    return DailyUpasanaItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      forDate: (json['for_date'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      category: (json['category'] ?? '').toString(),
+      content: (json['content'] ?? '').toString(),
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      isPublished: json['is_published'] == true,
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
 class HinduPanchang {
   final int id;
   final String forDate;

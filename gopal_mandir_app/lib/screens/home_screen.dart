@@ -22,6 +22,7 @@ import 'announcements_screen.dart';
 import 'live_darshan_screen.dart';
 import 'hindu_panchang_screen.dart';
 import 'festivals_screen.dart';
+import 'daily_upasana_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -237,10 +238,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () => _navigateTo(context, const GalleryScreen()),
                         ),
                         QuickActionButton(
-                          icon: Icons.live_tv,
-                          label: s.quickLiveDarshan,
+                          icon: Icons.menu_book_rounded,
+                          label: 'Daily Upasana',
                           color: AppColors.urgentRed,
-                          onTap: () => _navigateTo(context, const LiveDarshanScreen()),
+                          onTap: () => _navigateTo(context, const DailyUpasanaScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.calendar_month,

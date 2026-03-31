@@ -415,6 +415,30 @@ class ApiService {
     return _defaultDailyQuote();
   }
 
+  Future<List<DailyUpasanaItem>> getDailyUpasanaForDate(DateTime date) async {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    final queryDate = '$y-$m-$d';
+    try {
+      final uri = Uri.parse('$baseUrl/api/daily-upasana').replace(
+        queryParameters: {'date': queryDate},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data
+            .map((e) => DailyUpasanaItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (response.statusCode == 404) return [];
+    } catch (e) {
+      print('Error fetching daily upasana: $e');
+    }
+    return [];
+  }
+
   Future<HinduPanchang?> getPanchangForDate(DateTime date) async {
     final y = date.year.toString().padLeft(4, '0');
     final m = date.month.toString().padLeft(2, '0');
@@ -1589,6 +1613,91 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('admin panchang delete: $e');
+    }
+    return false;
+  }
+
+  Future<List<DailyUpasanaItem>> adminListDailyUpasana(
+    String token, {
+    int page = 1,
+    int perPage = 100,
+    String? forDate,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'per_page': '$perPage',
+        if (forDate != null && forDate.isNotEmpty) 'for_date': forDate,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/daily-upasana').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => DailyUpasanaItem.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin daily upasana list: $e');
+    }
+    return [];
+  }
+
+  Future<DailyUpasanaItem?> adminCreateDailyUpasana(
+    String token,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/daily-upasana'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return DailyUpasanaItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin daily upasana create: $e');
+    }
+    return null;
+  }
+
+  Future<DailyUpasanaItem?> adminPatchDailyUpasana(
+    String token,
+    int id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/daily-upasana/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return DailyUpasanaItem.fromJson(data);
+      }
+    } catch (e) {
+      print('admin daily upasana patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteDailyUpasana(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/daily-upasana/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin daily upasana delete: $e');
     }
     return false;
   }

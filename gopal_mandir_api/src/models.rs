@@ -70,6 +70,19 @@ pub struct DailyQuote {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct DailyUpasanaItem {
+    pub id: i32,
+    pub for_date: String,
+    pub title: String,
+    pub category: String,
+    pub content: String,
+    pub sort_order: i32,
+    pub is_published: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct TempleInfo {
     pub id: i32,
     pub name: String,
@@ -569,6 +582,33 @@ pub struct AdminCreatePanchangRequest {
 pub struct AdminPatchPanchangRequest {
     pub for_date: Option<String>,
     pub content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminDailyUpasanaQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+    pub for_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateDailyUpasanaRequest {
+    pub for_date: String,
+    pub title: String,
+    pub category: Option<String>,
+    pub content: String,
+    pub sort_order: Option<i32>,
+    pub is_published: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchDailyUpasanaRequest {
+    pub for_date: Option<String>,
+    pub title: Option<String>,
+    pub category: Option<String>,
+    pub content: Option<String>,
+    pub sort_order: Option<i32>,
+    pub is_published: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

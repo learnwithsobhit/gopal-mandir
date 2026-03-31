@@ -19,6 +19,7 @@ import 'admin_event_donations_screen.dart';
 import 'admin_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
 import 'admin_dainik_shlok_screen.dart';
+import 'admin_daily_upasana_list_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
 import 'admin_feedback_list_screen.dart';
@@ -282,6 +283,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminDainikShlokScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.auto_stories_rounded,
+            'Daily Upasana',
+            'Create and manage daily upasana readings',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminDailyUpasanaListScreen(token: _token!),
               ),
             ),
           ),

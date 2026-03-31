@@ -1281,6 +1281,282 @@ pub async fn admin_delete_panchang(
     }
 }
 
+#[get("/api/admin/daily-upasana")]
+pub async fn admin_list_daily_upasana(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminDailyUpasanaQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200).max(1);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+    let for_date = q.for_date.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
+
+    match sqlx::query_as::<_, DailyUpasanaItem>(
+        "SELECT
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            category,
+            content,
+            sort_order,
+            is_published,
+            created_at,
+            updated_at
+         FROM daily_upasana_items
+         WHERE ($1::TEXT IS NULL OR for_date = $1::DATE)
+         ORDER BY for_date DESC, sort_order ASC, id ASC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(for_date)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/daily-upasana")]
+pub async fn admin_create_daily_upasana(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreateDailyUpasanaRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let for_date = body.for_date.trim();
+    let title = body.title.trim();
+    let content = body.content.trim();
+    if for_date.is_empty() || title.is_empty() || content.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "for_date, title and content are required"
+        }));
+    }
+    let parsed_date = match chrono::NaiveDate::parse_from_str(for_date, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid date format, use YYYY-MM-DD"
+            }));
+        }
+    };
+    let category = body.category.as_deref().unwrap_or("").trim();
+    let sort_order = body.sort_order.unwrap_or(0);
+    let is_published = body.is_published.unwrap_or(false);
+
+    match sqlx::query_as::<_, DailyUpasanaItem>(
+        "INSERT INTO daily_upasana_items (for_date, title, category, content, sort_order, is_published)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            category,
+            content,
+            sort_order,
+            is_published,
+            created_at,
+            updated_at",
+    )
+    .bind(parsed_date)
+    .bind(title)
+    .bind(category)
+    .bind(content)
+    .bind(sort_order)
+    .bind(is_published)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("duplicate key") || msg.contains("unique constraint") {
+                HttpResponse::Conflict().json(serde_json::json!({
+                    "success": false,
+                    "error": "An upasana item with this title already exists for that date"
+                }))
+            } else {
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    }
+}
+
+#[patch("/api/admin/daily-upasana/{id}")]
+pub async fn admin_patch_daily_upasana(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchDailyUpasanaRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = sqlx::query_as::<_, DailyUpasanaItem>(
+        "SELECT
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            category,
+            content,
+            sort_order,
+            is_published,
+            created_at,
+            updated_at
+         FROM daily_upasana_items
+         WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(e)) => e,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Daily upasana item not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let new_title = body.title.as_deref().unwrap_or(&existing.title).trim().to_string();
+    let new_content = body.content.as_deref().unwrap_or(&existing.content).trim().to_string();
+    if new_title.is_empty() || new_content.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "title and content are required"
+        }));
+    }
+    let new_date_str = body.for_date.as_deref().unwrap_or(&existing.for_date).trim().to_string();
+    let parsed_date = match chrono::NaiveDate::parse_from_str(&new_date_str, "%Y-%m-%d") {
+        Ok(d) => d,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid date format, use YYYY-MM-DD"
+            }));
+        }
+    };
+    let new_category = body.category.as_deref().unwrap_or(&existing.category).trim().to_string();
+    let new_sort_order = body.sort_order.unwrap_or(existing.sort_order);
+    let new_is_published = body.is_published.unwrap_or(existing.is_published);
+
+    match sqlx::query_as::<_, DailyUpasanaItem>(
+        "UPDATE daily_upasana_items
+         SET
+            for_date = $1,
+            title = $2,
+            category = $3,
+            content = $4,
+            sort_order = $5,
+            is_published = $6,
+            updated_at = NOW()
+         WHERE id = $7
+         RETURNING
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            category,
+            content,
+            sort_order,
+            is_published,
+            created_at,
+            updated_at",
+    )
+    .bind(parsed_date)
+    .bind(new_title)
+    .bind(new_category)
+    .bind(new_content)
+    .bind(new_sort_order)
+    .bind(new_is_published)
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": row
+        })),
+        Err(e) => {
+            let msg = format!("{}", e);
+            if msg.contains("duplicate key") || msg.contains("unique constraint") {
+                HttpResponse::Conflict().json(serde_json::json!({
+                    "success": false,
+                    "error": "An upasana item with this title already exists for that date"
+                }))
+            } else {
+                HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    }
+}
+
+#[delete("/api/admin/daily-upasana/{id}")]
+pub async fn admin_delete_daily_upasana(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM daily_upasana_items WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Daily upasana item not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
 fn parse_yyyy_mm_dd(raw: &str) -> Result<chrono::NaiveDate, &'static str> {
     chrono::NaiveDate::parse_from_str(raw, "%Y-%m-%d")
         .map_err(|_| "Invalid date format, use YYYY-MM-DD")
