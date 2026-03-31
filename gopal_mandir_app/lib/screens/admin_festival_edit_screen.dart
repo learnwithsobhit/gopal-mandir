@@ -18,6 +18,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
   final _titleCtrl = TextEditingController();
   final _descriptionCtrl = TextEditingController();
   final _sortOrderCtrl = TextEditingController(text: '0');
+  final _iconUrlCtrl = TextEditingController();
+  final _bannerUrlCtrl = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isActive = true;
   bool _saving = false;
@@ -32,6 +34,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
       _titleCtrl.text = e.title;
       _descriptionCtrl.text = e.description;
       _sortOrderCtrl.text = e.sortOrder.toString();
+      _iconUrlCtrl.text = e.iconUrl ?? '';
+      _bannerUrlCtrl.text = e.bannerUrl ?? '';
       _isActive = e.isActive;
       final parts = e.forDate.split('-');
       if (parts.length == 3) {
@@ -49,6 +53,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
     _titleCtrl.dispose();
     _descriptionCtrl.dispose();
     _sortOrderCtrl.dispose();
+    _iconUrlCtrl.dispose();
+    _bannerUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -75,6 +81,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
     final title = _titleCtrl.text.trim();
     final description = _descriptionCtrl.text.trim();
     final sortOrder = int.tryParse(_sortOrderCtrl.text.trim()) ?? 0;
+    final iconUrl = _iconUrlCtrl.text.trim();
+    final bannerUrl = _bannerUrlCtrl.text.trim();
     if (title.isEmpty || description.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Title and description are required')),
@@ -94,6 +102,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
           'description': description,
           'sort_order': sortOrder,
           'is_active': _isActive,
+          'icon_url': iconUrl,
+          'banner_url': bannerUrl,
         },
       );
     } else {
@@ -102,6 +112,8 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
         forDate: _forDate,
         title: title,
         description: description,
+        iconUrl: iconUrl,
+        bannerUrl: bannerUrl,
         sortOrder: sortOrder,
         isActive: _isActive,
       );
@@ -165,6 +177,22 @@ class _AdminFestivalEditScreenState extends State<AdminFestivalEditScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: 'Sort Order',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _iconUrlCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Icon URL (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _bannerUrlCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Banner URL (optional)',
                 border: OutlineInputBorder(),
               ),
             ),

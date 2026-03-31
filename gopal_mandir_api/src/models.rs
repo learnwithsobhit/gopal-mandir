@@ -192,10 +192,42 @@ pub struct FestivalEntry {
     pub for_date: String,
     pub title: String,
     pub description: String,
+    pub icon_url: Option<String>,
+    pub banner_url: Option<String>,
     pub sort_order: i32,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct FestivalMonthBucket {
+    pub year: i32,
+    pub month: i32,
+    pub month_label: String,
+    pub item_count: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct FestivalMediaItem {
+    pub id: i32,
+    pub festival_id: i32,
+    pub title: String,
+    pub image_url: String,
+    pub video_url: String,
+    pub media_type: String,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct FestivalMediaComment {
+    pub id: i32,
+    pub media_id: i32,
+    pub name: String,
+    pub comment: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -544,6 +576,8 @@ pub struct AdminCreateFestivalRequest {
     pub for_date: String,
     pub title: String,
     pub description: String,
+    pub icon_url: Option<String>,
+    pub banner_url: Option<String>,
     pub sort_order: Option<i32>,
     pub is_active: Option<bool>,
 }
@@ -553,6 +587,8 @@ pub struct AdminPatchFestivalRequest {
     pub for_date: Option<String>,
     pub title: Option<String>,
     pub description: Option<String>,
+    pub icon_url: Option<String>,
+    pub banner_url: Option<String>,
     pub sort_order: Option<i32>,
     pub is_active: Option<bool>,
 }
@@ -564,6 +600,30 @@ pub struct AdminListFestivalQuery {
     pub from_date: Option<String>,
     pub to_date: Option<String>,
     pub q: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FestivalListQuery {
+    pub year: Option<i32>,
+    pub month: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateFestivalMediaRequest {
+    pub title: String,
+    pub image_url: Option<String>,
+    pub video_url: Option<String>,
+    pub media_type: Option<String>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchFestivalMediaRequest {
+    pub title: Option<String>,
+    pub image_url: Option<String>,
+    pub video_url: Option<String>,
+    pub media_type: Option<String>,
+    pub sort_order: Option<i32>,
 }
 
 // ──────────────────────────────────────────────

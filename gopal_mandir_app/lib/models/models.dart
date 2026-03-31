@@ -218,6 +218,8 @@ class FestivalEntry {
   final String forDate;
   final String title;
   final String description;
+  final String? iconUrl;
+  final String? bannerUrl;
   final int sortOrder;
   final bool isActive;
   final String createdAt;
@@ -228,6 +230,8 @@ class FestivalEntry {
     required this.forDate,
     required this.title,
     required this.description,
+    this.iconUrl,
+    this.bannerUrl,
     required this.sortOrder,
     required this.isActive,
     required this.createdAt,
@@ -240,10 +244,101 @@ class FestivalEntry {
       forDate: (json['for_date'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
+      iconUrl: json['icon_url']?.toString(),
+      bannerUrl: json['banner_url']?.toString(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] != false,
       createdAt: (json['created_at'] ?? '').toString(),
       updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
+class FestivalMonthBucket {
+  final int year;
+  final int month;
+  final String monthLabel;
+  final int itemCount;
+
+  FestivalMonthBucket({
+    required this.year,
+    required this.month,
+    required this.monthLabel,
+    required this.itemCount,
+  });
+
+  factory FestivalMonthBucket.fromJson(Map<String, dynamic> json) {
+    return FestivalMonthBucket(
+      year: (json['year'] as num?)?.toInt() ?? 0,
+      month: (json['month'] as num?)?.toInt() ?? 0,
+      monthLabel: (json['month_label'] ?? '').toString(),
+      itemCount: (json['item_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class FestivalMediaItem {
+  final int id;
+  final int festivalId;
+  final String title;
+  final String imageUrl;
+  final String videoUrl;
+  final String mediaType;
+  final int sortOrder;
+  final String createdAt;
+  final String updatedAt;
+
+  FestivalMediaItem({
+    required this.id,
+    required this.festivalId,
+    required this.title,
+    required this.imageUrl,
+    required this.videoUrl,
+    required this.mediaType,
+    required this.sortOrder,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  bool get isVideo => mediaType.toLowerCase() == 'video' && videoUrl.trim().isNotEmpty;
+
+  factory FestivalMediaItem.fromJson(Map<String, dynamic> json) {
+    return FestivalMediaItem(
+      id: json['id'] as int,
+      festivalId: (json['festival_id'] as num?)?.toInt() ?? 0,
+      title: (json['title'] ?? '').toString(),
+      imageUrl: (json['image_url'] ?? '').toString(),
+      videoUrl: (json['video_url'] ?? '').toString(),
+      mediaType: (json['media_type'] ?? 'image').toString(),
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
+class FestivalMediaComment {
+  final int id;
+  final int mediaId;
+  final String name;
+  final String comment;
+  final String createdAt;
+
+  FestivalMediaComment({
+    required this.id,
+    required this.mediaId,
+    required this.name,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  factory FestivalMediaComment.fromJson(Map<String, dynamic> json) {
+    return FestivalMediaComment(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      mediaId: (json['media_id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] ?? '').toString(),
+      comment: (json['comment'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
     );
   }
 }

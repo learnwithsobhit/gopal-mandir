@@ -437,25 +437,138 @@ class ApiService {
     return null;
   }
 
-  Future<List<FestivalEntry>> getFestivalsForDate(DateTime date) async {
-    final y = date.year.toString().padLeft(4, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    final queryDate = '$y-$m-$d';
+  Future<List<FestivalMonthBucket>> getFestivalMonths() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/festivals/months'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data
+            .map((e) => FestivalMonthBucket.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('Error fetching festival months: $e');
+    }
+    return [];
+  }
+
+  Future<List<FestivalEntry>> getFestivalsForMonth({
+    required int year,
+    required int month,
+  }) async {
     try {
       final uri = Uri.parse('$baseUrl/api/festivals').replace(
-        queryParameters: {'date': queryDate},
+        queryParameters: {'year': '$year', 'month': '$month'},
       );
       final response = await http.get(uri);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final data = json['data'] as List<dynamic>? ?? const [];
-        return data.map((e) => FestivalEntry.fromJson(e as Map<String, dynamic>)).toList();
+        return data
+            .map((e) => FestivalEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
       }
     } catch (e) {
-      print('Error fetching festivals: $e');
+      print('Error fetching festivals month: $e');
     }
     return [];
+  }
+
+  Future<FestivalEntry?> getFestivalDetail(int id) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/festivals/$id'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return FestivalEntry.fromJson(json['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      print('Error fetching festival detail: $e');
+    }
+    return null;
+  }
+
+  Future<List<FestivalMediaItem>> getFestivalMedia(int festivalId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/festivals/$festivalId/media'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data
+            .map((e) => FestivalMediaItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('Error fetching festival media: $e');
+    }
+    return [];
+  }
+
+  Future<int> likeFestivalMedia(int mediaId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/festival-media/$mediaId/like'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(null),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return (json['count'] as num?)?.toInt() ?? 0;
+      }
+    } catch (e) {
+      print('Error liking festival media: $e');
+    }
+    return 0;
+  }
+
+  Future<int> getFestivalMediaLikes(int mediaId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/festival-media/$mediaId/likes/count'),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return (json['count'] as num?)?.toInt() ?? 0;
+      }
+    } catch (e) {
+      print('Error fetching festival media likes: $e');
+    }
+    return 0;
+  }
+
+  Future<List<FestivalMediaComment>> getFestivalMediaComments(int mediaId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/festival-media/$mediaId/comments'),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data
+            .map((e) => FestivalMediaComment.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('Error fetching festival media comments: $e');
+    }
+    return [];
+  }
+
+  Future<int> addFestivalMediaComment(int mediaId, NewCommentRequest req) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/festival-media/$mediaId/comments'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return (json['count'] as num?)?.toInt() ?? 0;
+      }
+    } catch (e) {
+      print('Error adding festival media comment: $e');
+    }
+    return 0;
   }
 
   Future<TempleInfo> getTempleInfo() async {
@@ -1462,6 +1575,8 @@ class ApiService {
     required String forDate,
     required String title,
     required String description,
+    String? iconUrl,
+    String? bannerUrl,
     int? sortOrder,
     bool? isActive,
   }) async {
@@ -1470,6 +1585,8 @@ class ApiService {
         'for_date': forDate,
         'title': title,
         'description': description,
+        if (iconUrl != null) 'icon_url': iconUrl,
+        if (bannerUrl != null) 'banner_url': bannerUrl,
         if (sortOrder != null) 'sort_order': sortOrder,
         if (isActive != null) 'is_active': isActive,
       };
@@ -1520,6 +1637,94 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('admin festival delete: $e');
+    }
+    return false;
+  }
+
+  Future<List<FestivalMediaItem>> adminListFestivalMedia(
+    String token,
+    int festivalId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/festivals/$festivalId/media'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data
+            .map((e) => FestivalMediaItem.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('admin list festival media: $e');
+    }
+    return [];
+  }
+
+  Future<FestivalMediaItem?> adminCreateFestivalMedia(
+    String token,
+    int festivalId, {
+    required String title,
+    String? imageUrl,
+    String? videoUrl,
+    String mediaType = 'image',
+    int? sortOrder,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'title': title,
+        'media_type': mediaType,
+        if (imageUrl != null) 'image_url': imageUrl,
+        if (videoUrl != null) 'video_url': videoUrl,
+        if (sortOrder != null) 'sort_order': sortOrder,
+      };
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/festivals/$festivalId/media'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return FestivalMediaItem.fromJson(json['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      print('admin create festival media: $e');
+    }
+    return null;
+  }
+
+  Future<FestivalMediaItem?> adminPatchFestivalMedia(
+    String token,
+    int mediaId,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/festival-media/$mediaId'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return FestivalMediaItem.fromJson(json['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      print('admin patch festival media: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteFestivalMedia(String token, int mediaId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/festival-media/$mediaId'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin delete festival media: $e');
     }
     return false;
   }

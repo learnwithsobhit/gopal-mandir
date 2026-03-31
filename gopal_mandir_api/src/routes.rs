@@ -4,7 +4,7 @@ use crate::models::*;
 use crate::razorpay::{self, RazorpayConfig};
 use crate::util::{bearer_token, normalize_phone, sha256_hex, truncate_payment_reason};
 use serde_json::{json, Value};
-use chrono::{Duration, Utc};
+use chrono::{Datelike, Duration, Utc};
 use rand::Rng;
 use uuid::Uuid;
 use std::env;
@@ -1818,11 +1818,6 @@ pub struct PanchangQuery {
     pub date: Option<String>,
 }
 
-#[derive(serde::Deserialize)]
-pub struct FestivalDateQuery {
-    pub date: Option<String>,
-}
-
 #[get("/api/panchang")]
 pub async fn get_panchang(
     pool: web::Data<PgPool>,
@@ -1878,21 +1873,16 @@ pub async fn get_panchang(
 #[get("/api/festivals")]
 pub async fn get_festivals(
     pool: web::Data<PgPool>,
-    q: web::Query<FestivalDateQuery>,
+    q: web::Query<FestivalListQuery>,
 ) -> HttpResponse {
-    let target_date = if let Some(d) = q.date.as_ref().map(|x| x.trim()).filter(|x| !x.is_empty()) {
-        match chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d") {
-            Ok(parsed) => parsed,
-            Err(_) => {
-                return HttpResponse::BadRequest().json(serde_json::json!({
-                    "success": false,
-                    "error": "Invalid date format, use YYYY-MM-DD"
-                }));
-            }
-        }
-    } else {
-        chrono::Utc::now().date_naive()
-    };
+    let year = q.year.unwrap_or_else(|| chrono::Utc::now().year());
+    let month = q.month.unwrap_or_else(|| chrono::Utc::now().month());
+    if !(1..=12).contains(&month) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "month must be between 1 and 12"
+        }));
+    }
 
     match sqlx::query_as::<_, FestivalEntry>(
         "SELECT
@@ -1900,16 +1890,20 @@ pub async fn get_festivals(
             to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             description,
+            icon_url,
+            banner_url,
             sort_order,
             is_active,
             created_at,
             updated_at
          FROM festival_calendar
-         WHERE for_date = $1
+         WHERE EXTRACT(YEAR FROM for_date) = $1
+           AND EXTRACT(MONTH FROM for_date) = $2
            AND is_active = TRUE
-         ORDER BY sort_order ASC, id ASC",
+         ORDER BY for_date ASC, sort_order ASC, id ASC",
     )
-    .bind(target_date)
+    .bind(year)
+    .bind(month as i32)
     .fetch_all(pool.get_ref())
     .await
     {
@@ -1917,6 +1911,217 @@ pub async fn get_festivals(
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festivals/months")]
+pub async fn get_festival_months(pool: web::Data<PgPool>) -> HttpResponse {
+    match sqlx::query_as::<_, FestivalMonthBucket>(
+        "SELECT
+            EXTRACT(YEAR FROM for_date)::INT as year,
+            EXTRACT(MONTH FROM for_date)::INT as month,
+            to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
+            COUNT(*)::BIGINT as item_count
+         FROM festival_calendar
+         WHERE is_active = TRUE
+         GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
+         ORDER BY date_trunc('month', for_date) DESC",
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festivals/{id}")]
+pub async fn get_festival_detail(pool: web::Data<PgPool>, id: web::Path<i32>) -> HttpResponse {
+    match sqlx::query_as::<_, FestivalEntry>(
+        "SELECT
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            description,
+            icon_url,
+            banner_url,
+            sort_order,
+            is_active,
+            created_at,
+            updated_at
+         FROM festival_calendar
+         WHERE id = $1
+           AND is_active = TRUE
+         LIMIT 1",
+    )
+    .bind(id.into_inner())
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Festival not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festivals/{id}/media")]
+pub async fn get_festival_media(pool: web::Data<PgPool>, id: web::Path<i32>) -> HttpResponse {
+    match sqlx::query_as::<_, FestivalMediaItem>(
+        "SELECT
+            id,
+            festival_id,
+            title,
+            image_url,
+            video_url,
+            media_type,
+            sort_order,
+            created_at,
+            updated_at
+         FROM festival_media
+         WHERE festival_id = $1
+         ORDER BY sort_order ASC, id ASC",
+    )
+    .bind(id.into_inner())
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/festival-media/{media_id}/like")]
+pub async fn like_festival_media(
+    pool: web::Data<PgPool>,
+    media_id: web::Path<i32>,
+    body: web::Json<serde_json::Value>,
+) -> HttpResponse {
+    let media_id = media_id.into_inner();
+    let like_name = body
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let result = sqlx::query(
+        "INSERT INTO festival_media_likes (media_id, name) VALUES ($1, $2)",
+    )
+    .bind(media_id)
+    .bind(like_name)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM festival_media_likes WHERE media_id = $1",
+            )
+            .bind(media_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to like festival media: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festival-media/{media_id}/likes/count")]
+pub async fn get_festival_media_likes_count(
+    pool: web::Data<PgPool>,
+    media_id: web::Path<i32>,
+) -> HttpResponse {
+    let media_id = media_id.into_inner();
+    let row = sqlx::query_as::<_, LikeCount>(
+        "SELECT COUNT(*) as count FROM festival_media_likes WHERE media_id = $1",
+    )
+    .bind(media_id)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match row {
+        Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festival-media/{media_id}/comments")]
+pub async fn get_festival_media_comments(
+    pool: web::Data<PgPool>,
+    media_id: web::Path<i32>,
+) -> HttpResponse {
+    let media_id = media_id.into_inner();
+    let rows = sqlx::query_as::<_, FestivalMediaComment>(
+        "SELECT id, media_id, name, comment, created_at
+         FROM festival_media_comments
+         WHERE media_id = $1
+         ORDER BY created_at DESC LIMIT 100",
+    )
+    .bind(media_id)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/festival-media/{media_id}/comments")]
+pub async fn add_festival_media_comment(
+    pool: web::Data<PgPool>,
+    media_id: web::Path<i32>,
+    body: web::Json<NewCommentRequest>,
+) -> HttpResponse {
+    let media_id = media_id.into_inner();
+    let result = sqlx::query(
+        "INSERT INTO festival_media_comments (media_id, name, comment) VALUES ($1, $2, $3)",
+    )
+    .bind(media_id)
+    .bind(&body.name)
+    .bind(&body.comment)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => {
+            let row = sqlx::query_as::<_, LikeCount>(
+                "SELECT COUNT(*) as count FROM festival_media_comments WHERE media_id = $1",
+            )
+            .bind(media_id)
+            .fetch_one(pool.get_ref())
+            .await;
+            match row {
+                Ok(count) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count.count })),
+                Err(_) => HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": 0_i64 })),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to add comment: {}", e)
         })),
     }
 }

@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import 'admin_festival_edit_screen.dart';
+import 'admin_festival_media_screen.dart';
 
 class AdminFestivalsListScreen extends StatefulWidget {
   const AdminFestivalsListScreen({super.key, required this.token});
@@ -205,6 +206,20 @@ class _AdminFestivalsListScreenState extends State<AdminFestivalsListScreen> {
                                         ),
                                       );
                                       _load();
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.perm_media_outlined),
+                                    onPressed: () async {
+                                      await Navigator.push<void>(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => AdminFestivalMediaScreen(
+                                            token: widget.token,
+                                            festival: item,
+                                          ),
+                                        ),
+                                      );
                                     },
                                   ),
                                   IconButton(

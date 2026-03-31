@@ -1312,6 +1312,8 @@ pub async fn admin_list_festivals(
             to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             description,
+            icon_url,
+            banner_url,
             sort_order,
             is_active,
             created_at,
@@ -1375,15 +1377,20 @@ pub async fn admin_create_festival(
 
     let sort_order = body.sort_order.unwrap_or(0);
     let is_active = body.is_active.unwrap_or(true);
+    let icon_url = body.icon_url.as_deref().unwrap_or("").trim();
+    let banner_url = body.banner_url.as_deref().unwrap_or("").trim();
 
     match sqlx::query_as::<_, FestivalEntry>(
-        "INSERT INTO festival_calendar (for_date, title, description, sort_order, is_active)
-         VALUES ($1, $2, $3, $4, $5)
+        "INSERT INTO festival_calendar
+            (for_date, title, description, icon_url, banner_url, sort_order, is_active)
+         VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), $6, $7)
          RETURNING
             id,
             to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             description,
+            icon_url,
+            banner_url,
             sort_order,
             is_active,
             created_at,
@@ -1392,6 +1399,8 @@ pub async fn admin_create_festival(
     .bind(parsed_date)
     .bind(title)
     .bind(description)
+    .bind(icon_url)
+    .bind(banner_url)
     .bind(sort_order)
     .bind(is_active)
     .fetch_one(pool.get_ref())
@@ -1426,6 +1435,8 @@ pub async fn admin_patch_festival(
             to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             description,
+            icon_url,
+            banner_url,
             sort_order,
             is_active,
             created_at,
@@ -1478,21 +1489,31 @@ pub async fn admin_patch_festival(
     }
     let new_sort = body.sort_order.unwrap_or(existing.sort_order);
     let new_active = body.is_active.unwrap_or(existing.is_active);
+    let new_icon = body.icon_url.as_ref().map(|s| s.trim().to_string()).or(existing.icon_url);
+    let new_banner = body
+        .banner_url
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .or(existing.banner_url);
 
     match sqlx::query_as::<_, FestivalEntry>(
         "UPDATE festival_calendar
          SET for_date = $1,
              title = $2,
              description = $3,
-             sort_order = $4,
-             is_active = $5,
+             icon_url = NULLIF($4, ''),
+             banner_url = NULLIF($5, ''),
+             sort_order = $6,
+             is_active = $7,
              updated_at = NOW()
-         WHERE id = $6
+         WHERE id = $8
          RETURNING
             id,
             to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             description,
+            icon_url,
+            banner_url,
             sort_order,
             is_active,
             created_at,
@@ -1501,6 +1522,8 @@ pub async fn admin_patch_festival(
     .bind(new_date)
     .bind(&new_title)
     .bind(&new_description)
+    .bind(new_icon.unwrap_or_default())
+    .bind(new_banner.unwrap_or_default())
     .bind(new_sort)
     .bind(new_active)
     .bind(id)
@@ -1541,6 +1564,258 @@ pub async fn admin_delete_festival(
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Festival entry not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/festivals/{id}/media")]
+pub async fn admin_list_festival_media(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let festival_id = id.into_inner();
+    match sqlx::query_as::<_, FestivalMediaItem>(
+        "SELECT
+            id,
+            festival_id,
+            title,
+            image_url,
+            video_url,
+            media_type,
+            sort_order,
+            created_at,
+            updated_at
+         FROM festival_media
+         WHERE festival_id = $1
+         ORDER BY sort_order ASC, id ASC",
+    )
+    .bind(festival_id)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/festivals/{id}/media")]
+pub async fn admin_create_festival_media(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminCreateFestivalMediaRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let festival_id = id.into_inner();
+    let title = body.title.trim();
+    if title.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "title is required"
+        }));
+    }
+    let media_type = body
+        .media_type
+        .as_deref()
+        .unwrap_or("image")
+        .trim()
+        .to_lowercase();
+    if media_type != "image" && media_type != "video" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "media_type must be image or video"
+        }));
+    }
+    let image_url = body.image_url.as_deref().unwrap_or("").trim();
+    let video_url = body.video_url.as_deref().unwrap_or("").trim();
+    if media_type == "image" && image_url.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "image_url is required for image media"
+        }));
+    }
+    if media_type == "video" && video_url.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "video_url is required for video media"
+        }));
+    }
+
+    let sort_order = body.sort_order.unwrap_or(0);
+    match sqlx::query_as::<_, FestivalMediaItem>(
+        "INSERT INTO festival_media
+            (festival_id, title, image_url, video_url, media_type, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING
+            id,
+            festival_id,
+            title,
+            image_url,
+            video_url,
+            media_type,
+            sort_order,
+            created_at,
+            updated_at",
+    )
+    .bind(festival_id)
+    .bind(title)
+    .bind(image_url)
+    .bind(video_url)
+    .bind(media_type)
+    .bind(sort_order)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/festival-media/{media_id}")]
+pub async fn admin_patch_festival_media(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    media_id: web::Path<i32>,
+    body: web::Json<AdminPatchFestivalMediaRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let media_id = media_id.into_inner();
+    let existing = sqlx::query_as::<_, FestivalMediaItem>(
+        "SELECT
+            id, festival_id, title, image_url, video_url, media_type, sort_order, created_at, updated_at
+         FROM festival_media WHERE id = $1",
+    )
+    .bind(media_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let existing = match existing {
+        Ok(Some(x)) => x,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Festival media not found"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let title = body.title.as_deref().unwrap_or(&existing.title).trim().to_string();
+    if title.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "title cannot be empty"
+        }));
+    }
+    let media_type = body
+        .media_type
+        .as_deref()
+        .unwrap_or(&existing.media_type)
+        .trim()
+        .to_lowercase();
+    if media_type != "image" && media_type != "video" {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "media_type must be image or video"
+        }));
+    }
+    let image_url = body.image_url.as_deref().unwrap_or(&existing.image_url).trim().to_string();
+    let video_url = body.video_url.as_deref().unwrap_or(&existing.video_url).trim().to_string();
+    if media_type == "image" && image_url.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "image_url is required for image media"
+        }));
+    }
+    if media_type == "video" && video_url.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "video_url is required for video media"
+        }));
+    }
+    let sort_order = body.sort_order.unwrap_or(existing.sort_order);
+
+    match sqlx::query_as::<_, FestivalMediaItem>(
+        "UPDATE festival_media
+         SET title = $2,
+             image_url = $3,
+             video_url = $4,
+             media_type = $5,
+             sort_order = $6,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING
+            id,
+            festival_id,
+            title,
+            image_url,
+            video_url,
+            media_type,
+            sort_order,
+            created_at,
+            updated_at",
+    )
+    .bind(media_id)
+    .bind(title)
+    .bind(image_url)
+    .bind(video_url)
+    .bind(media_type)
+    .bind(sort_order)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/festival-media/{media_id}")]
+pub async fn admin_delete_festival_media(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    media_id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    match sqlx::query("DELETE FROM festival_media WHERE id = $1")
+        .bind(media_id.into_inner())
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Deleted".to_string(),
+        }),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Festival media not found"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
