@@ -12,7 +12,7 @@ use crate::s3_presign::{encode_s3_object_path, path_style_object_path, presign_p
 use crate::models::*;
 use crate::util::{bearer_token, normalize_phone, sha256_hex};
 
-const MAX_PRESIGN_BYTES: i64 = 50 * 1024 * 1024; // 50 MB
+const MAX_PRESIGN_BYTES: i64 = 100 * 1024 * 1024; // 100 MB
 
 pub(crate) async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpResponse> {
     let token = match bearer_token(req) {

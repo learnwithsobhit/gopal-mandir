@@ -23,6 +23,7 @@ class AdminFestivalMediaScreen extends StatefulWidget {
 class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
   final ApiService _api = ApiService();
   static const int _parallelUploadLimit = 4;
+  static const int _maxPresignBytes = 100 * 1024 * 1024; // backend MAX_PRESIGN_BYTES
   bool _loading = true;
   bool _uploading = false;
   String _uploadStatus = '';
@@ -76,6 +77,8 @@ class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
     return base.replaceAll('_', ' ').trim();
   }
 
+  static const String _allowedTypesNote = 'Allowed: JPG, JPEG, PNG, WEBP, GIF, MP4, MOV (DNG not supported)';
+
   Future<void> _batchUploadToS3() async {
     final files = await pickFilesForUpload();
     if (files.isEmpty) {
@@ -99,6 +102,8 @@ class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
     var failed = 0;
     var skipped = 0;
     var completed = 0;
+    var tooLarge = 0;
+    final unsupportedExts = <String>{};
 
     Future<String> processSingleFile(int i) async {
       final file = files[i];
@@ -110,6 +115,11 @@ class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
 
       final (ext, mime, mediaType) = _mediaForFileName(file.name);
       if (mediaType.isEmpty || file.bytes.isEmpty) {
+        if (ext.isNotEmpty) unsupportedExts.add(ext.toUpperCase());
+        return 'skipped';
+      }
+      if (file.bytes.length > _maxPresignBytes) {
+        tooLarge++;
         return 'skipped';
       }
 
@@ -173,9 +183,15 @@ class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
     });
     await _load();
     if (!mounted) return;
+    final unsupportedMsg = unsupportedExts.isEmpty
+        ? ''
+        : ' Unsupported format(s): ${unsupportedExts.join(', ')}. $_allowedTypesNote';
+    final tooLargeMsg = tooLarge == 0
+        ? ''
+        : ' $tooLarge file(s) skipped because size is over 100 MB.';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Batch upload complete: uploaded $uploaded, failed $failed, skipped $skipped'),
+        content: Text('Batch upload complete: uploaded $uploaded, failed $failed, skipped $skipped.$tooLargeMsg$unsupportedMsg'),
       ),
     );
   }
@@ -222,7 +238,7 @@ class _AdminFestivalMediaScreenState extends State<AdminFestivalMediaScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Note: uploads run in parallel (max 4 files at a time).',
+                  'Note: uploads run in parallel (max 4 files at a time). $_allowedTypesNote',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],

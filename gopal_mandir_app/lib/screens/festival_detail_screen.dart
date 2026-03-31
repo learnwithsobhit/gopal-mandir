@@ -111,6 +111,33 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
     );
   }
 
+  Future<void> _openImageViewer(String imageUrl, String title) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(title)),
+          backgroundColor: Colors.black,
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.network(imageUrl, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openVideoUrl(String url) async {
+    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (ok || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open video link')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -161,7 +188,7 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
                             children: [
                               if (m.isVideo)
                                 InkWell(
-                                  onTap: () async => launchUrl(Uri.parse(m.videoUrl)),
+                                  onTap: () => _openVideoUrl(m.videoUrl),
                                   child: Container(
                                     height: 150,
                                     width: double.infinity,
@@ -170,9 +197,12 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
                                   ),
                                 )
                               else if (m.imageUrl.isNotEmpty)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(m.imageUrl, height: 150, width: double.infinity, fit: BoxFit.cover),
+                                InkWell(
+                                  onTap: () => _openImageViewer(m.imageUrl, m.title),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(m.imageUrl, height: 150, width: double.infinity, fit: BoxFit.cover),
+                                  ),
                                 ),
                               const SizedBox(height: 8),
                               Text(m.title, style: const TextStyle(fontWeight: FontWeight.w600)),
