@@ -15,6 +15,31 @@ const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &[
     "images.cdn-files.com",
 ];
 
+#[get("/")]
+pub async fn root_health() -> HttpResponse {
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "status": "ok",
+        "service": "gopal_mandir_api"
+    }))
+}
+
+#[get("/health")]
+pub async fn health() -> HttpResponse {
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "status": "ok"
+    }))
+}
+
+#[get("/api/health")]
+pub async fn api_health() -> HttpResponse {
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "status": "ok"
+    }))
+}
+
 // ──────────────────────────────────────────────
 // Membership (free) + phone OTP + sessions
 // ──────────────────────────────────────────────
