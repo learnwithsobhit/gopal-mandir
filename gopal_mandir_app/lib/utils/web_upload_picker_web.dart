@@ -10,31 +10,41 @@ class PickedUploadFile {
 }
 
 Future<PickedUploadFile?> pickFileForUpload() async {
-  final completer = Completer<html.File?>();
+  final files = await pickFilesForUpload();
+  if (files.isEmpty) return null;
+  return files.first;
+}
+
+Future<List<PickedUploadFile>> pickFilesForUpload() async {
+  final completer = Completer<List<html.File>>();
   final input = html.FileUploadInputElement()
-    ..accept = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime';
+    ..accept = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime'
+    ..multiple = true;
 
   input.onChange.listen((_) {
     if (completer.isCompleted) return;
     final files = input.files;
     if (files != null && files.isNotEmpty) {
-      completer.complete(files.first);
+      completer.complete(files.toList());
     } else {
-      completer.complete(null);
+      completer.complete(const []);
     }
   });
 
   input.click();
 
-  final file = await completer.future.timeout(
+  final files = await completer.future.timeout(
     const Duration(minutes: 5),
-    onTimeout: () => null,
+    onTimeout: () => const [],
   );
-  if (file == null) return null;
-
-  final bytes = await _readFileAsBytes(file);
-  if (bytes == null || bytes.isEmpty) return null;
-  return PickedUploadFile(name: file.name, bytes: bytes);
+  if (files.isEmpty) return const [];
+  final out = <PickedUploadFile>[];
+  for (final file in files) {
+    final bytes = await _readFileAsBytes(file);
+    if (bytes == null || bytes.isEmpty) continue;
+    out.add(PickedUploadFile(name: file.name, bytes: bytes));
+  }
+  return out;
 }
 
 Future<Uint8List?> _readFileAsBytes(html.File file) async {

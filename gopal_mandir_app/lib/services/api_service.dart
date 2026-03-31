@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
@@ -1260,6 +1261,24 @@ class ApiService {
       print('admin presign: $e');
     }
     return null;
+  }
+
+  Future<bool> uploadBytesToPresignedUrl(
+    String uploadUrl, {
+    required String contentType,
+    required Uint8List bytes,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse(uploadUrl),
+        headers: {'Content-Type': contentType},
+        body: bytes,
+      );
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print('upload bytes to presigned url: $e');
+      return false;
+    }
   }
 
   Future<List<GalleryItem>> adminListGallery(
