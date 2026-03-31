@@ -3403,6 +3403,99 @@ fn validate_landing_audio_url(raw: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
+#[get("/api/admin/daily-quote")]
+pub async fn admin_get_daily_quote(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    match sqlx::query_as::<_, DailyQuote>(
+        "SELECT id, shlok, translation, source
+         FROM daily_quotes
+         ORDER BY id DESC
+         LIMIT 1",
+    )
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(data)) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "No quote found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/daily-quote")]
+pub async fn admin_patch_daily_quote(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminPatchDailyQuoteRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let shlok = body.shlok.trim();
+    let translation = body.translation.trim();
+    let source = body.source.trim();
+
+    if shlok.is_empty() || translation.is_empty() || source.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "shlok, translation and source are required"
+        }));
+    }
+
+    let updated = sqlx::query_as::<_, DailyQuote>(
+        "WITH latest AS (
+            SELECT id FROM daily_quotes ORDER BY id DESC LIMIT 1
+         )
+         UPDATE daily_quotes
+         SET shlok = $1, translation = $2, source = $3
+         WHERE id = (SELECT id FROM latest)
+         RETURNING id, shlok, translation, source",
+    )
+    .bind(shlok)
+    .bind(translation)
+    .bind(source)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let result = match updated {
+        Ok(Some(row)) => Ok(row),
+        Ok(None) => sqlx::query_as::<_, DailyQuote>(
+            "INSERT INTO daily_quotes (shlok, translation, source)
+             VALUES ($1, $2, $3)
+             RETURNING id, shlok, translation, source",
+        )
+        .bind(shlok)
+        .bind(translation)
+        .bind(source)
+        .fetch_one(pool.get_ref())
+        .await,
+        Err(e) => Err(e),
+    };
+
+    match result {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
 #[patch("/api/admin/site/landing-audio")]
 pub async fn admin_patch_landing_audio(
     pool: web::Data<PgPool>,

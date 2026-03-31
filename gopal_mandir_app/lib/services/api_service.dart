@@ -1381,6 +1381,41 @@ class ApiService {
     }
   }
 
+  Future<DailyQuote?> adminGetDailyQuote(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/daily-quote'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return DailyQuote.fromJson(data);
+      }
+    } catch (e) {
+      print('admin daily quote get: $e');
+    }
+    return null;
+  }
+
+  Future<DailyQuote?> adminPatchDailyQuote(String token, Map<String, dynamic> body) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/daily-quote'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return DailyQuote.fromJson(data);
+      }
+    } catch (e) {
+      print('admin daily quote patch: $e');
+    }
+    return null;
+  }
+
   Future<LiveDarshanConfig?> adminGetLiveDarshan(String token) async {
     try {
       final response = await http.get(

@@ -18,6 +18,7 @@ import 'admin_event_participations_screen.dart';
 import 'admin_event_donations_screen.dart';
 import 'admin_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
+import 'admin_dainik_shlok_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
 import 'admin_feedback_list_screen.dart';
@@ -270,6 +271,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminAartiListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.menu_book_rounded,
+            'Dainik Shlok',
+            'Update home screen daily shlok content',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminDainikShlokScreen(token: _token!),
               ),
             ),
           ),

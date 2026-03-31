@@ -833,9 +833,11 @@ pub async fn get_announcements(pool: web::Data<PgPool>) -> HttpResponse {
 
 #[get("/api/daily-quote")]
 pub async fn get_daily_quote(pool: web::Data<PgPool>) -> HttpResponse {
-    // Pick a random quote (or rotate by day)
     match sqlx::query_as::<_, DailyQuote>(
-        "SELECT * FROM daily_quotes ORDER BY RANDOM() LIMIT 1"
+        "SELECT id, shlok, translation, source
+         FROM daily_quotes
+         ORDER BY id DESC
+         LIMIT 1"
     )
         .fetch_optional(pool.get_ref())
         .await

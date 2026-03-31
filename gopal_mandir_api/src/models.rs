@@ -1181,6 +1181,13 @@ pub struct AdminPatchLandingAudioRequest {
     pub audio_url: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchDailyQuoteRequest {
+    pub shlok: String,
+    pub translation: String,
+    pub source: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct PoojaCapacityRulesView {
     pub guru_max_per_slot: i32,
