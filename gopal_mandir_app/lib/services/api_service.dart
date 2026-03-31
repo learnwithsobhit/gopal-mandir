@@ -415,16 +415,9 @@ class ApiService {
     return _defaultDailyQuote();
   }
 
-  Future<List<DailyUpasanaItem>> getDailyUpasanaForDate(DateTime date) async {
-    final y = date.year.toString().padLeft(4, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    final d = date.day.toString().padLeft(2, '0');
-    final queryDate = '$y-$m-$d';
+  Future<List<DailyUpasanaItem>> getDailyUpasana() async {
     try {
-      final uri = Uri.parse('$baseUrl/api/daily-upasana').replace(
-        queryParameters: {'date': queryDate},
-      );
-      final response = await http.get(uri);
+      final response = await http.get(Uri.parse('$baseUrl/api/daily-upasana'));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final data = json['data'] as List<dynamic>? ?? const [];
@@ -1621,13 +1614,13 @@ class ApiService {
     String token, {
     int page = 1,
     int perPage = 100,
-    String? forDate,
+    String? title,
   }) async {
     try {
       final q = <String, String>{
         'page': '$page',
         'per_page': '$perPage',
-        if (forDate != null && forDate.isNotEmpty) 'for_date': forDate,
+        if (title != null && title.isNotEmpty) 'title': title,
       };
       final uri = Uri.parse('$baseUrl/api/admin/daily-upasana').replace(queryParameters: q);
       final response = await http.get(uri, headers: _adminHeaders(token));

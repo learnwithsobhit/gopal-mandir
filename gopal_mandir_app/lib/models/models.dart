@@ -192,7 +192,6 @@ class DailyQuote {
 
 class DailyUpasanaItem {
   final int id;
-  final String forDate;
   final String title;
   final String category;
   final String content;
@@ -203,7 +202,6 @@ class DailyUpasanaItem {
 
   DailyUpasanaItem({
     required this.id,
-    required this.forDate,
     required this.title,
     required this.category,
     required this.content,
@@ -216,7 +214,6 @@ class DailyUpasanaItem {
   factory DailyUpasanaItem.fromJson(Map<String, dynamic> json) {
     return DailyUpasanaItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      forDate: (json['for_date'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),

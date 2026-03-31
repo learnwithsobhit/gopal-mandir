@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../l10n/locale_scope.dart';
 import 'admin_daily_upasana_edit_screen.dart';
 
 class AdminDailyUpasanaListScreen extends StatefulWidget {
@@ -36,17 +37,18 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
   }
 
   Future<void> _delete(DailyUpasanaItem item) async {
+    final s = AppLocaleScope.of(context).strings;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Delete item?'),
-        content: Text('${item.forDate} • ${item.title}'),
+        title: Text(s.dailyUpasanaAdminDeleteTitle),
+        content: Text(item.title),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(s.cancel)),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.urgentRed),
-            child: const Text('Delete'),
+            child: Text(s.delete),
           ),
         ],
       ),
@@ -62,9 +64,10 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Upasana (admin)'),
+        title: Text(s.dailyUpasanaAdminListTitle),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
@@ -85,7 +88,7 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
           : _items.isEmpty
-              ? const Center(child: Text('No daily upasana entries'))
+              ? Center(child: Text(s.dailyUpasanaAdminEmpty))
               : RefreshIndicator(
                   onRefresh: _load,
                   color: AppColors.krishnaBlue,
@@ -103,7 +106,7 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
                         ),
                         title: Text(item.title),
                         subtitle: Text(
-                          '${item.forDate}${item.category.isEmpty ? '' : ' • ${item.category}'}\n$preview',
+                          '${item.category.isEmpty ? '' : '${item.category}\n'}$preview',
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                         ),

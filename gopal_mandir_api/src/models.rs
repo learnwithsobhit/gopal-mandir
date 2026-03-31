@@ -72,7 +72,6 @@ pub struct DailyQuote {
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct DailyUpasanaItem {
     pub id: i32,
-    pub for_date: String,
     pub title: String,
     pub category: String,
     pub content: String,
@@ -588,12 +587,11 @@ pub struct AdminPatchPanchangRequest {
 pub struct AdminDailyUpasanaQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
-    pub for_date: Option<String>,
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AdminCreateDailyUpasanaRequest {
-    pub for_date: String,
     pub title: String,
     pub category: Option<String>,
     pub content: String,
@@ -603,7 +601,6 @@ pub struct AdminCreateDailyUpasanaRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct AdminPatchDailyUpasanaRequest {
-    pub for_date: Option<String>,
     pub title: Option<String>,
     pub category: Option<String>,
     pub content: Option<String>,

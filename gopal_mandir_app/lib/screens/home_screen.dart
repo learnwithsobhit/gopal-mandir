@@ -239,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         QuickActionButton(
                           icon: Icons.menu_book_rounded,
-                          label: 'Daily Upasana',
+                          label: s.quickDailyUpasana,
                           color: AppColors.urgentRed,
                           onTap: () => _navigateTo(context, const DailyUpasanaScreen()),
                         ),

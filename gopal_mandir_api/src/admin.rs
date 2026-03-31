@@ -1294,12 +1294,12 @@ pub async fn admin_list_daily_upasana(
     let per_page = q.per_page.unwrap_or(50).min(200).max(1);
     let offset = ((page - 1) * per_page) as i64;
     let limit = per_page as i64;
-    let for_date = q.for_date.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let title_filter = q.title.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let title_like = title_filter.map(|s| format!("%{}%", s));
 
     match sqlx::query_as::<_, DailyUpasanaItem>(
         "SELECT
             id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             category,
             content,
@@ -1308,11 +1308,11 @@ pub async fn admin_list_daily_upasana(
             created_at,
             updated_at
          FROM daily_upasana_items
-         WHERE ($1::TEXT IS NULL OR for_date = $1::DATE)
-         ORDER BY for_date DESC, sort_order ASC, id ASC
+         WHERE ($1::TEXT IS NULL OR title ILIKE $1 OR category ILIKE $1)
+         ORDER BY sort_order ASC, title ASC, id ASC
          LIMIT $2 OFFSET $3",
     )
-    .bind(for_date)
+    .bind(title_like.as_deref())
     .bind(limit)
     .bind(offset)
     .fetch_all(pool.get_ref())
@@ -1340,34 +1340,23 @@ pub async fn admin_create_daily_upasana(
     if let Err(resp) = require_admin(pool.get_ref(), &req).await {
         return resp;
     }
-    let for_date = body.for_date.trim();
     let title = body.title.trim();
     let content = body.content.trim();
-    if for_date.is_empty() || title.is_empty() || content.is_empty() {
+    if title.is_empty() || content.is_empty() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "for_date, title and content are required"
+            "error": "title and content are required"
         }));
     }
-    let parsed_date = match chrono::NaiveDate::parse_from_str(for_date, "%Y-%m-%d") {
-        Ok(d) => d,
-        Err(_) => {
-            return HttpResponse::BadRequest().json(serde_json::json!({
-                "success": false,
-                "error": "Invalid date format, use YYYY-MM-DD"
-            }));
-        }
-    };
     let category = body.category.as_deref().unwrap_or("").trim();
     let sort_order = body.sort_order.unwrap_or(0);
     let is_published = body.is_published.unwrap_or(false);
 
     match sqlx::query_as::<_, DailyUpasanaItem>(
-        "INSERT INTO daily_upasana_items (for_date, title, category, content, sort_order, is_published)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        "INSERT INTO daily_upasana_items (title, category, content, sort_order, is_published)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING
             id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             category,
             content,
@@ -1376,7 +1365,6 @@ pub async fn admin_create_daily_upasana(
             created_at,
             updated_at",
     )
-    .bind(parsed_date)
     .bind(title)
     .bind(category)
     .bind(content)
@@ -1394,7 +1382,7 @@ pub async fn admin_create_daily_upasana(
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
                 HttpResponse::Conflict().json(serde_json::json!({
                     "success": false,
-                    "error": "An upasana item with this title already exists for that date"
+                    "error": "An upasana item with this title already exists"
                 }))
             } else {
                 HttpResponse::InternalServerError().json(serde_json::json!({
@@ -1421,7 +1409,6 @@ pub async fn admin_patch_daily_upasana(
     let existing = sqlx::query_as::<_, DailyUpasanaItem>(
         "SELECT
             id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             category,
             content,
@@ -1460,16 +1447,6 @@ pub async fn admin_patch_daily_upasana(
             "error": "title and content are required"
         }));
     }
-    let new_date_str = body.for_date.as_deref().unwrap_or(&existing.for_date).trim().to_string();
-    let parsed_date = match chrono::NaiveDate::parse_from_str(&new_date_str, "%Y-%m-%d") {
-        Ok(d) => d,
-        Err(_) => {
-            return HttpResponse::BadRequest().json(serde_json::json!({
-                "success": false,
-                "error": "Invalid date format, use YYYY-MM-DD"
-            }));
-        }
-    };
     let new_category = body.category.as_deref().unwrap_or(&existing.category).trim().to_string();
     let new_sort_order = body.sort_order.unwrap_or(existing.sort_order);
     let new_is_published = body.is_published.unwrap_or(existing.is_published);
@@ -1477,17 +1454,15 @@ pub async fn admin_patch_daily_upasana(
     match sqlx::query_as::<_, DailyUpasanaItem>(
         "UPDATE daily_upasana_items
          SET
-            for_date = $1,
-            title = $2,
-            category = $3,
-            content = $4,
-            sort_order = $5,
-            is_published = $6,
+            title = $1,
+            category = $2,
+            content = $3,
+            sort_order = $4,
+            is_published = $5,
             updated_at = NOW()
-         WHERE id = $7
+         WHERE id = $6
          RETURNING
             id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             category,
             content,
@@ -1496,7 +1471,6 @@ pub async fn admin_patch_daily_upasana(
             created_at,
             updated_at",
     )
-    .bind(parsed_date)
     .bind(new_title)
     .bind(new_category)
     .bind(new_content)
@@ -1515,7 +1489,7 @@ pub async fn admin_patch_daily_upasana(
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
                 HttpResponse::Conflict().json(serde_json::json!({
                     "success": false,
-                    "error": "An upasana item with this title already exists for that date"
+                    "error": "An upasana item with this title already exists"
                 }))
             } else {
                 HttpResponse::InternalServerError().json(serde_json::json!({

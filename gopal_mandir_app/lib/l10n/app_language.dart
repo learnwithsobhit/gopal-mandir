@@ -41,7 +41,11 @@ class AppStrings {
       isHindi ? 'ऑडियो लोड नहीं हो सका' : 'Could not load audio';
   String get quickLiveDarshan => isHindi ? 'लाइव\nदर्शन' : 'Live\nDarshan';
   String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
+  String get quickDailyUpasana => isHindi ? 'दैनिक\nउपासना' : 'Daily\nUpasana';
   String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';
+  String get dailyUpasanaTitle => isHindi ? 'दैनिक उपासना' : 'Daily Upasana';
+  String get dailyUpasanaEmpty =>
+      isHindi ? 'कोई उपासना सामग्री उपलब्ध नहीं है' : 'No upasana items available';
 
   // ── Pooja appointment ──
   String get poojaAppointmentTitle => isHindi ? 'गुरु/बाबा पूजा बुकिंग' : 'Guru/Baba pooja booking';
@@ -131,6 +135,38 @@ class AppStrings {
   String get noPrasadBookings => isHindi ? 'प्रसाद की कोई बुकिंग नहीं मिली' : 'No prasad bookings found';
   String get noSevaBookings => isHindi ? 'सेवा की कोई बुकिंग नहीं मिली' : 'No seva bookings found';
   String get update => isHindi ? 'संशोधित करें' : 'Update';
+  String get create => isHindi ? 'बनाएं' : 'Create';
+  String get created => isHindi ? 'बनाया गया' : 'Created';
+  String get updated => isHindi ? 'अपडेट किया गया' : 'Updated';
+  String get delete => isHindi ? 'हटाएं' : 'Delete';
+  String get saving => isHindi ? 'सेव हो रहा है...' : 'Saving...';
+  String get updateFailed => isHindi ? 'अपडेट विफल' : 'Update failed';
+  String get createFailed => isHindi ? 'बनाना विफल' : 'Create failed';
+  String get dailyUpasanaAdminListTitle =>
+      isHindi ? 'दैनिक उपासना (एडमिन)' : 'Daily Upasana (admin)';
+  String get dailyUpasanaAdminEmpty =>
+      isHindi ? 'कोई दैनिक उपासना प्रविष्टि नहीं' : 'No daily upasana entries';
+  String get dailyUpasanaAdminDeleteTitle =>
+      isHindi ? 'प्रविष्टि हटाएं?' : 'Delete item?';
+  String get dailyUpasanaAdminRequired =>
+      isHindi ? 'शीर्षक और सामग्री आवश्यक हैं' : 'Title and content are required';
+  String get dailyUpasanaAdminEdit =>
+      isHindi ? 'दैनिक उपासना संपादित करें' : 'Edit Daily Upasana';
+  String get dailyUpasanaAdminNew =>
+      isHindi ? 'नई दैनिक उपासना' : 'New Daily Upasana';
+  String get dailyUpasanaAdminTitle => isHindi ? 'शीर्षक' : 'Title';
+  String get dailyUpasanaAdminCategory =>
+      isHindi ? 'श्रेणी (वैकल्पिक)' : 'Category (optional)';
+  String get dailyUpasanaAdminSort => isHindi ? 'क्रम' : 'Sort order';
+  String get dailyUpasanaAdminPublished => isHindi ? 'प्रकाशित' : 'Published';
+  String get dailyUpasanaAdminPublishedSub =>
+      isHindi ? 'यूज़र्स को दिखाई देगा' : 'Visible to users';
+  String get dailyUpasanaAdminDraftSub =>
+      isHindi ? 'केवल ड्राफ्ट' : 'Draft only';
+  String get dailyUpasanaAdminContent => isHindi ? 'सामग्री' : 'Content';
+  String get dailyUpasanaAdminContentHint => isHindi
+      ? 'हिंदी/English दोनों एक साथ लिखें (उदाहरण: श्लोक + translation)'
+      : 'Enter Hindi/English mixed content if needed';
   String get cancel => isHindi ? 'रद्द करें' : 'Cancel';
   String get cancelBooking => isHindi ? 'बुकिंग रद्द करें?' : 'Cancel booking?';
   String get no => isHindi ? 'नहीं' : 'No';

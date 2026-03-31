@@ -1821,9 +1821,7 @@ pub struct PanchangQuery {
 }
 
 #[derive(serde::Deserialize)]
-pub struct DailyUpasanaQuery {
-    pub date: Option<String>,
-}
+pub struct DailyUpasanaQuery {}
 
 #[get("/api/panchang")]
 pub async fn get_panchang(
@@ -1880,19 +1878,11 @@ pub async fn get_panchang(
 #[get("/api/daily-upasana")]
 pub async fn get_daily_upasana(
     pool: web::Data<PgPool>,
-    q: web::Query<DailyUpasanaQuery>,
+    _q: web::Query<DailyUpasanaQuery>,
 ) -> HttpResponse {
-    let requested = q
-        .date
-        .as_ref()
-        .map(|d| d.trim())
-        .filter(|d| !d.is_empty())
-        .map(|d| d.to_string());
-
-    let mut query = sqlx::query_as::<_, DailyUpasanaItem>(
+    let query = sqlx::query_as::<_, DailyUpasanaItem>(
         "SELECT
             id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
             title,
             category,
             content,
@@ -1902,16 +1892,14 @@ pub async fn get_daily_upasana(
             updated_at
          FROM daily_upasana_items
          WHERE is_published = TRUE
-           AND for_date = COALESCE($1::DATE, CURRENT_DATE)
-         ORDER BY sort_order ASC, id ASC",
+         ORDER BY sort_order ASC, title ASC, id ASC",
     );
-    query = query.bind(requested);
 
     match query.fetch_all(pool.get_ref()).await {
         Ok(data) if !data.is_empty() => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
-            "error": "Daily upasana for requested date not found"
+            "error": "Daily upasana not found"
         })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
