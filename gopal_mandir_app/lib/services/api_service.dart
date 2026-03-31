@@ -437,6 +437,27 @@ class ApiService {
     return null;
   }
 
+  Future<List<FestivalEntry>> getFestivalsForDate(DateTime date) async {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    final queryDate = '$y-$m-$d';
+    try {
+      final uri = Uri.parse('$baseUrl/api/festivals').replace(
+        queryParameters: {'date': queryDate},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = json['data'] as List<dynamic>? ?? const [];
+        return data.map((e) => FestivalEntry.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      print('Error fetching festivals: $e');
+    }
+    return [];
+  }
+
   Future<TempleInfo> getTempleInfo() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/temple-info'));
@@ -1401,6 +1422,104 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('admin panchang delete: $e');
+    }
+    return false;
+  }
+
+  Future<List<FestivalEntry>> adminListFestivals(
+    String token, {
+    int page = 1,
+    int perPage = 50,
+    String? fromDate,
+    String? toDate,
+    String? query,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'per_page': '$perPage',
+        if (fromDate != null && fromDate.isNotEmpty) 'from_date': fromDate,
+        if (toDate != null && toDate.isNotEmpty) 'to_date': toDate,
+        if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/festivals').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data.map((e) => FestivalEntry.fromJson(e as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (e) {
+      print('admin festivals list: $e');
+    }
+    return [];
+  }
+
+  Future<FestivalEntry?> adminCreateFestival(
+    String token, {
+    required String forDate,
+    required String title,
+    required String description,
+    int? sortOrder,
+    bool? isActive,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'for_date': forDate,
+        'title': title,
+        'description': description,
+        if (sortOrder != null) 'sort_order': sortOrder,
+        if (isActive != null) 'is_active': isActive,
+      };
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/festivals'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return FestivalEntry.fromJson(data);
+      }
+    } catch (e) {
+      print('admin festival create: $e');
+    }
+    return null;
+  }
+
+  Future<FestivalEntry?> adminPatchFestival(
+    String token,
+    int id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/festivals/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return FestivalEntry.fromJson(data);
+      }
+    } catch (e) {
+      print('admin festival patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteFestival(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/festivals/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin festival delete: $e');
     }
     return false;
   }

@@ -22,6 +22,7 @@ import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
 import 'admin_feedback_list_screen.dart';
 import 'admin_feedback_analytics_screen.dart';
+import 'admin_festivals_list_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -148,6 +149,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminPanchangListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.celebration,
+            'Festivals',
+            'Date-wise festivals/events CRUD',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminFestivalsListScreen(token: _token!),
               ),
             ),
           ),

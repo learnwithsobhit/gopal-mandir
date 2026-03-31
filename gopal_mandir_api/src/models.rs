@@ -186,6 +186,18 @@ pub struct HinduPanchang {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct FestivalEntry {
+    pub id: i32,
+    pub for_date: String,
+    pub title: String,
+    pub description: String,
+    pub sort_order: i32,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PrasadOrderRequest {
     pub prasad_item_id: i32,
@@ -525,6 +537,33 @@ pub struct AdminCreatePanchangRequest {
 pub struct AdminPatchPanchangRequest {
     pub for_date: Option<String>,
     pub content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateFestivalRequest {
+    pub for_date: String,
+    pub title: String,
+    pub description: String,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchFestivalRequest {
+    pub for_date: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub sort_order: Option<i32>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminListFestivalQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+    pub from_date: Option<String>,
+    pub to_date: Option<String>,
+    pub q: Option<String>,
 }
 
 // ──────────────────────────────────────────────

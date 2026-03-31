@@ -213,6 +213,41 @@ class HinduPanchang {
   }
 }
 
+class FestivalEntry {
+  final int id;
+  final String forDate;
+  final String title;
+  final String description;
+  final int sortOrder;
+  final bool isActive;
+  final String createdAt;
+  final String updatedAt;
+
+  FestivalEntry({
+    required this.id,
+    required this.forDate,
+    required this.title,
+    required this.description,
+    required this.sortOrder,
+    required this.isActive,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory FestivalEntry.fromJson(Map<String, dynamic> json) {
+    return FestivalEntry(
+      id: json['id'] as int,
+      forDate: (json['for_date'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      isActive: json['is_active'] != false,
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
 class TempleInfo {
   final String name;
   final String address;

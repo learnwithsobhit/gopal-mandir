@@ -1818,6 +1818,11 @@ pub struct PanchangQuery {
     pub date: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+pub struct FestivalDateQuery {
+    pub date: Option<String>,
+}
+
 #[get("/api/panchang")]
 pub async fn get_panchang(
     pool: web::Data<PgPool>,
@@ -1863,6 +1868,52 @@ pub async fn get_panchang(
             "success": false,
             "error": "Panchang for requested date not found"
         })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/festivals")]
+pub async fn get_festivals(
+    pool: web::Data<PgPool>,
+    q: web::Query<FestivalDateQuery>,
+) -> HttpResponse {
+    let target_date = if let Some(d) = q.date.as_ref().map(|x| x.trim()).filter(|x| !x.is_empty()) {
+        match chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d") {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": "Invalid date format, use YYYY-MM-DD"
+                }));
+            }
+        }
+    } else {
+        chrono::Utc::now().date_naive()
+    };
+
+    match sqlx::query_as::<_, FestivalEntry>(
+        "SELECT
+            id,
+            to_char(for_date, 'YYYY-MM-DD') as for_date,
+            title,
+            description,
+            sort_order,
+            is_active,
+            created_at,
+            updated_at
+         FROM festival_calendar
+         WHERE for_date = $1
+           AND is_active = TRUE
+         ORDER BY sort_order ASC, id ASC",
+    )
+    .bind(target_date)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)

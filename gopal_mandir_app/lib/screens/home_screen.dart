@@ -21,6 +21,7 @@ import 'pooja_appointment_screen.dart';
 import 'announcements_screen.dart';
 import 'live_darshan_screen.dart';
 import 'hindu_panchang_screen.dart';
+import 'festivals_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -246,6 +247,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: s.quickPanchang,
                           color: AppColors.templeGoldDark,
                           onTap: () => _navigateTo(context, const HinduPanchangScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.celebration,
+                          label: 'Festivals',
+                          color: AppColors.krishnaBlue,
+                          onTap: () => _navigateTo(context, const FestivalsScreen()),
                         ),
                       ],
                     ),
