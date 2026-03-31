@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'festival_video_player_screen.dart';
 
 class FestivalDetailScreen extends StatefulWidget {
   const FestivalDetailScreen({super.key, required this.festivalId});
@@ -131,10 +131,20 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
   }
 
   Future<void> _openVideoUrl(String url) async {
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (ok || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Could not open video link')),
+    final raw = url.trim();
+    final parsed = Uri.tryParse(raw);
+    if (parsed == null || (!parsed.hasScheme || parsed.host.isEmpty)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid video URL')),
+      );
+      return;
+    }
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => FestivalVideoPlayerScreen(videoUrl: raw, title: 'Festival Video'),
+      ),
     );
   }
 
