@@ -1846,7 +1846,10 @@ pub struct PanchangQuery {
 }
 
 #[derive(serde::Deserialize)]
-pub struct DailyUpasanaQuery {}
+pub struct DailyUpasanaQuery {
+    /// When set (including empty string for uncategorised items), only rows in that category are returned.
+    pub category: Option<String>,
+}
 
 #[get("/api/panchang")]
 pub async fn get_panchang(
@@ -1903,24 +1906,47 @@ pub async fn get_panchang(
 #[get("/api/daily-upasana")]
 pub async fn get_daily_upasana(
     pool: web::Data<PgPool>,
-    _q: web::Query<DailyUpasanaQuery>,
+    q: web::Query<DailyUpasanaQuery>,
 ) -> HttpResponse {
-    let query = sqlx::query_as::<_, DailyUpasanaItem>(
-        "SELECT
-            id,
-            title,
-            category,
-            content,
-            sort_order,
-            is_published,
-            created_at,
-            updated_at
-         FROM daily_upasana_items
-         WHERE is_published = TRUE
-         ORDER BY sort_order ASC, title ASC, id ASC",
-    );
+    let fetch = if let Some(ref cat) = q.category {
+        sqlx::query_as::<_, DailyUpasanaItem>(
+            "SELECT
+                id,
+                title,
+                category,
+                content,
+                sort_order,
+                is_published,
+                created_at,
+                updated_at
+             FROM daily_upasana_items
+             WHERE is_published = TRUE
+               AND TRIM(BOTH FROM COALESCE(category, '')) = TRIM(BOTH FROM $1::text)
+             ORDER BY sort_order ASC, title ASC, id ASC",
+        )
+        .bind(cat)
+        .fetch_all(pool.get_ref())
+        .await
+    } else {
+        sqlx::query_as::<_, DailyUpasanaItem>(
+            "SELECT
+                id,
+                title,
+                category,
+                content,
+                sort_order,
+                is_published,
+                created_at,
+                updated_at
+             FROM daily_upasana_items
+             WHERE is_published = TRUE
+             ORDER BY sort_order ASC, title ASC, id ASC",
+        )
+        .fetch_all(pool.get_ref())
+        .await
+    };
 
-    match query.fetch_all(pool.get_ref()).await {
+    match fetch {
         Ok(data) if !data.is_empty() => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,

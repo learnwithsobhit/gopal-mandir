@@ -415,9 +415,13 @@ class ApiService {
     return _defaultDailyQuote();
   }
 
-  Future<List<DailyUpasanaItem>> getDailyUpasana() async {
+  Future<List<DailyUpasanaItem>> getDailyUpasana({String? category}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/daily-upasana'));
+      final uri = Uri.parse('$baseUrl/api/daily-upasana').replace(
+        queryParameters:
+            category != null ? <String, String>{'category': category} : const {},
+      );
+      final response = await http.get(uri);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final data = json['data'] as List<dynamic>? ?? const [];

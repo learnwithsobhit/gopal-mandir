@@ -46,6 +46,21 @@ class AppStrings {
   String get dailyUpasanaTitle => isHindi ? 'दैनिक उपासना' : 'Daily Upasana';
   String get dailyUpasanaEmpty =>
       isHindi ? 'कोई उपासना सामग्री उपलब्ध नहीं है' : 'No upasana items available';
+  String get dailyUpasanaTopicGeneral =>
+      isHindi ? 'सामान्य' : 'General';
+  String get dailyUpasanaSearchTopicsHint =>
+      isHindi ? 'विषय खोजें…' : 'Search topics…';
+  String get dailyUpasanaChapters =>
+      isHindi ? 'अध्याय' : 'Chapters';
+  String get dailyUpasanaContinueReading =>
+      isHindi ? 'पढ़ना जारी रखें' : 'Continue reading';
+  String get dailyUpasanaPrevious =>
+      isHindi ? 'पिछला' : 'Previous';
+  String get dailyUpasanaNext =>
+      isHindi ? 'अगला' : 'Next';
+
+  String dailyUpasanaTopicEntryCount(int n) =>
+      isHindi ? '$n प्रविष्टियाँ' : '$n entries';
 
   // ── Pooja appointment ──
   String get poojaAppointmentTitle => isHindi ? 'गुरु/बाबा पूजा बुकिंग' : 'Guru/Baba pooja booking';
