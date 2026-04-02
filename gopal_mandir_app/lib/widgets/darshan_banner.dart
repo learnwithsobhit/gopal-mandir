@@ -99,7 +99,7 @@ class DarshanBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'श्री गोपाल मंदिर — आज का दर्शन',
+                    'श्री गोपाल वैष्णव पीठ गोपाल मंदिर — आज का दर्शन',
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 14,

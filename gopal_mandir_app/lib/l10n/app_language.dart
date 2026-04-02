@@ -12,7 +12,7 @@ class AppStrings {
   bool get isHindi => lang == AppLanguage.hi;
 
   // ── Main / Nav ──
-  String get appTitle => isHindi ? 'श्री गोपाल मंदिर' : 'Shri Gopal Mandir';
+  String get appTitle => isHindi ? 'श्री गोपाल वैष्णव पीठ गोपाल मंदिर' : 'Shri Gopal Vaishnav Pith Shri Gopal Mandir';
   String get navHome => isHindi ? 'होम' : 'Home';
   String get navSeva => isHindi ? 'सेवा' : 'Seva';
   String get navLive => isHindi ? 'लाइव' : 'Live';
@@ -20,7 +20,7 @@ class AppStrings {
   String get navMore => isHindi ? 'अधिक' : 'More';
 
   // ── Home ──
-  String get templeName => isHindi ? 'श्री गोपाल मंदिर' : 'Shri Gopal Mandir';
+  String get templeName => isHindi ? 'श्री गोपाल वैष्णव पीठ गोपाल मंदिर' : 'Shri Gopal Vaishnav Pith Shri Gopal Mandir';
   String get todayInTemple => isHindi ? 'आज मंदिर में' : 'Today at Temple';
   String get upcomingEvents => isHindi ? 'आगामी उत्सव' : 'Upcoming Events';
   String get dailyShlok => isHindi ? 'दैनिक श्लोक' : 'Daily Shlok';

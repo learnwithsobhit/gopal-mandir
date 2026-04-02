@@ -8,6 +8,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(InkWell).first);
     await tester.pumpAndSettle();
-    expect(find.text('श्री गोपाल मंदिर'), findsOneWidget);
+    expect(find.text('श्री गोपाल वैष्णव पीठ गोपाल मंदिर'), findsOneWidget);
   });
 }
