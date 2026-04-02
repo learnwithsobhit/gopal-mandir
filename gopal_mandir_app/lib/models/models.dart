@@ -390,6 +390,8 @@ class TempleInfo {
   final double latitude;
   final double longitude;
   final String? mapsUrl;
+  /// Long-form history / about text (admin-editable).
+  final String aboutContent;
 
   TempleInfo({
     required this.name,
@@ -403,6 +405,7 @@ class TempleInfo {
     required this.latitude,
     required this.longitude,
     this.mapsUrl,
+    this.aboutContent = '',
   });
 
   factory TempleInfo.fromJson(Map<String, dynamic> json) {
@@ -418,6 +421,7 @@ class TempleInfo {
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       mapsUrl: json['maps_url']?.toString(),
+      aboutContent: (json['about_content'] ?? '').toString(),
     );
   }
 }

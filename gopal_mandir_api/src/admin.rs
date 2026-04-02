@@ -3746,6 +3746,52 @@ pub async fn admin_patch_daily_quote(
     }
 }
 
+const MAX_TEMPLE_ABOUT_CHARS: usize = 50_000;
+
+#[patch("/api/admin/temple-about")]
+pub async fn admin_patch_temple_about(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminPatchTempleAboutRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let content = body.about_content.trim();
+    if content.chars().count() > MAX_TEMPLE_ABOUT_CHARS {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": format!("about_content must be at most {} characters", MAX_TEMPLE_ABOUT_CHARS)
+        }));
+    }
+    let content = content.to_string();
+
+    match sqlx::query_as::<_, TempleInfo>(
+        "UPDATE temple_info
+         SET about_content = $1
+         WHERE id = (SELECT id FROM temple_info ORDER BY id ASC LIMIT 1)
+         RETURNING id, name, address, city, phone, email, website, opening_time, closing_time, latitude, longitude, maps_url, about_content",
+    )
+    .bind(&content)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(data)) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Temple info row not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
 #[patch("/api/admin/site/landing-audio")]
 pub async fn admin_patch_landing_audio(
     pool: web::Data<PgPool>,

@@ -19,6 +19,7 @@ import 'admin_event_donations_screen.dart';
 import 'admin_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
 import 'admin_dainik_shlok_screen.dart';
+import 'admin_temple_about_screen.dart';
 import 'admin_daily_upasana_list_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
@@ -283,6 +284,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminDainikShlokScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.info_outline_rounded,
+            'About Temple',
+            'History and info on More → About Temple',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminTempleAboutScreen(token: _token!),
               ),
             ),
           ),

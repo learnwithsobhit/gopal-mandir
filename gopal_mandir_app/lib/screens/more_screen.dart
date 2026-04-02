@@ -14,6 +14,7 @@ import 'rate_us_screen.dart';
 import 'settings_screen.dart';
 import 'volunteer_screen.dart';
 import 'pooja_appointment_screen.dart';
+import 'about_temple_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -255,7 +256,20 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          _menuItem(context, Icons.info_outline, s.aboutTemple, s.aboutTempleSub),
+          _menuItem(
+            context,
+            Icons.info_outline,
+            s.aboutTemple,
+            s.aboutTempleSub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const VrindavanBackground(child: AboutTempleScreen()),
+                ),
+              );
+            },
+          ),
           _menuItem(
             context,
             Icons.location_on,

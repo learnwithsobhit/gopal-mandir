@@ -92,6 +92,7 @@ async fn main() -> std::io::Result<()> {
             .service(admin::admin_delete_gallery)
             .service(admin::admin_get_daily_quote)
             .service(admin::admin_patch_daily_quote)
+            .service(admin::admin_patch_temple_about)
             .service(admin::admin_patch_landing_audio)
             .service(admin::admin_get_live_darshan)
             .service(admin::admin_patch_live_darshan)

@@ -3030,5 +3030,24 @@ class ApiService {
     closingTime: '09:00 PM',
     latitude: 27.5839,
     longitude: 77.6964,
+    aboutContent: '',
   );
+
+  Future<TempleInfo?> adminPatchTempleAbout(String token, String aboutContent) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/temple-about'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'about_content': aboutContent}),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return TempleInfo.fromJson(data);
+      }
+    } catch (e) {
+      print('admin temple about patch: $e');
+    }
+    return null;
+  }
 }

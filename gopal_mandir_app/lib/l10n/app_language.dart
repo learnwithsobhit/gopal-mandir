@@ -104,6 +104,8 @@ class AppStrings {
   String get more => isHindi ? 'अधिक' : 'More';
   String get aboutTemple => isHindi ? 'मंदिर के बारे में' : 'About Temple';
   String get aboutTempleSub => isHindi ? 'इतिहास और जानकारी' : 'History and information';
+  String get aboutTempleEmpty =>
+      isHindi ? 'जानकारी जल्द जोड़ी जाएगी।' : 'Information will be added soon.';
   String get locationMap => isHindi ? 'लोकेशन और मैप' : 'Location & Map';
   String get contactUs => isHindi ? 'संपर्क करें' : 'Contact Us';
   String get email => isHindi ? 'ईमेल' : 'Email';

@@ -95,6 +95,12 @@ pub struct TempleInfo {
     pub latitude: f64,
     pub longitude: f64,
     pub maps_url: Option<String>,
+    pub about_content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchTempleAboutRequest {
+    pub about_content: String,
 }
 
 #[derive(Debug, Deserialize)]
