@@ -11,17 +11,25 @@ const _prefLastCategory = 'daily_upasana_last_category';
 const _prefLastItemId = 'daily_upasana_last_item_id';
 
 Future<void> saveDailyUpasanaLastRead(String categoryKey, int itemId) async {
-  final sp = await SharedPreferences.getInstance();
-  await sp.setString(_prefLastCategory, categoryKey);
-  await sp.setInt(_prefLastItemId, itemId);
+  try {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(_prefLastCategory, categoryKey);
+    await sp.setInt(_prefLastItemId, itemId);
+  } catch (_) {
+    // Web: localStorage blocked / plugin failure — ignore so reader still works.
+  }
 }
 
 Future<({String categoryKey, int itemId})?> loadDailyUpasanaLastRead() async {
-  final sp = await SharedPreferences.getInstance();
-  if (!sp.containsKey(_prefLastItemId)) return null;
-  final id = sp.getInt(_prefLastItemId);
-  if (id == null) return null;
-  return (categoryKey: sp.getString(_prefLastCategory) ?? '', itemId: id);
+  try {
+    final sp = await SharedPreferences.getInstance();
+    if (!sp.containsKey(_prefLastItemId)) return null;
+    final id = sp.getInt(_prefLastItemId);
+    if (id == null) return null;
+    return (categoryKey: sp.getString(_prefLastCategory) ?? '', itemId: id);
+  } catch (_) {
+    return null;
+  }
 }
 
 String _categoryDbKey(DailyUpasanaItem item) => item.category.trim();
@@ -87,23 +95,38 @@ class _DailyUpasanaScreenState extends State<DailyUpasanaScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final data = await _api.getDailyUpasana();
-    final last = await loadDailyUpasanaLastRead();
-    DailyUpasanaItem? resume;
-    if (last != null) {
-      try {
-        resume = data.firstWhere((e) => e.id == last.itemId);
-      } catch (_) {
-        resume = null;
-      }
-    }
     if (!mounted) return;
-    setState(() {
-      _items = data;
-      _resumeItem = resume;
-      _loading = false;
-    });
+    setState(() => _loading = true);
+    try {
+      List<DailyUpasanaItem> data;
+      try {
+        data = await _api.getDailyUpasana();
+      } catch (_) {
+        data = [];
+      }
+      final last = await loadDailyUpasanaLastRead();
+      DailyUpasanaItem? resume;
+      if (last != null) {
+        try {
+          resume = data.firstWhere((e) => e.id == last.itemId);
+        } catch (_) {
+          resume = null;
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _items = data;
+        _resumeItem = resume;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _items = [];
+        _resumeItem = null;
+        _loading = false;
+      });
+    }
   }
 
   List<String> _filteredTopicKeys(Map<String, List<DailyUpasanaItem>> grouped, AppStrings s) {
@@ -156,6 +179,7 @@ class _DailyUpasanaScreenState extends State<DailyUpasanaScreen> {
               color: AppColors.krishnaBlue,
               child: _items.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       children: [
                         const SizedBox(height: 120),
                         Center(
@@ -167,6 +191,7 @@ class _DailyUpasanaScreenState extends State<DailyUpasanaScreen> {
                       ],
                     )
                   : ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       children: [
                         if (_resumeItem != null) ...[
