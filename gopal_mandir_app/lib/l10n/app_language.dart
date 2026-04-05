@@ -48,6 +48,9 @@ class AppStrings {
   String get liveDarshanDefaultDescription => isHindi
       ? 'लाइव दर्शन जल्द उपलब्ध होगा। आप कहीं से भी श्री गोपाल जी के दर्शन कर सकेंगे।'
       : 'Live darshan streaming will be available soon. You will be able to watch Shri Gopal Ji\'s darshan from anywhere.';
+  String get liveDarshanStaffHint => isHindi
+      ? 'मंदिर स्टाफ: ऐडमिन में लाइव दर्शन खोलकर https स्ट्रीम URL दर्ज करें और लाइव चालू करें।'
+      : 'Temple staff: open Admin → Live Darshan, paste an https stream URL, and turn on Live.';
   String get liveDarshanWatchLive => isHindi ? 'लाइव देखें' : 'Watch live';
   String get liveDarshanOpenExternally => isHindi ? 'ब्राउज़र में खोलें' : 'Open in browser';
   String get liveDarshanCannotOpenStream =>

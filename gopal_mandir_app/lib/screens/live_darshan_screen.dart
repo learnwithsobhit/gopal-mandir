@@ -102,8 +102,15 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
       final c = cfg;
       headline = c.title.trim().isNotEmpty ? c.title : s.liveDarshanScreenTitle;
     }
-    final bodyText =
-        cfg != null && cfg.description.trim().isNotEmpty ? cfg.description : s.liveDarshanDefaultDescription;
+    // When not live, always show localized default so DB seed placeholders
+    // (e.g. "update via admin") do not override Hindi/English app copy.
+    final String bodyText;
+    if (live) {
+      final c = cfg;
+      bodyText = c.description.trim().isNotEmpty ? c.description : s.liveDarshanDefaultDescription;
+    } else {
+      bodyText = s.liveDarshanDefaultDescription;
+    }
     final appBarTitle =
         cfg != null && cfg.title.trim().isNotEmpty ? cfg.title : s.liveDarshanScreenTitle;
 
@@ -189,6 +196,27 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
                               ),
                               textAlign: TextAlign.center,
                             ),
+                            if (!live) ...[
+                              const SizedBox(height: 14),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.info_outline, size: 18, color: AppColors.krishnaBlue),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      s.liveDarshanStaffHint,
+                                      style: const TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 12,
+                                        height: 1.45,
+                                        color: AppColors.krishnaBlueDark,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                             if (live) ...[
                               const SizedBox(height: 16),
                               FilledButton.icon(
