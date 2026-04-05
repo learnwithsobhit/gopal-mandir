@@ -843,10 +843,41 @@ pub async fn admin_patch_live_darshan(
         }
     };
 
-    let title = body.title.clone().unwrap_or(current.title);
-    let stream_url = body.stream_url.clone().unwrap_or(current.stream_url);
+    let title = match &body.title {
+        None => current.title.clone(),
+        Some(s) => {
+            let t = s.trim();
+            if t.is_empty() {
+                current.title.clone()
+            } else {
+                t.chars().take(200).collect()
+            }
+        }
+    };
+    let stream_url = match &body.stream_url {
+        None => current.stream_url.clone(),
+        Some(s) => s.trim().to_string(),
+    };
     let is_live = body.is_live.unwrap_or(current.is_live);
-    let description = body.description.clone().unwrap_or(current.description);
+    let description = match &body.description {
+        None => current.description.clone(),
+        Some(s) => s.trim().chars().take(8000).collect(),
+    };
+
+    if is_live && stream_url.trim().is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Cannot mark live without a non-empty stream_url"
+        }));
+    }
+    if !stream_url.trim().is_empty() {
+        if let Err(msg) = validate_live_stream_url(&stream_url) {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }));
+        }
+    }
 
     let updated = sqlx::query_as::<_, LiveDarshanInfo>(
         "UPDATE live_darshan SET title = $2, stream_url = $3, is_live = $4, description = $5, updated_at = NOW()
@@ -3651,6 +3682,27 @@ fn validate_landing_audio_url(raw: &str) -> Result<(), &'static str> {
         return Err("only https URLs are allowed");
     }
     Ok(())
+}
+
+const MAX_LIVE_STREAM_URL_CHARS: usize = 2048;
+
+fn validate_live_stream_url(raw: &str) -> Result<(), &'static str> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return Ok(());
+    }
+    if t.chars().count() > MAX_LIVE_STREAM_URL_CHARS {
+        return Err("stream_url is too long (max 2048 characters)");
+    }
+    let u = match url::Url::parse(t) {
+        Ok(u) => u,
+        Err(_) => return Err("invalid stream_url"),
+    };
+    match u.scheme() {
+        "https" => Ok(()),
+        "http" => Err("stream_url must use https"),
+        _ => Err("stream_url must be an https URL"),
+    }
 }
 
 #[get("/api/admin/daily-quote")]

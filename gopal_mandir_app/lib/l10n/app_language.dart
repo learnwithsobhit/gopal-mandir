@@ -40,6 +40,22 @@ class AppStrings {
   String get galleryCouldNotLoadAudio =>
       isHindi ? 'ऑडियो लोड नहीं हो सका' : 'Could not load audio';
   String get quickLiveDarshan => isHindi ? 'लाइव\nदर्शन' : 'Live\nDarshan';
+  String get liveDarshanScreenTitle => isHindi ? 'लाइव दर्शन' : 'Live Darshan';
+  String get liveDarshanComingSoonHeadline =>
+      isHindi ? 'लाइव दर्शन शीघ्र उपलब्ध' : 'Live darshan coming soon';
+  String get liveDarshanSoonBadge => isHindi ? 'शीघ्र उपलब्ध' : 'Coming soon';
+  String get liveDarshanLiveBadge => 'LIVE';
+  String get liveDarshanDefaultDescription => isHindi
+      ? 'लाइव दर्शन जल्द उपलब्ध होगा। आप कहीं से भी श्री गोपाल जी के दर्शन कर सकेंगे।'
+      : 'Live darshan streaming will be available soon. You will be able to watch Shri Gopal Ji\'s darshan from anywhere.';
+  String get liveDarshanWatchLive => isHindi ? 'लाइव देखें' : 'Watch live';
+  String get liveDarshanOpenExternally => isHindi ? 'ब्राउज़र में खोलें' : 'Open in browser';
+  String get liveDarshanCannotOpenStream =>
+      isHindi ? 'स्ट्रीम नहीं खोल सके' : 'Cannot open stream';
+  String get liveDarshanLoadError =>
+      isHindi ? 'लाइव दर्शन लोड नहीं हो सका। पुनः प्रयास करें।' : 'Could not load live darshan. Try again.';
+  String get liveDarshanRetry => isHindi ? 'पुनः प्रयास' : 'Retry';
+  String get liveDarshanJaiGopal => isHindi ? 'जय गोपाल' : 'Jai Gopal';
   String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
   String get quickDailyUpasana => isHindi ? 'दैनिक\nउपासना' : 'Daily\nUpasana';
   String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';

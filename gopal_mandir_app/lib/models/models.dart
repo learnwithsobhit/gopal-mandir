@@ -1062,7 +1062,7 @@ class LiveDarshanConfig {
 
   factory LiveDarshanConfig.fromJson(Map<String, dynamic> json) {
     return LiveDarshanConfig(
-      id: json['id'] as int,
+      id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
       streamUrl: (json['stream_url'] ?? '').toString(),
       isLive: json['is_live'] == true,

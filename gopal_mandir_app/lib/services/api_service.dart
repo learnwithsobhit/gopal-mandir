@@ -1086,7 +1086,11 @@ class ApiService {
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>?;
         if (json != null && json['success'] == true && json['data'] != null) {
-          return LiveDarshanConfig.fromJson(json['data'] as Map<String, dynamic>);
+          try {
+            return LiveDarshanConfig.fromJson(json['data'] as Map<String, dynamic>);
+          } catch (_) {
+            return null;
+          }
         }
       }
     } catch (e) {
