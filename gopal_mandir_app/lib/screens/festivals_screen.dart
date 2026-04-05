@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -20,6 +22,44 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
   List<FestivalEntry> _items = [];
   FestivalMonthBucket? _selectedMonth;
 
+  final Map<String, List<FestivalEntry>> _monthCache = {};
+  final Map<String, Future<List<FestivalEntry>>> _monthInflight = {};
+
+  static String _monthKey(int year, int month) => '$year-$month';
+
+  /// Single-flight fetch + cache; safe to call from prefetch and month tap.
+  Future<List<FestivalEntry>> _festivalsForMonthCached(int year, int month) async {
+    final key = _monthKey(year, month);
+    final cached = _monthCache[key];
+    if (cached != null) return cached;
+
+    final pending = _monthInflight[key];
+    if (pending != null) return pending;
+
+    Future<List<FestivalEntry>> run() async {
+      try {
+        final list = await _api.getFestivalsForMonth(year: year, month: month);
+        if (mounted) _monthCache[key] = list;
+        return list;
+      } finally {
+        _monthInflight.remove(key);
+      }
+    }
+
+    final fut = run();
+    _monthInflight[key] = fut;
+    return fut;
+  }
+
+  void _prefetchAllMonths(List<FestivalMonthBucket> months) {
+    if (months.isEmpty || !mounted) return;
+    unawaited(
+      Future.wait(
+        months.map((b) => _festivalsForMonthCached(b.year, b.month)),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +67,8 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
   }
 
   Future<void> _loadMonths() async {
+    _monthCache.clear();
+    _monthInflight.clear();
     setState(() => _loading = true);
     final boot = await _api.getFestivalsBootstrap();
 
@@ -44,7 +86,13 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
             );
       final isFirstMonth =
           selected.year == months.first.year && selected.month == months.first.month;
-      items = isFirstMonth ? boot.festivals : await _api.getFestivalsForMonth(year: selected.year, month: selected.month);
+      if (isFirstMonth) {
+        _monthCache[_monthKey(months.first.year, months.first.month)] =
+            List<FestivalEntry>.from(boot.festivals);
+        items = boot.festivals;
+      } else {
+        items = await _festivalsForMonthCached(selected.year, selected.month);
+      }
     } else {
       months = await _api.getFestivalMonths();
       if (!mounted) return;
@@ -63,7 +111,7 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
               (m) => m.year == _selectedMonth!.year && m.month == _selectedMonth!.month,
               orElse: () => months.first,
             );
-      items = await _api.getFestivalsForMonth(year: selected.year, month: selected.month);
+      items = await _festivalsForMonthCached(selected.year, selected.month);
     }
 
     if (!mounted) return;
@@ -73,14 +121,17 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
       _items = items;
       _loading = false;
     });
+    _prefetchAllMonths(months);
   }
 
   Future<void> _selectMonth(FestivalMonthBucket bucket) async {
+    final key = _monthKey(bucket.year, bucket.month);
+    final alreadyReady = _monthCache.containsKey(key) || _monthInflight.containsKey(key);
     setState(() {
       _selectedMonth = bucket;
-      _loading = true;
+      if (!alreadyReady) _loading = true;
     });
-    final items = await _api.getFestivalsForMonth(year: bucket.year, month: bucket.month);
+    final items = await _festivalsForMonthCached(bucket.year, bucket.month);
     if (!mounted) return;
     setState(() {
       _items = items;
