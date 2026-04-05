@@ -1,0 +1,30 @@
+---
+description: Performance-first defaults for new features (API + Flutter app)
+alwaysApply: true
+---
+
+# Performance priority
+
+Treat latency, round-trips, and wasted work as **requirements**, not polish. Apply from the first design of any feature.
+
+## API (Rust / SQL)
+
+- Avoid **N+1**: do not force the client to call per-id endpoints for lists. Prefer **one query** with `LEFT JOIN` subqueries or aggregates for counts (likes, comments, etc.).
+- Prefer **single payloads** when the UI needs related data together (e.g. bootstrap: months + first month’s rows).
+- Add **indexes** that match `WHERE` / `JOIN` / `ORDER BY` for new tables or hot paths.
+- Keep list responses **lean**: avoid loading large blobs in list endpoints; use detail routes or pagination.
+
+## Flutter app
+
+- Do not **sequentially await** independent network calls; use **`Future.wait`** (or a single API) when both are needed for one screen.
+- Do not loop `await` over a list to fetch counts or metadata; use **fields on the list response** or one batch endpoint.
+- **Paginate** long grids/lists; defer heavy work until after first paint when it improves perceived speed (without hiding errors).
+- Prefer **const** widgets and stable keys where it reduces rebuild cost; avoid unnecessary `setState` scope.
+
+## Checklist before shipping a feature
+
+- How many HTTP calls does the main user path make? Can it be **one or two**?
+- Is there an **N+1** (list + per-item fetches)? If yes, fix server or client.
+- Does the DB query **scale** with row count (full scans, missing indexes)?
+
+When trade-offs appear, **choose fewer round-trips and simpler queries** unless there is a clear product reason not to.
