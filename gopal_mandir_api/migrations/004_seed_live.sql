@@ -5,6 +5,6 @@ SELECT
   'Shri Gopal Mandir — Live Darshan',
   'https://www.youtube.com/live',
   FALSE,
-  ''
+  'Live darshan stream link (update via admin)'
 WHERE NOT EXISTS (SELECT 1 FROM live_darshan);
 
