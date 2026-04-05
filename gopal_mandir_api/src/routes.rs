@@ -432,9 +432,31 @@ pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
 
 #[get("/api/events")]
 pub async fn get_events(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, Event>("SELECT * FROM events ORDER BY id")
-        .fetch_all(pool.get_ref())
-        .await
+    match sqlx::query_as::<_, EventWithCounts>(
+        "SELECT
+            e.id,
+            e.title,
+            e.date,
+            e.description,
+            e.image_url,
+            e.is_featured,
+            COALESCE(lc.cnt, 0) AS like_count,
+            COALESCE(cc.cnt, 0) AS comment_count
+         FROM events e
+         LEFT JOIN (
+             SELECT event_id, COUNT(*)::bigint AS cnt
+             FROM event_likes
+             GROUP BY event_id
+         ) lc ON lc.event_id = e.id
+         LEFT JOIN (
+             SELECT event_id, COUNT(*)::bigint AS cnt
+             FROM event_comments
+             GROUP BY event_id
+         ) cc ON cc.event_id = e.id
+         ORDER BY e.id",
+    )
+    .fetch_all(pool.get_ref())
+    .await
     {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({

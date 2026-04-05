@@ -31,6 +31,9 @@ class Event {
   final String description;
   final String? imageUrl;
   final bool isFeatured;
+  /// From public `/api/events`; admin responses may omit (defaults to 0).
+  final int likeCount;
+  final int commentCount;
 
   Event({
     required this.id,
@@ -39,9 +42,13 @@ class Event {
     required this.description,
     this.imageUrl,
     required this.isFeatured,
+    this.likeCount = 0,
+    this.commentCount = 0,
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
+    final like = json['like_count'];
+    final comments = json['comment_count'];
     return Event(
       id: json['id'],
       title: json['title'],
@@ -49,6 +56,8 @@ class Event {
       description: json['description'],
       imageUrl: json['image_url'],
       isFeatured: json['is_featured'],
+      likeCount: like is num ? like.toInt() : 0,
+      commentCount: comments is num ? comments.toInt() : 0,
     );
   }
 }

@@ -22,6 +22,19 @@ pub struct Event {
     pub is_featured: bool,
 }
 
+/// Public events list with aggregated counts (avoids N+1 on the client).
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct EventWithCounts {
+    pub id: i32,
+    pub title: String,
+    pub date: String,
+    pub description: String,
+    pub image_url: Option<String>,
+    pub is_featured: bool,
+    pub like_count: i64,
+    pub comment_count: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct GalleryItem {
     pub id: i32,

@@ -34,14 +34,8 @@ class EventsScreenState extends State<EventsScreen> {
     try {
       final data = await _api.getEvents();
       if (!mounted) return;
-      final likeCounts = <int, int>{};
-      final commentCounts = <int, int>{};
-      for (final event in data) {
-        final likes = await _api.getEventLikes(event.id);
-        final comments = await _api.getEventComments(event.id);
-        likeCounts[event.id] = likes;
-        commentCounts[event.id] = comments.length;
-      }
+      final likeCounts = <int, int>{for (final e in data) e.id: e.likeCount};
+      final commentCounts = <int, int>{for (final e in data) e.id: e.commentCount};
       if (!mounted) return;
       setState(() {
         _events = data;
