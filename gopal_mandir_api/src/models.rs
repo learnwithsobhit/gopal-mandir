@@ -265,6 +265,28 @@ pub struct FestivalMediaItem {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Public festival media list with counts (avoids per-item like requests).
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct FestivalMediaItemWithCounts {
+    pub id: i32,
+    pub festival_id: i32,
+    pub title: String,
+    pub image_url: String,
+    pub video_url: String,
+    pub media_type: String,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub like_count: i64,
+    pub comment_count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FestivalBootstrapData {
+    pub months: Vec<FestivalMonthBucket>,
+    pub festivals: Vec<FestivalEntry>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct FestivalMediaComment {
     pub id: i32,

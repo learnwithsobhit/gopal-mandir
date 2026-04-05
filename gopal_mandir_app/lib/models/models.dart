@@ -340,6 +340,9 @@ class FestivalMediaItem {
   final int sortOrder;
   final String createdAt;
   final String updatedAt;
+  /// Public `/api/festivals/:id/media`; admin list may omit (defaults to 0).
+  final int likeCount;
+  final int commentCount;
 
   FestivalMediaItem({
     required this.id,
@@ -351,11 +354,15 @@ class FestivalMediaItem {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.likeCount = 0,
+    this.commentCount = 0,
   });
 
   bool get isVideo => mediaType.toLowerCase() == 'video' && videoUrl.trim().isNotEmpty;
 
   factory FestivalMediaItem.fromJson(Map<String, dynamic> json) {
+    final like = json['like_count'];
+    final comments = json['comment_count'];
     return FestivalMediaItem(
       id: json['id'] as int,
       festivalId: (json['festival_id'] as num?)?.toInt() ?? 0,
@@ -366,6 +373,8 @@ class FestivalMediaItem {
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       createdAt: (json['created_at'] ?? '').toString(),
       updatedAt: (json['updated_at'] ?? '').toString(),
+      likeCount: like is num ? like.toInt() : 0,
+      commentCount: comments is num ? comments.toInt() : 0,
     );
   }
 }

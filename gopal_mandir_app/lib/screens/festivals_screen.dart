@@ -28,24 +28,44 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
 
   Future<void> _loadMonths() async {
     setState(() => _loading = true);
-    final months = await _api.getFestivalMonths();
-    if (!mounted) return;
-    if (months.isEmpty) {
-      setState(() {
-        _months = [];
-        _items = [];
-        _selectedMonth = null;
-        _loading = false;
-      });
-      return;
+    final boot = await _api.getFestivalsBootstrap();
+
+    late List<FestivalMonthBucket> months;
+    late FestivalMonthBucket selected;
+    late List<FestivalEntry> items;
+
+    if (boot != null && boot.months.isNotEmpty) {
+      months = boot.months;
+      selected = _selectedMonth == null
+          ? months.first
+          : months.firstWhere(
+              (m) => m.year == _selectedMonth!.year && m.month == _selectedMonth!.month,
+              orElse: () => months.first,
+            );
+      final isFirstMonth =
+          selected.year == months.first.year && selected.month == months.first.month;
+      items = isFirstMonth ? boot.festivals : await _api.getFestivalsForMonth(year: selected.year, month: selected.month);
+    } else {
+      months = await _api.getFestivalMonths();
+      if (!mounted) return;
+      if (months.isEmpty) {
+        setState(() {
+          _months = [];
+          _items = [];
+          _selectedMonth = null;
+          _loading = false;
+        });
+        return;
+      }
+      selected = _selectedMonth == null
+          ? months.first
+          : months.firstWhere(
+              (m) => m.year == _selectedMonth!.year && m.month == _selectedMonth!.month,
+              orElse: () => months.first,
+            );
+      items = await _api.getFestivalsForMonth(year: selected.year, month: selected.month);
     }
-    final selected = _selectedMonth == null
-        ? months.first
-        : months.firstWhere(
-            (m) => m.year == _selectedMonth!.year && m.month == _selectedMonth!.month,
-            orElse: () => months.first,
-          );
-    final items = await _api.getFestivalsForMonth(year: selected.year, month: selected.month);
+
     if (!mounted) return;
     setState(() {
       _months = months;

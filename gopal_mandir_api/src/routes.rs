@@ -2002,6 +2002,74 @@ pub async fn get_daily_upasana(
     }
 }
 
+/// Months plus festivals for the first (most recent) month in one round-trip.
+#[get("/api/festivals/bootstrap")]
+pub async fn get_festivals_bootstrap(pool: web::Data<PgPool>) -> HttpResponse {
+    let months = match sqlx::query_as::<_, FestivalMonthBucket>(
+        "SELECT
+            EXTRACT(YEAR FROM for_date)::INT as year,
+            EXTRACT(MONTH FROM for_date)::INT as month,
+            to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
+            COUNT(*)::BIGINT as item_count
+         FROM festival_calendar
+         WHERE is_active = TRUE
+         GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
+         ORDER BY date_trunc('month', for_date) DESC",
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(m) => m,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let festivals = if let Some(first) = months.first() {
+        match sqlx::query_as::<_, FestivalEntry>(
+            "SELECT
+                id,
+                to_char(for_date, 'YYYY-MM-DD') as for_date,
+                title,
+                description,
+                icon_url,
+                banner_url,
+                sort_order,
+                is_active,
+                created_at,
+                updated_at
+             FROM festival_calendar
+             WHERE EXTRACT(YEAR FROM for_date) = $1
+               AND EXTRACT(MONTH FROM for_date) = $2
+               AND is_active = TRUE
+             ORDER BY for_date ASC, sort_order ASC, id ASC",
+        )
+        .bind(first.year)
+        .bind(first.month)
+        .fetch_all(pool.get_ref())
+        .await
+        {
+            Ok(f) => f,
+            Err(e) => {
+                return HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }))
+            }
+        }
+    } else {
+        vec![]
+    };
+
+    HttpResponse::Ok().json(ApiResponse {
+        success: true,
+        data: FestivalBootstrapData { months, festivals },
+    })
+}
+
 #[get("/api/festivals")]
 pub async fn get_festivals(
     pool: web::Data<PgPool>,
@@ -2108,20 +2176,32 @@ pub async fn get_festival_detail(pool: web::Data<PgPool>, id: web::Path<i32>) ->
 
 #[get("/api/festivals/{id}/media")]
 pub async fn get_festival_media(pool: web::Data<PgPool>, id: web::Path<i32>) -> HttpResponse {
-    match sqlx::query_as::<_, FestivalMediaItem>(
+    match sqlx::query_as::<_, FestivalMediaItemWithCounts>(
         "SELECT
-            id,
-            festival_id,
-            title,
-            image_url,
-            video_url,
-            media_type,
-            sort_order,
-            created_at,
-            updated_at
-         FROM festival_media
-         WHERE festival_id = $1
-         ORDER BY sort_order ASC, id ASC",
+            m.id,
+            m.festival_id,
+            m.title,
+            m.image_url,
+            m.video_url,
+            m.media_type,
+            m.sort_order,
+            m.created_at,
+            m.updated_at,
+            COALESCE(lc.cnt, 0) AS like_count,
+            COALESCE(cc.cnt, 0) AS comment_count
+         FROM festival_media m
+         LEFT JOIN (
+             SELECT media_id, COUNT(*)::bigint AS cnt
+             FROM festival_media_likes
+             GROUP BY media_id
+         ) lc ON lc.media_id = m.id
+         LEFT JOIN (
+             SELECT media_id, COUNT(*)::bigint AS cnt
+             FROM festival_media_comments
+             GROUP BY media_id
+         ) cc ON cc.media_id = m.id
+         WHERE m.festival_id = $1
+         ORDER BY m.sort_order ASC, m.id ASC",
     )
     .bind(id.into_inner())
     .fetch_all(pool.get_ref())

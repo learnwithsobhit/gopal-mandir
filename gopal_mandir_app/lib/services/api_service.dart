@@ -475,6 +475,31 @@ class ApiService {
     return [];
   }
 
+  /// One round-trip: month chips + festivals for the latest month (see `/api/festivals/bootstrap`).
+  /// Returns `null` if the server has no bootstrap route (older API).
+  Future<({List<FestivalMonthBucket> months, List<FestivalEntry> festivals})?> getFestivalsBootstrap() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/festivals/bootstrap'));
+      if (response.statusCode != 200) return null;
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (json == null) return null;
+      final data = json['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      final monthsList = data['months'] as List<dynamic>? ?? const [];
+      final festivalsList = data['festivals'] as List<dynamic>? ?? const [];
+      final months = monthsList
+          .map((e) => FestivalMonthBucket.fromJson(e as Map<String, dynamic>))
+          .toList();
+      final festivals = festivalsList
+          .map((e) => FestivalEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return (months: months, festivals: festivals);
+    } catch (e) {
+      print('Error fetching festivals bootstrap: $e');
+    }
+    return null;
+  }
+
   Future<List<FestivalEntry>> getFestivalsForMonth({
     required int year,
     required int month,

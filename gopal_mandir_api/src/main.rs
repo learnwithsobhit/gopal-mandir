@@ -169,6 +169,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::get_live_darshan)
             .service(routes::get_panchang)
             .service(routes::get_daily_upasana)
+            .service(routes::get_festivals_bootstrap)
             .service(routes::get_festivals)
             .service(routes::get_festival_months)
             .service(routes::get_festival_detail)

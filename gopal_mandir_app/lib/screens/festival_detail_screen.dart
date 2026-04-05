@@ -29,15 +29,20 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final fest = await _api.getFestivalDetail(widget.festivalId);
-    final media = await _api.getFestivalMedia(widget.festivalId);
-    for (final item in media) {
-      _likes[item.id] = await _api.getFestivalMediaLikes(item.id);
-    }
+    final results = await Future.wait<Object?>([
+      _api.getFestivalDetail(widget.festivalId),
+      _api.getFestivalMedia(widget.festivalId),
+    ]);
     if (!mounted) return;
+    final fest = results[0] as FestivalEntry?;
+    final media = results[1] as List<FestivalMediaItem>;
     setState(() {
       _festival = fest;
       _media = media;
+      _likes.clear();
+      for (final m in media) {
+        _likes[m.id] = m.likeCount;
+      }
       _loading = false;
     });
   }
@@ -226,7 +231,9 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
                                   TextButton.icon(
                                     onPressed: () => _openComments(m),
                                     icon: const Icon(Icons.mode_comment_outlined),
-                                    label: const Text('Comments'),
+                                    label: Text(
+                                      m.commentCount > 0 ? 'Comments (${m.commentCount})' : 'Comments',
+                                    ),
                                   ),
                                 ],
                               ),
