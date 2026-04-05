@@ -60,6 +60,9 @@ class GalleryItem {
   final String category;
   final String videoUrl;
   final String mediaType;
+  /// From public list API; admin rows may omit (defaults to 0).
+  final int likeCount;
+  final int commentCount;
 
   GalleryItem({
     required this.id,
@@ -68,6 +71,8 @@ class GalleryItem {
     required this.category,
     this.videoUrl = '',
     this.mediaType = 'image',
+    this.likeCount = 0,
+    this.commentCount = 0,
   });
 
   bool get isAudio => mediaType.toLowerCase() == 'audio' && videoUrl.trim().isNotEmpty;
@@ -75,6 +80,8 @@ class GalleryItem {
   bool get isVideo => mediaType.toLowerCase() == 'video' && videoUrl.trim().isNotEmpty;
 
   factory GalleryItem.fromJson(Map<String, dynamic> json) {
+    final like = json['like_count'];
+    final comments = json['comment_count'];
     return GalleryItem(
       id: json['id'],
       title: json['title'],
@@ -82,6 +89,8 @@ class GalleryItem {
       category: json['category'],
       videoUrl: (json['video_url'] ?? '').toString(),
       mediaType: (json['media_type'] ?? 'image').toString(),
+      likeCount: like is num ? like.toInt() : 0,
+      commentCount: comments is num ? comments.toInt() : 0,
     );
   }
 }

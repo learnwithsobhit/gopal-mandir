@@ -514,8 +514,29 @@ pub async fn get_gallery(
     let per_page = q.per_page.unwrap_or(20).min(50).max(1);
     let offset = (page - 1) * per_page;
 
-    match sqlx::query_as::<_, GalleryItem>(
-        "SELECT * FROM gallery ORDER BY id LIMIT $1 OFFSET $2",
+    match sqlx::query_as::<_, GalleryItemWithCounts>(
+        "SELECT
+            g.id,
+            g.title,
+            g.image_url,
+            g.category,
+            g.video_url,
+            g.media_type,
+            COALESCE(lc.cnt, 0) AS like_count,
+            COALESCE(cc.cnt, 0) AS comment_count
+         FROM gallery g
+         LEFT JOIN (
+             SELECT gallery_id, COUNT(*)::bigint AS cnt
+             FROM gallery_likes
+             GROUP BY gallery_id
+         ) lc ON lc.gallery_id = g.id
+         LEFT JOIN (
+             SELECT gallery_id, COUNT(*)::bigint AS cnt
+             FROM gallery_comments
+             GROUP BY gallery_id
+         ) cc ON cc.gallery_id = g.id
+         ORDER BY g.id
+         LIMIT $1 OFFSET $2",
     )
     .bind(per_page as i64)
     .bind(offset as i64)

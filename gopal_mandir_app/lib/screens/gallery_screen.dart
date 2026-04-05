@@ -168,28 +168,33 @@ class _GalleryScreenState extends State<GalleryScreen> {
     if (pos.pixels >= pos.maxScrollExtent - 200) _loadMore();
   }
 
+  /// Paint the grid first; apply like/comment numbers on the next frame so images
+  /// and layout appear immediately (counts still come from the same list response).
+  void _applyEngagementAfterFrame(List<GalleryItem> items) {
+    if (items.isEmpty || !mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        for (final i in items) {
+          _likeCounts[i.id] = i.likeCount;
+          _commentCounts[i.id] = i.commentCount;
+        }
+      });
+    });
+  }
+
   Future<void> _load() async {
     final items = await _api.getGalleryPage(1, perPage: _perPage);
-    if (!mounted) return;
-    final likeCounts = <int, int>{};
-    final commentCounts = <int, int>{};
-    for (final item in items) {
-      final likes = await _api.getGalleryLikes(item.id);
-      final comments = await _api.getGalleryComments(item.id);
-      likeCounts[item.id] = likes;
-      commentCounts[item.id] = comments.length;
-    }
     if (!mounted) return;
     setState(() {
       _items = items;
       _page = 1;
       _hasMore = items.length >= _perPage;
       _likeCounts.clear();
-      _likeCounts.addAll(likeCounts);
       _commentCounts.clear();
-      _commentCounts.addAll(commentCounts);
       _loading = false;
     });
+    _applyEngagementAfterFrame(items);
   }
 
   Future<void> _loadMore() async {
@@ -197,23 +202,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
     setState(() => _loadingMore = true);
     final newItems = await _api.getGalleryPage(_page + 1, perPage: _perPage);
     if (!mounted) return;
-    final likeCounts = <int, int>{};
-    final commentCounts = <int, int>{};
-    for (final item in newItems) {
-      final likes = await _api.getGalleryLikes(item.id);
-      final comments = await _api.getGalleryComments(item.id);
-      likeCounts[item.id] = likes;
-      commentCounts[item.id] = comments.length;
-    }
-    if (!mounted) return;
     setState(() {
       _items.addAll(newItems);
-      _likeCounts.addAll(likeCounts);
-      _commentCounts.addAll(commentCounts);
       _page++;
       _hasMore = newItems.length >= _perPage;
       _loadingMore = false;
     });
+    _applyEngagementAfterFrame(newItems);
   }
 
   @override

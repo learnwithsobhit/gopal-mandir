@@ -32,6 +32,19 @@ pub struct GalleryItem {
     pub media_type: String,
 }
 
+/// Public gallery list row with aggregated counts (one query, no N+1).
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct GalleryItemWithCounts {
+    pub id: i32,
+    pub title: String,
+    pub image_url: String,
+    pub category: String,
+    pub video_url: String,
+    pub media_type: String,
+    pub like_count: i64,
+    pub comment_count: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct PrasadItem {
     pub id: i32,
