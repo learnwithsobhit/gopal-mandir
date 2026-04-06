@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/models.dart';
+import '../services/admin_activity_dismissed_service.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import 'admin_prasad_orders_screen.dart';
@@ -27,6 +28,8 @@ class _AdminActivityFeedScreenState extends State<AdminActivityFeedScreen> {
   final ApiService _api = ApiService();
   List<AdminActivityItem> _items = [];
   bool _loading = true;
+  /// True when the API returned no rows (within the server time window).
+  bool _apiReturnedEmpty = false;
 
   @override
   void initState() {
@@ -36,10 +39,19 @@ class _AdminActivityFeedScreenState extends State<AdminActivityFeedScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final dismissed = await AdminActivityDismissedService.loadDismissedSet();
     final list = await _api.adminGetActivityFeed(widget.token, limit: 50);
     if (!mounted) return;
+    final visible = list
+        .where(
+          (i) => !dismissed.contains(
+            AdminActivityDismissedService.itemKey(i.kind, i.entityId),
+          ),
+        )
+        .toList();
     setState(() {
-      _items = list;
+      _items = visible;
+      _apiReturnedEmpty = list.isEmpty;
       _loading = false;
     });
   }
@@ -80,7 +92,20 @@ class _AdminActivityFeedScreenState extends State<AdminActivityFeedScreen> {
     }
   }
 
-  void _openForKind(BuildContext context, String kind) {
+  Future<void> _onRowTapped(AdminActivityItem item) async {
+    await AdminActivityDismissedService.markDismissed(item.kind, item.entityId);
+    if (!mounted) return;
+    setState(() {
+      _items.removeWhere(
+        (x) => x.kind == item.kind && x.entityId == item.entityId,
+      );
+      if (_items.isEmpty) _apiReturnedEmpty = false;
+    });
+    if (!mounted) return;
+    _openForKind(item.kind);
+  }
+
+  void _openForKind(String kind) {
     final t = widget.token;
     Widget screen;
     switch (kind) {
@@ -143,12 +168,18 @@ class _AdminActivityFeedScreenState extends State<AdminActivityFeedScreen> {
                     padding: const EdgeInsets.all(24),
                     children: [
                       SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
-                      const Icon(Icons.inbox_outlined, size: 56, color: AppColors.warmGrey),
+                      Icon(
+                        _apiReturnedEmpty ? Icons.inbox_outlined : Icons.task_alt_rounded,
+                        size: 56,
+                        color: AppColors.warmGrey,
+                      ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'No recent activity in this window.',
+                      Text(
+                        _apiReturnedEmpty
+                            ? 'No recent activity in this window.'
+                            : "You're all caught up. Pull to refresh for new activity.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.warmGrey, fontSize: 15),
+                        style: const TextStyle(color: AppColors.warmGrey, fontSize: 15),
                       ),
                     ],
                   )
@@ -189,7 +220,7 @@ class _AdminActivityFeedScreenState extends State<AdminActivityFeedScreen> {
                           ),
                           isThreeLine: true,
                           trailing: const Icon(Icons.chevron_right, size: 20),
-                          onTap: () => _openForKind(context, item.kind),
+                          onTap: () => _onRowTapped(item),
                         ),
                       );
                     },
