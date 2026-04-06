@@ -1052,6 +1052,41 @@ class AdminProfile {
   }
 }
 
+/// Row from `GET /api/admin/activity-feed` (unified admin notifications).
+class AdminActivityItem {
+  final String kind;
+  final String entityId;
+  final String? referenceId;
+  final String title;
+  final String summary;
+  final DateTime? occurredAt;
+
+  AdminActivityItem({
+    required this.kind,
+    required this.entityId,
+    this.referenceId,
+    required this.title,
+    required this.summary,
+    this.occurredAt,
+  });
+
+  factory AdminActivityItem.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDt(dynamic v) {
+      if (v == null) return null;
+      return DateTime.tryParse(v.toString());
+    }
+
+    return AdminActivityItem(
+      kind: (json['kind'] ?? '').toString(),
+      entityId: (json['entity_id'] ?? '').toString(),
+      referenceId: json['reference_id']?.toString(),
+      title: (json['title'] ?? '').toString(),
+      summary: (json['summary'] ?? '').toString(),
+      occurredAt: parseDt(json['occurred_at']),
+    );
+  }
+}
+
 class AdminPresignResult {
   final String uploadUrl;
   final String publicUrl;

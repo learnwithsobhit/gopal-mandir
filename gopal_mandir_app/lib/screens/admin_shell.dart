@@ -26,6 +26,7 @@ import 'admin_volunteers_screen.dart';
 import 'admin_feedback_list_screen.dart';
 import 'admin_feedback_analytics_screen.dart';
 import 'admin_festivals_list_screen.dart';
+import 'admin_activity_feed_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -111,6 +112,17 @@ class _AdminShellState extends State<AdminShell> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _tile(
+            Icons.notifications_active_rounded,
+            'Recent activity',
+            'Cross-module updates — prasad, seva, donations, members, and more',
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminActivityFeedScreen(token: _token!),
+              ),
+            ),
+          ),
           _tile(
             Icons.photo_library,
             'Gallery',

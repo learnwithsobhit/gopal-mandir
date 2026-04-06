@@ -462,6 +462,23 @@ pub struct ApiResponse<T: Serialize> {
     pub data: T,
 }
 
+/// Unified admin activity feed row (`GET /api/admin/activity-feed`).
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct AdminActivityItem {
+    pub kind: String,
+    pub entity_id: String,
+    pub reference_id: Option<String>,
+    pub title: String,
+    pub summary: String,
+    pub occurred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminActivityFeedQuery {
+    pub limit: Option<u32>,
+    pub since: Option<String>,
+}
+
 // ──────────────────────────────────────────────
 // Membership (free) + phone OTP + sessions
 // ──────────────────────────────────────────────

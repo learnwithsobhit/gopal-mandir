@@ -97,6 +97,7 @@ async fn main() -> std::io::Result<()> {
             .service(admin::admin_get_live_darshan)
             .service(admin::admin_patch_live_darshan)
             .service(admin::admin_list_prasad_orders)
+            .service(admin::admin_activity_feed)
             .service(admin::admin_patch_prasad_order_payment)
             .service(admin::admin_patch_prasad_order)
             .service(admin::admin_list_panchang)

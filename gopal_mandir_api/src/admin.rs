@@ -1,7 +1,7 @@
 //! Admin (CRM) API: OTP auth, presigned S3 uploads, gallery/live-darshan/prasad management.
 
 use actix_web::{delete, get, patch, post, web, HttpRequest, HttpResponse};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use rand::Rng;
 use sqlx::PgPool;
 use std::env;
@@ -3879,6 +3879,182 @@ pub async fn admin_patch_landing_audio(
                 "Landing audio updated".to_string()
             },
         }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+/// Bounded activity feed: per-branch time filter (`since` or last 120 days) + inner LIMIT K, then global sort.
+/// K = clamp(limit * 3, 50..150) — see project performance rule for admin feed.
+#[get("/api/admin/activity-feed")]
+pub async fn admin_activity_feed(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminActivityFeedQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let final_limit = q.limit.unwrap_or(50).min(200).max(1) as i64;
+    let branch_limit = (final_limit * 3).clamp(50, 150);
+
+    let lower: DateTime<Utc> = if let Some(ref s) = q.since {
+        match DateTime::parse_from_rfc3339(s.trim()) {
+            Ok(dt) => dt.with_timezone(&Utc),
+            Err(_) => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": "since must be RFC3339 / ISO-8601 (e.g. 2025-01-01T00:00:00Z)"
+                }));
+            }
+        }
+    } else {
+        Utc::now() - Duration::days(120)
+    };
+
+    let rows = sqlx::query_as::<_, AdminActivityItem>(
+        r#"
+        SELECT * FROM (
+            (
+                SELECT 'prasad_order'::text AS kind,
+                       o.id::text AS entity_id,
+                       o.reference_id AS reference_id,
+                       'Prasad order'::text AS title,
+                       (trim(o.name) || ' — ' || trim(p.name))::text AS summary,
+                       o.created_at AS occurred_at
+                FROM prasad_orders o
+                JOIN prasad_items p ON p.id = o.prasad_item_id
+                WHERE o.created_at > $1
+                ORDER BY o.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'seva_booking'::text AS kind,
+                       b.id::text AS entity_id,
+                       b.reference_id AS reference_id,
+                       'Seva booking'::text AS title,
+                       (trim(b.name) || ' — ' || trim(s.name))::text AS summary,
+                       b.created_at AS occurred_at
+                FROM seva_bookings b
+                JOIN seva_items s ON s.id = b.seva_item_id
+                WHERE b.created_at > $1
+                ORDER BY b.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'donation'::text AS kind,
+                       d.id::text AS entity_id,
+                       d.reference_id AS reference_id,
+                       'Donation'::text AS title,
+                       (trim(d.name) || ' — ₹' || trim(to_char(d.amount, 'FM999999990.99')))::text AS summary,
+                       d.created_at AS occurred_at
+                FROM donations d
+                WHERE d.created_at > $1
+                ORDER BY d.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'event_donation'::text AS kind,
+                       ed.id::text AS entity_id,
+                       ed.reference_id AS reference_id,
+                       'Event donation'::text AS title,
+                       (trim(ed.name) || ' — ' || trim(e.title) || ' — ₹' || trim(to_char(ed.amount, 'FM999999990.99')))::text AS summary,
+                       ed.created_at AS occurred_at
+                FROM event_donations ed
+                JOIN events e ON e.id = ed.event_id
+                WHERE ed.created_at > $1
+                ORDER BY ed.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'membership'::text AS kind,
+                       m.id::text AS entity_id,
+                       NULL::text AS reference_id,
+                       'New member'::text AS title,
+                       (trim(m.name) || ' — ' || trim(m.phone))::text AS summary,
+                       m.created_at AS occurred_at
+                FROM members m
+                WHERE m.created_at > $1
+                ORDER BY m.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'volunteer_request'::text AS kind,
+                       v.id::text AS entity_id,
+                       NULL::text AS reference_id,
+                       'Volunteer request'::text AS title,
+                       (trim(v.name) || ' — ' || trim(v.area))::text AS summary,
+                       v.created_at AS occurred_at
+                FROM volunteer_requests v
+                WHERE v.created_at > $1
+                ORDER BY v.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'feedback'::text AS kind,
+                       f.id::text AS entity_id,
+                       f.reference_id AS reference_id,
+                       'Feedback'::text AS title,
+                       (trim(f.name) || ' — ' || left(trim(f.message), 100))::text AS summary,
+                       f.created_at AS occurred_at
+                FROM feedback_items f
+                WHERE f.created_at > $1
+                ORDER BY f.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'event_participation'::text AS kind,
+                       ep.id::text AS entity_id,
+                       NULL::text AS reference_id,
+                       'Event participation'::text AS title,
+                       (trim(ep.name) || ' — ' || trim(e.title))::text AS summary,
+                       ep.created_at AS occurred_at
+                FROM event_participations ep
+                JOIN events e ON e.id = ep.event_id
+                WHERE ep.created_at > $1
+                ORDER BY ep.created_at DESC
+                LIMIT $2
+            )
+            UNION ALL
+            (
+                SELECT 'pooja_booking'::text AS kind,
+                       b.id::text AS entity_id,
+                       b.reference_id AS reference_id,
+                       'Pooja booking'::text AS title,
+                       (trim(b.name) || ' — ' || trim(o.name))::text AS summary,
+                       b.created_at AS occurred_at
+                FROM pooja_bookings b
+                JOIN pooja_offerings o ON o.id = b.offering_id
+                WHERE b.created_at > $1
+                ORDER BY b.created_at DESC
+                LIMIT $2
+            )
+        ) AS feed_union
+        ORDER BY feed_union.occurred_at DESC
+        LIMIT $3
+        "#,
+    )
+    .bind(lower)
+    .bind(branch_limit)
+    .bind(final_limit)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)

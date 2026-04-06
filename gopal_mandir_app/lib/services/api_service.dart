@@ -1283,6 +1283,34 @@ class ApiService {
     }
   }
 
+  Future<List<AdminActivityItem>> adminGetActivityFeed(
+    String token, {
+    int limit = 50,
+    DateTime? since,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        if (since != null) 'since': since.toUtc().toIso8601String(),
+      };
+      final uri =
+          Uri.parse('$baseUrl/api/admin/activity-feed').replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => AdminActivityItem.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin activity feed: $e');
+    }
+    return [];
+  }
+
   Future<AdminPresignResult?> adminPresign(
     String token, {
     required String contentType,
