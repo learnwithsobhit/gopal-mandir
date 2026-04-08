@@ -546,6 +546,7 @@ pub struct Admin {
     pub id: Uuid,
     pub phone: String,
     pub name: String,
+    pub role: String,
     pub status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -575,6 +576,58 @@ pub struct AdminVerifyOtpResponse {
     pub success: bool,
     pub token: String,
     pub admin: Admin,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminSecretLoginRequest {
+    pub code: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminSecretLoginResponse {
+    pub success: bool,
+    pub token: String,
+    pub admin: Admin,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCreateSecretCodeRequest {
+    pub phone: String,
+    pub name: Option<String>,
+    pub expires_in_minutes: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminCreateSecretCodeResponse {
+    pub success: bool,
+    pub code: String,
+    pub phone: String,
+    pub expires_in_sec: i64,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct AdminOwnerListItem {
+    pub id: Uuid,
+    pub phone: String,
+    pub name: String,
+    pub role: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminOwnerListResponse {
+    pub success: bool,
+    pub data: Vec<AdminOwnerListItem>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminOwnerPatchAdminRequest {
+    pub name: Option<String>,
+    pub role: Option<String>,
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

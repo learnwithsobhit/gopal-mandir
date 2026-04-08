@@ -2,7 +2,7 @@
 
 use actix_web::{delete, get, patch, post, web, HttpRequest, HttpResponse};
 use chrono::{DateTime, Duration, Utc};
-use rand::Rng;
+use rand::{distributions::Alphanumeric, Rng};
 use sqlx::PgPool;
 use std::env;
 use uuid::Uuid;
@@ -26,7 +26,7 @@ pub(crate) async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Ad
     };
     let token_hash = sha256_hex(&token);
     let row = sqlx::query_as::<_, Admin>(
-        "SELECT a.id, a.phone, a.name, a.status, a.created_at, a.updated_at
+        "SELECT a.id, a.phone, a.name, a.role, a.status, a.created_at, a.updated_at
          FROM admin_sessions s
          JOIN admins a ON a.id = s.admin_id
          WHERE s.token_hash = $1 AND s.expires_at > NOW() AND a.status = 'active'
@@ -47,6 +47,17 @@ pub(crate) async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Ad
             "error": format!("Database error: {}", e)
         }))),
     }
+}
+
+pub(crate) async fn require_owner(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpResponse> {
+    let admin = require_admin(pool, req).await?;
+    if admin.role != "owner" {
+        return Err(HttpResponse::Forbidden().json(serde_json::json!({
+            "success": false,
+            "error": "Owner access required"
+        })));
+    }
+    Ok(admin)
 }
 
 pub(crate) fn admin_parse_patch_payment_status(body: &AdminPatchPaymentRequest) -> Result<String, &'static str> {
@@ -302,7 +313,7 @@ pub async fn admin_verify_otp(
     let admin_row = if !name_update.is_empty() {
         sqlx::query_as::<_, Admin>(
             "UPDATE admins SET name = $2, updated_at = NOW() WHERE phone = $1 AND status = 'active'
-             RETURNING id, phone, name, status, created_at, updated_at",
+             RETURNING id, phone, name, role, status, created_at, updated_at",
         )
         .bind(&phone)
         .bind(&name_update)
@@ -310,7 +321,7 @@ pub async fn admin_verify_otp(
         .await
     } else {
         sqlx::query_as::<_, Admin>(
-            "SELECT id, phone, name, status, created_at, updated_at FROM admins
+            "SELECT id, phone, name, role, status, created_at, updated_at FROM admins
              WHERE phone = $1 AND status = 'active' LIMIT 1",
         )
         .bind(&phone)
@@ -377,6 +388,397 @@ pub async fn admin_me(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse
     match require_admin(pool.get_ref(), &req).await {
         Ok(admin) => HttpResponse::Ok().json(AdminMeResponse { success: true, admin }),
         Err(resp) => resp,
+    }
+}
+
+#[post("/api/admin/login-secret")]
+pub async fn admin_login_secret(
+    pool: web::Data<PgPool>,
+    body: web::Json<AdminSecretLoginRequest>,
+) -> HttpResponse {
+    let raw_code = body.code.trim();
+    if raw_code.len() < 6 {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Invalid secret code"
+        }));
+    }
+
+    let pepper = env::var("ADMIN_SECRET_CODE_PEPPER").unwrap_or_else(|_| "dev".to_string());
+    let code_hash = sha256_hex(&format!("{}:{}", raw_code, pepper));
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let secret_row = sqlx::query_as::<_, (Uuid, String, Option<String>)>(
+        "SELECT id, target_phone, target_name
+         FROM admin_secret_codes
+         WHERE code_hash = $1 AND consumed_at IS NULL AND expires_at > NOW()
+         ORDER BY created_at DESC
+         LIMIT 1
+         FOR UPDATE",
+    )
+    .bind(&code_hash)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let (secret_id, target_phone, target_name) = match secret_row {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::Unauthorized().json(serde_json::json!({
+                "success": false,
+                "error": "Secret code is invalid or expired"
+            }));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let name_input = body.name.clone().unwrap_or_default().trim().to_string();
+    let mut resolved_name = if !name_input.is_empty() {
+        name_input
+    } else {
+        target_name.unwrap_or_default().trim().to_string()
+    };
+    if resolved_name.is_empty() {
+        resolved_name = "Temple Admin".to_string();
+    }
+
+    let existing = sqlx::query_as::<_, Admin>(
+        "SELECT id, phone, name, role, status, created_at, updated_at
+         FROM admins
+         WHERE phone = $1
+         LIMIT 1
+         FOR UPDATE",
+    )
+    .bind(&target_phone)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let admin = match existing {
+        Ok(Some(a)) => {
+            if a.status != "active" {
+                let _ = tx.rollback().await;
+                return HttpResponse::Forbidden().json(serde_json::json!({
+                    "success": false,
+                    "error": "Admin account is disabled"
+                }));
+            }
+            if !resolved_name.is_empty() && resolved_name != a.name {
+                match sqlx::query_as::<_, Admin>(
+                    "UPDATE admins
+                     SET name = $2, updated_at = NOW()
+                     WHERE id = $1
+                     RETURNING id, phone, name, role, status, created_at, updated_at",
+                )
+                .bind(a.id)
+                .bind(&resolved_name)
+                .fetch_one(&mut *tx)
+                .await
+                {
+                    Ok(updated) => updated,
+                    Err(e) => {
+                        let _ = tx.rollback().await;
+                        return HttpResponse::InternalServerError().json(serde_json::json!({
+                            "success": false,
+                            "error": format!("Database error: {}", e)
+                        }));
+                    }
+                }
+            } else {
+                a
+            }
+        }
+        Ok(None) => {
+            match sqlx::query_as::<_, Admin>(
+                "INSERT INTO admins (id, phone, name, role, status)
+                 VALUES ($1, $2, $3, 'admin', 'active')
+                 RETURNING id, phone, name, role, status, created_at, updated_at",
+            )
+            .bind(Uuid::new_v4())
+            .bind(&target_phone)
+            .bind(&resolved_name)
+            .fetch_one(&mut *tx)
+            .await
+            {
+                Ok(created) => created,
+                Err(e) => {
+                    let _ = tx.rollback().await;
+                    return HttpResponse::InternalServerError().json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Database error: {}", e)
+                    }));
+                }
+            }
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = sqlx::query(
+        "UPDATE admin_secret_codes
+         SET consumed_at = NOW(), consumed_by_admin_id = $2
+         WHERE id = $1 AND consumed_at IS NULL",
+    )
+    .bind(secret_id)
+    .bind(admin.id)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to consume secret code: {}", e)
+        }));
+    }
+
+    let raw_token = Uuid::new_v4().to_string();
+    let token_hash = sha256_hex(&raw_token);
+    let session_id = Uuid::new_v4();
+    let expires_at = Utc::now() + Duration::days(30);
+
+    if let Err(e) = sqlx::query(
+        "INSERT INTO admin_sessions (id, admin_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(session_id)
+    .bind(admin.id)
+    .bind(&token_hash)
+    .bind(expires_at)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to create session: {}", e)
+        }));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(AdminSecretLoginResponse {
+        success: true,
+        token: raw_token,
+        admin,
+    })
+}
+
+#[post("/api/admin/owner/secret-codes")]
+pub async fn owner_create_secret_code(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    body: web::Json<AdminCreateSecretCodeRequest>,
+) -> HttpResponse {
+    let owner = match require_owner(pool.get_ref(), &req).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let target_name = body
+        .name
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let expires_mins = body.expires_in_minutes.unwrap_or(30).clamp(5, 1440);
+    let raw_code: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(10)
+        .map(char::from)
+        .collect::<String>()
+        .to_uppercase();
+    let pepper = env::var("ADMIN_SECRET_CODE_PEPPER").unwrap_or_else(|_| "dev".to_string());
+    let code_hash = sha256_hex(&format!("{}:{}", raw_code, pepper));
+    let expires_at = Utc::now() + Duration::minutes(expires_mins);
+
+    let result = sqlx::query(
+        "INSERT INTO admin_secret_codes
+         (id, code_hash, target_phone, target_name, created_by_admin_id, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(&code_hash)
+    .bind(&phone)
+    .bind(&target_name)
+    .bind(owner.id)
+    .bind(expires_at)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(AdminCreateSecretCodeResponse {
+            success: true,
+            code: raw_code,
+            phone,
+            expires_in_sec: expires_mins * 60,
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to create secret code: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/owner/admins")]
+pub async fn owner_list_admins(pool: web::Data<PgPool>, req: HttpRequest) -> HttpResponse {
+    if let Err(resp) = require_owner(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let rows = sqlx::query_as::<_, AdminOwnerListItem>(
+        "SELECT id, phone, name, role, status, created_at, updated_at
+         FROM admins
+         ORDER BY
+            CASE WHEN role = 'owner' THEN 0 ELSE 1 END,
+            created_at DESC",
+    )
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(AdminOwnerListResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/owner/admins/{id}")]
+pub async fn owner_patch_admin(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<Uuid>,
+    body: web::Json<AdminOwnerPatchAdminRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_owner(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let target_id = id.into_inner();
+    let name = body
+        .name
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let role = body.role.as_ref().map(|s| s.trim().to_lowercase());
+    let status = body.status.as_ref().map(|s| s.trim().to_lowercase());
+
+    if let Some(ref r) = role {
+        if r != "admin" && r != "owner" {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "role must be admin or owner"
+            }));
+        }
+        if r == "owner" {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Use owner transfer flow to assign owner role"
+            }));
+        }
+    }
+    if let Some(ref s) = status {
+        if s != "active" && s != "disabled" {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "status must be active or disabled"
+            }));
+        }
+    }
+
+    let current = sqlx::query_as::<_, AdminOwnerListItem>(
+        "SELECT id, phone, name, role, status, created_at, updated_at
+         FROM admins
+         WHERE id = $1
+         LIMIT 1",
+    )
+    .bind(target_id)
+    .fetch_optional(pool.get_ref())
+    .await;
+    let current = match current {
+        Ok(Some(v)) => v,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Admin not found"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+    if current.role == "owner" && (role.is_some() || status.is_some()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Owner role/status cannot be modified from this endpoint"
+        }));
+    }
+
+    let updated = sqlx::query_as::<_, AdminOwnerListItem>(
+        "UPDATE admins
+         SET
+            name = COALESCE($2, name),
+            role = COALESCE($3, role),
+            status = COALESCE($4, status),
+            updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, phone, name, role, status, created_at, updated_at",
+    )
+    .bind(target_id)
+    .bind(name)
+    .bind(role)
+    .bind(status)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    match updated {
+        Ok(Some(admin)) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "admin": admin
+        })),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Admin not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
     }
 }
 

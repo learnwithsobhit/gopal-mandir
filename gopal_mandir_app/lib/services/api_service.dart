@@ -1220,6 +1220,40 @@ class ApiService {
     }
   }
 
+  Future<({String? token, AdminProfile? admin, String? error})> adminLoginWithSecret({
+    required String code,
+    String? name,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/login-secret'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'code': code.trim(),
+          if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        }),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        final token = (json['token'] ?? '').toString();
+        final adminMap = json['admin'] as Map<String, dynamic>?;
+        return (
+          token: token.isEmpty ? null : token,
+          admin: adminMap == null ? null : AdminProfile.fromJson(adminMap),
+          error: null,
+        );
+      }
+      return (
+        token: null,
+        admin: null,
+        error: (json?['error'] ?? 'Secret code login failed').toString(),
+      );
+    } catch (e) {
+      print('admin secret login: $e');
+      return (token: null, admin: null, error: 'Network error');
+    }
+  }
+
   Future<AdminProfile?> adminMe(String token) async {
     try {
       final response = await http.get(
@@ -1280,6 +1314,93 @@ class ApiService {
       );
     } catch (e) {
       print('admin logout: $e');
+    }
+  }
+
+  Future<({String? code, int? expiresInSec, String? error})> ownerCreateSecretCode(
+    String token, {
+    required String phone,
+    String? name,
+    int expiresInMinutes = 30,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/owner/secret-codes'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({
+          'phone': phone,
+          if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+          'expires_in_minutes': expiresInMinutes,
+        }),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (
+          code: (json['code'] ?? '').toString(),
+          expiresInSec: (json['expires_in_sec'] as num?)?.toInt(),
+          error: null,
+        );
+      }
+      return (
+        code: null,
+        expiresInSec: null,
+        error: (json?['error'] ?? 'Failed to create secret code').toString(),
+      );
+    } catch (e) {
+      print('owner create secret code: $e');
+      return (code: null, expiresInSec: null, error: 'Network error');
+    }
+  }
+
+  Future<List<AdminOwnerUser>> ownerListAdmins(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/owner/admins'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => AdminOwnerUser.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('owner list admins: $e');
+    }
+    return [];
+  }
+
+  Future<SimpleActionResponse> ownerPatchAdmin(
+    String token,
+    String adminId, {
+    String? status,
+    String? role,
+    String? name,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/owner/admins/$adminId'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({
+          if (status != null) 'status': status,
+          if (role != null) 'role': role,
+          if (name != null) 'name': name,
+        }),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json?['success'] == true) {
+        return SimpleActionResponse(success: true, message: 'Updated');
+      }
+      return SimpleActionResponse(
+        success: false,
+        message: (json?['error'] ?? 'Update failed').toString(),
+      );
+    } catch (e) {
+      print('owner patch admin: $e');
+      return SimpleActionResponse(success: false, message: 'Network error');
     }
   }
 

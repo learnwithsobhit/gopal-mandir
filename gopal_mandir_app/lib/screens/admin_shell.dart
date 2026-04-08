@@ -27,6 +27,7 @@ import 'admin_feedback_list_screen.dart';
 import 'admin_feedback_analytics_screen.dart';
 import 'admin_festivals_list_screen.dart';
 import 'admin_activity_feed_screen.dart';
+import 'admin_owner_access_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -112,6 +113,18 @@ class _AdminShellState extends State<AdminShell> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (_admin?.role == 'owner')
+            _tile(
+              Icons.admin_panel_settings_rounded,
+              'Owner access',
+              'Generate secret codes and manage admin rights',
+              () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => AdminOwnerAccessScreen(token: _token!),
+                ),
+              ),
+            ),
           _tile(
             Icons.notifications_active_rounded,
             'Recent activity',

@@ -1033,12 +1033,14 @@ class AdminProfile {
   final String id;
   final String phone;
   final String name;
+  final String role;
   final String status;
 
   AdminProfile({
     required this.id,
     required this.phone,
     required this.name,
+    required this.role,
     required this.status,
   });
 
@@ -1047,7 +1049,37 @@ class AdminProfile {
       id: (json['id'] ?? '').toString(),
       phone: (json['phone'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
+      role: (json['role'] ?? 'admin').toString(),
       status: (json['status'] ?? '').toString(),
+    );
+  }
+}
+
+class AdminOwnerUser {
+  final String id;
+  final String phone;
+  final String name;
+  final String role;
+  final String status;
+  final String createdAt;
+
+  AdminOwnerUser({
+    required this.id,
+    required this.phone,
+    required this.name,
+    required this.role,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory AdminOwnerUser.fromJson(Map<String, dynamic> json) {
+    return AdminOwnerUser(
+      id: (json['id'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      role: (json['role'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
     );
   }
 }
