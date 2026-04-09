@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../data/country_dial_codes.dart';
 import '../services/api_service.dart';
 import '../services/admin_auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/e164_phone.dart';
+import '../widgets/admin_phone_country_row.dart';
 import 'admin_shell.dart';
 
 /// Phone OTP login for temple staff (admin CRM). Separate from membership.
@@ -14,7 +17,9 @@ class AdminLoginScreen extends StatefulWidget {
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final ApiService _api = ApiService();
+  /// National mobile digits only (country code from [_selectedCountry]).
   final _phoneCtrl = TextEditingController();
+  CountryDialCode _selectedCountry = CountryDialCodes.defaultCountry;
   final _otpCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _secretCodeCtrl = TextEditingController();
@@ -34,12 +39,20 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   Future<void> _requestOtp() async {
+    final composed = tryComposeE164(
+      dialDigits: _selectedCountry.dialDigits,
+      nationalRaw: _phoneCtrl.text,
+    );
+    if (composed.error != null) {
+      setState(() => _error = composed.error);
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
       _devOtp = null;
     });
-    final r = await _api.requestAdminOtp(_phoneCtrl.text.trim());
+    final r = await _api.requestAdminOtp(composed.e164!);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -66,12 +79,20 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   Future<void> _verify() async {
+    final composed = tryComposeE164(
+      dialDigits: _selectedCountry.dialDigits,
+      nationalRaw: _phoneCtrl.text,
+    );
+    if (composed.error != null) {
+      setState(() => _error = composed.error);
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
     });
     final r = await _api.verifyAdminOtp(
-      phone: _phoneCtrl.text.trim(),
+      phone: composed.e164!,
       otp: _otpCtrl.text.trim(),
       name: _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
     );
@@ -147,7 +168,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               _secretMode
                   ? 'Owner-generated secret code login. Code is single-use and expires.'
                   : 'Admin access is restricted to registered temple phones. OTP is sent only for authorized numbers.',
-              style: TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey, fontSize: 13),
+              style: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -180,13 +201,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     : const Text('Login with secret code'),
               ),
             ] else ...[
-              TextField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone',
-                  border: OutlineInputBorder(),
-                ),
+              AdminPhoneCountryRow(
+                selected: _selectedCountry,
+                onCountryChanged: (c) => setState(() => _selectedCountry = c),
+                nationalController: _phoneCtrl,
               ),
               const SizedBox(height: 12),
               FilledButton(

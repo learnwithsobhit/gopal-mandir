@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../data/country_dial_codes.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/e164_phone.dart';
+import '../widgets/admin_phone_country_row.dart';
 
 class AdminOwnerAccessScreen extends StatefulWidget {
   const AdminOwnerAccessScreen({super.key, required this.token});
@@ -16,6 +19,7 @@ class AdminOwnerAccessScreen extends StatefulWidget {
 class _AdminOwnerAccessScreenState extends State<AdminOwnerAccessScreen> {
   final ApiService _api = ApiService();
   final _phoneCtrl = TextEditingController();
+  CountryDialCode _selectedCountry = CountryDialCodes.defaultCountry;
   final _nameCtrl = TextEditingController();
   final _minutesCtrl = TextEditingController(text: '30');
   bool _loading = true;
@@ -52,6 +56,14 @@ class _AdminOwnerAccessScreenState extends State<AdminOwnerAccessScreen> {
   }
 
   Future<void> _createCode() async {
+    final composed = tryComposeE164(
+      dialDigits: _selectedCountry.dialDigits,
+      nationalRaw: _phoneCtrl.text,
+    );
+    if (composed.error != null) {
+      setState(() => _error = composed.error);
+      return;
+    }
     setState(() {
       _creating = true;
       _error = null;
@@ -60,7 +72,7 @@ class _AdminOwnerAccessScreenState extends State<AdminOwnerAccessScreen> {
     final mins = int.tryParse(_minutesCtrl.text.trim()) ?? 30;
     final res = await _api.ownerCreateSecretCode(
       widget.token,
-      phone: _phoneCtrl.text.trim(),
+      phone: composed.e164!,
       name: _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
       expiresInMinutes: mins,
     );
@@ -103,13 +115,10 @@ class _AdminOwnerAccessScreenState extends State<AdminOwnerAccessScreen> {
               style: TextStyle(color: AppColors.warmGrey),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
-              ),
+            AdminPhoneCountryRow(
+              selected: _selectedCountry,
+              onCountryChanged: (c) => setState(() => _selectedCountry = c),
+              nationalController: _phoneCtrl,
             ),
             const SizedBox(height: 8),
             TextField(
