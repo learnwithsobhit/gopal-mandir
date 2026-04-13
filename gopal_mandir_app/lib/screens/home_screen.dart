@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/vrindavan_background.dart';
@@ -71,6 +72,18 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => VrindavanBackground(child: screen)),
+    );
+  }
+
+  Future<void> _openSeoRoute(String path) async {
+    final uri = Uri.parse('https://gopal-mandir-app.web.app$path');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _seoRouteChip(String label, String route) {
+    return OutlinedButton(
+      onPressed: () => _openSeoRoute(route),
+      child: Text(label),
     );
   }
 
@@ -433,6 +446,65 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+
+                  SectionCard(
+                    title: s.seoHeading,
+                    accentColor: AppColors.templeGoldDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          s.seoIntro,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            color: AppColors.darkBrown,
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          s.seoMathuraTitle,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkBrown,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          s.seoMathuraBody,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            color: AppColors.warmGrey,
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          s.seoLinksTitle,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.darkBrown,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _seoRouteChip(s.seoLinkMandir, '/gopal-mandir'),
+                            _seoRouteChip(s.seoLinkLaddu, '/laddu-gopal'),
+                            _seoRouteChip(s.seoLinkMathura, '/gopal-ji-mathura'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 24),
                 ],

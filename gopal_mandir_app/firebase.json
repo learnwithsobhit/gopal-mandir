@@ -8,6 +8,18 @@
     ],
     "rewrites": [
       {
+        "source": "/gopal-mandir",
+        "destination": "/gopal-mandir.html"
+      },
+      {
+        "source": "/laddu-gopal",
+        "destination": "/laddu-gopal.html"
+      },
+      {
+        "source": "/gopal-ji-mathura",
+        "destination": "/gopal-ji-mathura.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

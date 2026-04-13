@@ -62,6 +62,18 @@ class AppStrings {
   String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
   String get quickDailyUpasana => isHindi ? 'दैनिक\nउपासना' : 'Daily\nUpasana';
   String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';
+  String get seoHeading => isHindi ? 'गोपाल मंदिर, गोपाल जी और मथुरा भक्ति' : 'Gopal Mandir, Gopal Ji and Mathura Bhakti';
+  String get seoIntro => isHindi
+      ? 'श्री गोपाल मंदिर ऐप में भक्तों के लिए दर्शन, आरती समय, सेवा, उत्सव और आध्यात्मिक अपडेट हिंदी व English में उपलब्ध हैं।'
+      : 'Shri Gopal Mandir app helps devotees access darshan, aarti timings, seva, festivals, and spiritual updates in Hindi and English.';
+  String get seoMathuraTitle => isHindi ? 'गोपाल जी मथुरा भाव' : 'Gopal Ji Mathura Intent';
+  String get seoMathuraBody => isHindi
+      ? 'जो भक्त गोपाल जी मथुरा, मथुरा मंदिर या श्री गोपाल जी की भक्ति खोजते हैं, उनके लिए यह मंच नियमित धार्मिक जानकारी और कार्यक्रम अपडेट देता है।'
+      : 'For people searching Gopal Ji Mathura, Mathura mandir, or Shri Gopal Ji devotion, this platform provides regular spiritual content and event updates.';
+  String get seoLinksTitle => isHindi ? 'भक्ति पेज देखें' : 'Explore Devotion Pages';
+  String get seoLinkMandir => isHindi ? 'गोपाल मंदिर पेज' : 'Gopal Mandir page';
+  String get seoLinkLaddu => isHindi ? 'लड्डू गोपाल पेज' : 'Laddu Gopal page';
+  String get seoLinkMathura => isHindi ? 'गोपाल जी मथुरा पेज' : 'Gopal Ji Mathura page';
   String get dailyUpasanaTitle => isHindi ? 'दैनिक उपासना' : 'Daily Upasana';
   String get dailyUpasanaEmpty =>
       isHindi ? 'कोई उपासना सामग्री उपलब्ध नहीं है' : 'No upasana items available';
