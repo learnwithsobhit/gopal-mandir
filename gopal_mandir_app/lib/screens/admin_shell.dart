@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../services/api_service.dart';
 import '../services/admin_auth_service.dart';
 import '../theme/app_colors.dart';
@@ -90,6 +91,7 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     if (_loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue)),
@@ -101,12 +103,12 @@ class _AdminShellState extends State<AdminShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_admin?.name.trim().isNotEmpty == true ? _admin!.name : 'Admin'),
+        title: Text(_admin?.name.trim().isNotEmpty == true ? _admin!.name : s.adminHomeTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
-            tooltip: 'Logout',
+            tooltip: s.logoutLabel,
           ),
         ],
       ),
@@ -116,8 +118,8 @@ class _AdminShellState extends State<AdminShell> {
           if (_admin?.role == 'owner')
             _tile(
               Icons.admin_panel_settings_rounded,
-              'Owner access',
-              'Generate secret codes and manage admin rights',
+              s.adminOwnerAccess,
+              s.adminOwnerAccessSub,
               () => Navigator.push(
                 context,
                 MaterialPageRoute<void>(
@@ -127,8 +129,8 @@ class _AdminShellState extends State<AdminShell> {
             ),
           _tile(
             Icons.notifications_active_rounded,
-            'Recent activity',
-            'Cross-module updates — prasad, seva, donations, members, and more',
+            s.adminRecentActivity,
+            s.adminRecentActivitySub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -138,8 +140,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.photo_library,
-            'Gallery',
-            'Upload & manage images and videos',
+            s.adminGallery,
+            s.adminGallerySub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -149,8 +151,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.live_tv,
-            'Live Darshan',
-            'Stream URL and on-air flag',
+            s.adminLiveDarshan,
+            s.adminLiveDarshanSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -160,8 +162,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.restaurant_menu,
-            'Prasad orders',
-            'Filter and update order status',
+            s.adminPrasadOrders,
+            s.adminPrasadOrdersSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -171,8 +173,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.calendar_month,
-            'Panchang',
-            'Add & edit daily Hindu Panchang',
+            s.adminPanchang,
+            s.adminPanchangSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -182,8 +184,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.celebration,
-            'Festivals',
-            'Date-wise festivals/events CRUD',
+            s.adminFestivals,
+            s.adminFestivalsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -193,8 +195,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.volunteer_activism,
-            'Seva Items',
-            'Add, edit & remove seva offerings',
+            s.adminSevaItems,
+            s.adminSevaItemsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -204,8 +206,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.book_online,
-            'Seva Bookings',
-            'View & update seva booking status',
+            s.adminSevaBookings,
+            s.adminSevaBookingsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -215,8 +217,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.event_available,
-            'Pooja offerings',
-            'Ceremonies & packages',
+            s.adminPoojaOfferings,
+            s.adminPoojaOfferingsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -226,8 +228,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.schedule,
-            'Pooja availability',
-            'Guru Ji & Baba Ji — slots and daily limits',
+            s.adminPoojaAvailability,
+            s.adminPoojaAvailabilitySub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -237,8 +239,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.calendar_today,
-            'Pooja bookings',
-            'Confirm requests, payment mode, offline paid',
+            s.adminPoojaBookings,
+            s.adminPoojaBookingsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -248,8 +250,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.event,
-            'Events',
-            'Add, edit & remove temple events',
+            s.adminEvents,
+            s.adminEventsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -259,8 +261,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.group,
-            'Event Participations',
-            'View who joined each event',
+            s.adminEventParticipations,
+            s.adminEventParticipationsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -270,8 +272,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.volunteer_activism,
-            'Event Donations',
-            'View all event donations',
+            s.adminEventDonations,
+            s.adminEventDonationsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -281,8 +283,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.favorite,
-            'General Donations',
-            'Payment status, failures, and donor contact',
+            s.adminGeneralDonations,
+            s.adminGeneralDonationsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -292,8 +294,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.access_time_rounded,
-            'Aarti Schedule',
-            'Add, edit & remove aarti timings',
+            s.adminAartiSchedule,
+            s.adminAartiScheduleSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -303,8 +305,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.menu_book_rounded,
-            'Dainik Shlok',
-            'Update home screen daily shlok content',
+            s.adminDainikShlok,
+            s.adminDainikShlokSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -314,8 +316,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.info_outline_rounded,
-            'About Temple',
-            'History and info on More → About Temple',
+            s.adminAboutTemple,
+            s.adminAboutTempleSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -325,8 +327,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.auto_stories_rounded,
-            'Daily Upasana',
-            'Create and manage daily upasana readings',
+            s.adminDailyUpasana,
+            s.adminDailyUpasanaSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -336,8 +338,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.people_rounded,
-            'Members',
-            'View & manage temple members',
+            s.adminMembers,
+            s.adminMembersSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -347,8 +349,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.volunteer_activism_rounded,
-            'Volunteer Requests',
-            'Review & manage volunteer applications',
+            s.adminVolunteerRequests,
+            s.adminVolunteerRequestsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -358,8 +360,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.feedback_rounded,
-            'Feedback Queue',
-            'Triage and respond to user feedback',
+            s.adminFeedbackQueue,
+            s.adminFeedbackQueueSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(
@@ -369,8 +371,8 @@ class _AdminShellState extends State<AdminShell> {
           ),
           _tile(
             Icons.analytics_rounded,
-            'Feedback Analytics',
-            'Ratings, trends and closure metrics',
+            s.adminFeedbackAnalytics,
+            s.adminFeedbackAnalyticsSub,
             () => Navigator.push(
               context,
               MaterialPageRoute<void>(

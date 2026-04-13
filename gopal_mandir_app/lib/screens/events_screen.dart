@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -56,10 +57,11 @@ class EventsScreenState extends State<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('उत्सव एवं कार्यक्रम'),
+        title: Text(s.eventsTitle),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
@@ -87,7 +89,7 @@ class EventsScreenState extends State<EventsScreen> {
                         ElevatedButton.icon(
                           onPressed: _load,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
+                          label: Text(s.retryLabel),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.krishnaBlue,
                             foregroundColor: Colors.white,
@@ -183,8 +185,8 @@ class EventsScreenState extends State<EventsScreen> {
                                   color: AppColors.templeGold,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Text(
-                                  'विशेष',
+                                child: Text(
+                                  s.featuredLabel,
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
@@ -225,7 +227,7 @@ class EventsScreenState extends State<EventsScreen> {
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        child: const Text('Join'),
+                                        child: Text(s.joinLabel),
                                       ),
                                       const SizedBox(width: 8),
                                       ElevatedButton(
@@ -247,7 +249,7 @@ class EventsScreenState extends State<EventsScreen> {
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        child: const Text('Donate'),
+                                        child: Text(s.donateLabel),
                                       ),
                                     ],
                                   ),
@@ -312,6 +314,7 @@ class EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _showCommentsSheet(BuildContext context, Event event) async {
+    final s = AppLocaleScope.of(context).strings;
     List<EventComment> comments = await _api.getEventComments(event.id);
     _commentCounts[event.id] = comments.length;
 
@@ -341,7 +344,7 @@ class EventsScreenState extends State<EventsScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Comments for ${event.title}',
+                          s.commentsFor(event.title),
                           style: const TextStyle(
                             fontFamily: 'PlayfairDisplay',
                             fontSize: 16,
@@ -360,9 +363,9 @@ class EventsScreenState extends State<EventsScreen> {
                   SizedBox(
                     height: 240,
                     child: comments.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'No comments yet. Be the first!',
+                              s.noCommentsYet,
                               style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
                             ),
                           )
@@ -396,8 +399,8 @@ class EventsScreenState extends State<EventsScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Your Name',
+                    decoration: InputDecoration(
+                      labelText: s.yourNameLabel,
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -406,8 +409,8 @@ class EventsScreenState extends State<EventsScreen> {
                     controller: commentCtrl,
                     minLines: 2,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Your Comment',
+                    decoration: InputDecoration(
+                      labelText: s.yourComment,
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -420,8 +423,8 @@ class EventsScreenState extends State<EventsScreen> {
                         final text = commentCtrl.text.trim();
                         if (name.isEmpty || text.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter name and comment'),
+                            SnackBar(
+                              content: Text(s.pleaseEnterNameAndComment),
                               backgroundColor: AppColors.urgentRed,
                             ),
                           );
@@ -434,8 +437,8 @@ class EventsScreenState extends State<EventsScreen> {
                         if (count == null) {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to add comment'),
+                            SnackBar(
+                              content: Text(s.failedToAddComment),
                               backgroundColor: AppColors.urgentRed,
                             ),
                           );
@@ -457,7 +460,7 @@ class EventsScreenState extends State<EventsScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      child: const Text('Post Comment'),
+                      child: Text(s.postComment),
                     ),
                   ),
                 ],
@@ -470,6 +473,7 @@ class EventsScreenState extends State<EventsScreen> {
   }
 
   Future<void> _showJoinSheet(BuildContext context, Event event) async {
+    final s = AppLocaleScope.of(context).strings;
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
@@ -493,7 +497,7 @@ class EventsScreenState extends State<EventsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Join ${event.title}',
+                s.joinFor(event.title),
                 style: const TextStyle(
                   fontFamily: 'PlayfairDisplay',
                   fontSize: 18,
@@ -504,8 +508,8 @@ class EventsScreenState extends State<EventsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Your Name',
+                decoration: InputDecoration(
+                  labelText: s.yourNameLabel,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -513,8 +517,8 @@ class EventsScreenState extends State<EventsScreen> {
               TextField(
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                decoration: InputDecoration(
+                  labelText: s.phoneNumberLabel,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -523,8 +527,8 @@ class EventsScreenState extends State<EventsScreen> {
                 controller: notesCtrl,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
+                decoration: InputDecoration(
+                  labelText: s.notesOptionalLabel,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -537,8 +541,8 @@ class EventsScreenState extends State<EventsScreen> {
                     final phone = phoneCtrl.text.trim();
                     if (name.isEmpty || phone.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter name and phone'),
+                        SnackBar(
+                          content: Text(s.pleaseEnterNameAndPhone),
                           backgroundColor: AppColors.urgentRed,
                         ),
                       );
@@ -569,7 +573,7 @@ class EventsScreenState extends State<EventsScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: const Text('Confirm Join'),
+                  child: Text(s.confirmJoin),
                 ),
               ),
             ],

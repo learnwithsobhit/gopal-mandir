@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../main_shell.dart';
+import '../l10n/locale_scope.dart';
 import '../services/api_service.dart';
 import '../services/home_preload_cache.dart';
 import '../theme/default_images.dart';
@@ -168,6 +169,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -188,7 +190,7 @@ class _LandingScreenState extends State<LandingScreen> {
                       child: Image.asset(
                         'assets/images/laddu_gopal_landing.png',
                         fit: BoxFit.contain,
-                        semanticLabel: 'Tap to enter',
+                        semanticLabel: s.tapToEnter,
                       ),
                     ),
                   ),
@@ -209,7 +211,7 @@ class _LandingScreenState extends State<LandingScreen> {
                     icon: Icon(_audioUnmuted ? Icons.volume_up_rounded : Icons.volume_off_rounded),
                     color: Colors.white,
                     onPressed: _audioSourceReady ? _toggleLandingSound : null,
-                    tooltip: _audioUnmuted ? 'Mute' : 'Unmute',
+                    tooltip: _audioUnmuted ? s.muteLabel : s.unmuteLabel,
                   ),
                 ),
               ),

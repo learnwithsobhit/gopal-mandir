@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
@@ -35,12 +36,13 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('दान')),
+      appBar: AppBar(title: Text(s.donateLabel)),
       body: SingleChildScrollView(
         padding: AppSpacing.screenInsets,
         child: Form(
@@ -50,11 +52,11 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
             children: [
               AppScreenHeader(
                 title: widget.event.title,
-                subtitle: 'Donate for this event',
+                subtitle: s.donateForEvent,
                 icon: Icons.favorite_rounded,
               ),
               const SizedBox(height: AppSpacing.xxl),
-              AppSectionTitle(title: 'Select Amount (₹)'),
+              AppSectionTitle(title: s.selectAmount),
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -71,7 +73,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   ),
                   FilterChip(
                     label: Text(
-                      'Other',
+                      s.otherLabel,
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: _useCustomAmount ? Colors.white : cs.onSurface,
                         fontWeight: FontWeight.w600,
@@ -100,36 +102,36 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   enabled: !_submitting,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: 'Amount (₹, min 100)',
+                    labelText: s.amountMin100Label,
                     prefixText: '₹ ',
                     prefixStyle: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                   ),
                   validator: (v) {
                     final raw = (v ?? '').trim().replaceAll(',', '');
-                    if (raw.isEmpty) return 'Enter an amount';
+                    if (raw.isEmpty) return s.enterAmount;
                     final n = double.tryParse(raw);
-                    if (n == null) return 'Enter a valid number';
-                    if (n < 100) return 'Minimum donation is ₹100';
-                    if (n > 500000) return 'Maximum amount is ₹5,00,000';
+                    if (n == null) return s.enterValidNumber;
+                    if (n < 100) return s.minimumDonation100;
+                    if (n > 500000) return s.maximumDonationLimit;
                     return null;
                   },
                 ),
               ],
               const SizedBox(height: AppSpacing.xxl),
               AppTextFormField(
-                labelText: 'Your Name',
+                labelText: s.yourNameLabel,
                 prefixIcon: Icon(Icons.person_outline, color: cs.primary),
                 controller: _nameController,
                 enabled: !_submitting,
                 textInputAction: TextInputAction.next,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Please enter your name';
-                  if (v.trim().length < 2) return 'Name is too short';
+                  if (v == null || v.trim().isEmpty) return s.pleaseEnterName;
+                  if (v.trim().length < 2) return s.nameTooShort;
                   return null;
                 },
               ),
               AppTextFormField(
-                labelText: 'Phone Number',
+                labelText: s.phoneNumberLabel,
                 prefixIcon: Icon(Icons.phone_outlined, color: cs.primary),
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
@@ -137,14 +139,14 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                 textInputAction: TextInputAction.next,
                 validator: (v) {
                   final raw = (v ?? '').trim();
-                  if (raw.isEmpty) return 'Please enter phone number';
+                  if (raw.isEmpty) return s.pleaseEnterPhone;
                   final digits = raw.replaceAll(RegExp(r'\D'), '');
-                  if (digits.length < 10) return 'Enter a valid phone number';
+                  if (digits.length < 10) return s.enterValidPhone;
                   return null;
                 },
               ),
               AppTextFormField(
-                labelText: 'Email (optional)',
+                labelText: s.emailOptionalLabel,
                 prefixIcon: Icon(Icons.email_outlined, color: cs.primary),
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -154,7 +156,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   final raw = (v ?? '').trim();
                   if (raw.isEmpty) return null;
                   final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(raw);
-                  return ok ? null : 'Enter a valid email';
+                  return ok ? null : s.enterValidEmail;
                 },
               ),
               Padding(
@@ -165,7 +167,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                   maxLines: 3,
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
-                    labelText: 'Message (optional)',
+                    labelText: s.messageOptionalLabel,
                     prefixIcon: Icon(Icons.message_outlined, color: cs.primary),
                   ),
                 ),
@@ -191,12 +193,12 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                       )
-                    : Text('Donate ₹${_donateAmountLabel()}'),
+                    : Text(s.donateWithAmount(_donateAmountLabel())),
               ),
               const SizedBox(height: AppSpacing.lg),
               Center(
                 child: Text(
-                  'Secure & Trusted',
+                  s.secureTrusted,
                   style: theme.textTheme.bodySmall,
                 ),
               ),
@@ -229,6 +231,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
   }
 
   Future<void> _submit() async {
+    final s = AppLocaleScope.of(context).strings;
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
@@ -237,7 +240,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
     if (amount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Enter a valid amount (minimum ₹100).'),
+          content: Text(s.enterValidAmountMin100),
           backgroundColor: AppColors.urgentRed,
         ),
       );
@@ -261,10 +264,10 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
       if (!mounted) return;
 
       if (!checkout.success || checkout.orderId.isEmpty) {
-        final err = checkout.error ?? 'Could not start payment. Try again later.';
+        final err = checkout.error ?? s.paymentStartFailed;
         final ref = checkout.referenceId;
         final msg = ref.isNotEmpty
-            ? '$err\nReference saved: $ref — team can follow up.'
+            ? '$err\n${s.referenceSaved(ref)}'
             : err;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -297,7 +300,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(s.errorWithDetail(e.toString())),
             backgroundColor: AppColors.urgentRed,
           ),
         );
@@ -311,8 +314,8 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
           SnackBar(
             content: Text(
               !isRazorpayCheckoutSupported
-                  ? 'Online donation runs on Android or iOS. Open the app on your phone to pay.'
-                  : 'Payment was cancelled.',
+                  ? s.onlineDonationMobileOnly
+                  : s.paymentCancelled,
             ),
           ),
         );
@@ -328,14 +331,14 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
       if (!mounted) return;
 
       final thankYou = verified
-          ? 'Dhanyavaad! Your donation of ₹${_donateAmountLabel()} for this event was received. Jai Gopal!'
-          : 'Dhanyavaad! Your payment completed. Confirmation may arrive in a moment. Jai Gopal!';
+          ? s.eventDonationReceived(_donateAmountLabel())
+          : s.paymentCompletedAwaitingConfirm;
 
       await showDialog<void>(
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: const Text('Dhanyavaad!'),
+            title: Text(s.thankYouTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +347,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                 if (checkout.referenceId.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Reference ID: ${checkout.referenceId}',
+                    s.referenceId(checkout.referenceId),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -353,7 +356,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(s.okLabel),
               ),
             ],
           );

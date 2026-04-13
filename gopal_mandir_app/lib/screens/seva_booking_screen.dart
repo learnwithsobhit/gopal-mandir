@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../models/models.dart';
@@ -56,6 +57,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
   }
 
   Future<void> _confirm() async {
+    final s = AppLocaleScope.of(context).strings;
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
@@ -93,10 +95,10 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
       if (!mounted) return;
 
       if (!checkout.success || checkout.orderId.isEmpty) {
-        final err = checkout.error ?? 'Could not start payment.';
+        final err = checkout.error ?? s.paymentStartFailed;
         final ref = checkout.referenceId;
         final msg = ref.isNotEmpty
-            ? '$err\nReference saved: $ref — team can follow up.'
+            ? '$err\n${s.referenceSaved(ref)}'
             : err;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -128,7 +130,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
         }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
+          SnackBar(content: Text(s.errorWithDetail(e.toString())), backgroundColor: AppColors.urgentRed),
         );
         return;
       }
@@ -140,8 +142,8 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
           SnackBar(
             content: Text(
               !isRazorpayCheckoutSupported
-                  ? 'Online payment runs on Android or iOS. Open the app on your phone to pay.'
-                  : 'Payment was cancelled.',
+                  ? s.onlineDonationMobileOnly
+                  : s.paymentCancelled,
             ),
           ),
         );
@@ -157,8 +159,8 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
       if (!mounted) return;
 
       final msg = verified
-          ? 'Payment received. Your seva booking is confirmed. Jai Gopal!'
-          : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+          ? s.paymentReceivedSeva
+          : s.paymentCompletedSeva;
       await _showBookingSuccess(msg, checkout.referenceId);
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -166,11 +168,12 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
   }
 
   Future<void> _showBookingSuccess(String message, String referenceId) async {
+    final s = AppLocaleScope.of(context).strings;
     await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Seva Booking'),
+          title: Text(s.sevaBookingDialogTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +182,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
               if (referenceId.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Reference ID: $referenceId',
+                  s.referenceId(referenceId),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -188,7 +191,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(s.okLabel),
             ),
           ],
         );
@@ -199,7 +202,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🙏 ${widget.item.name} seva booked! Jai Gopal!'),
+        content: Text(s.sevaBookedToast(widget.item.name)),
         backgroundColor: AppColors.peacockGreen,
       ),
     );
@@ -207,10 +210,11 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return VrindavanBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: const Text('Book Seva')),
+        appBar: AppBar(title: Text(s.sevaBookingTitle)),
         body: SingleChildScrollView(
           padding: AppSpacing.screenInsets,
           child: Form(
@@ -272,7 +276,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: Text(
-                      'This seva is listed under ₹100 — your booking is submitted without online payment.',
+                      s.sevaBelow100Info,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -283,28 +287,28 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your Details',
+                        s.yourDetails,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(labelText: 'Full Name'),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your name' : null,
+                        decoration: InputDecoration(labelText: s.fullName),
+                        validator: (v) => v == null || v.trim().isEmpty ? s.pleaseEnterName : null,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(labelText: 'Phone Number'),
-                        validator: (v) => v == null || v.trim().length < 8 ? 'Please enter a valid phone' : null,
+                        decoration: InputDecoration(labelText: s.phoneNumberLabel),
+                        validator: (v) => v == null || v.trim().length < 8 ? s.validPhoneShort : null,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
                         controller: _preferredDateController,
                         readOnly: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Preferred date (optional)',
+                        decoration: InputDecoration(
+                          labelText: s.preferredDateOptional,
                           suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
                         ),
                         onTap: _pickPreferredDate,
@@ -314,7 +318,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                         controller: _notesController,
                         minLines: 2,
                         maxLines: 4,
-                        decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                        decoration: InputDecoration(labelText: s.notesOptionalLabel),
                       ),
                     ],
                   ),
@@ -331,7 +335,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(widget.item.price < 100 ? 'Confirm Seva Booking' : 'Pay & book seva'),
+                      : Text(widget.item.price < 100 ? s.confirmSevaBooking : s.payAndBookSeva),
                 ),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../models/models.dart';
@@ -71,14 +72,15 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
       (_fulfillment == PrasadFulfillment.pickup && _pickupPayment == PrasadPickupPayment.online);
 
   Future<void> _confirm() async {
+    final s = AppLocaleScope.of(context).strings;
     final form = _formKey.currentState;
     if (form == null) return;
     if (!form.validate()) return;
 
     if (_needsOnlinePayment && _grandTotal < 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Online payment requires a minimum order total of ₹100.'),
+        SnackBar(
+          content: Text(s.onlineMinOrder100),
           backgroundColor: AppColors.urgentRed,
         ),
       );
@@ -92,10 +94,10 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
         if (!mounted) return;
 
         if (!checkout.success || checkout.orderId.isEmpty) {
-          final err = checkout.error ?? 'Could not start payment.';
+          final err = checkout.error ?? s.paymentStartFailed;
           final ref = checkout.referenceId;
           final msg = ref.isNotEmpty
-              ? '$err\nReference saved: $ref — team can follow up.'
+              ? '$err\n${s.referenceSaved(ref)}'
               : err;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg), backgroundColor: AppColors.urgentRed),
@@ -112,7 +114,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
             name: _nameController.text.trim(),
             contact: _phoneController.text.trim(),
             email: '',
-            description: 'Prasad: ${widget.item.name}',
+            description: '${s.prasad}: ${widget.item.name}',
           );
         } catch (e) {
           if (checkout.referenceId.isNotEmpty) {
@@ -124,7 +126,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
           }
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
+            SnackBar(content: Text(s.errorWithDetail(e.toString())), backgroundColor: AppColors.urgentRed),
           );
           return;
         }
@@ -136,8 +138,8 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
             SnackBar(
               content: Text(
                 !isRazorpayCheckoutSupported
-                    ? 'Online payment runs on Android or iOS. Open the app on your phone to pay.'
-                    : 'Payment was cancelled.',
+                    ? s.onlineDonationMobileOnly
+                    : s.paymentCancelled,
               ),
             ),
           );
@@ -153,8 +155,8 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
         if (!mounted) return;
 
         final thankYou = verified
-            ? 'Payment received. Your prasad order is confirmed. Jai Gopal!'
-            : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+            ? s.paymentReceivedPrasad
+            : s.paymentCompletedPrasad;
         await _showBookingSuccess(thankYou, checkout.referenceId);
       } finally {
         if (mounted) setState(() => _submitting = false);
@@ -190,11 +192,12 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
   }
 
   Future<void> _showBookingSuccess(String message, String referenceId) async {
+    final s = AppLocaleScope.of(context).strings;
     await showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Booking Confirmed'),
+          title: Text(s.bookingConfirmed),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,7 +206,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
               if (referenceId.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Reference ID: $referenceId',
+                  s.referenceId(referenceId),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -212,7 +215,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(s.okLabel),
             ),
           ],
         );
@@ -223,7 +226,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🙏 ${widget.item.name} booked! Jai Gopal!'),
+        content: Text(s.prasadBookedToast(widget.item.name)),
         backgroundColor: AppColors.peacockGreen,
       ),
     );
@@ -231,10 +234,11 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return VrindavanBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        appBar: AppBar(title: const Text('Book Prasad')),
+        appBar: AppBar(title: Text(s.prasadBookingTitle)),
         body: SingleChildScrollView(
           padding: AppSpacing.screenInsets,
           child: Form(
@@ -298,7 +302,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Quantity',
+                      s.quantityTitle,
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -329,7 +333,7 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Subtotal: ₹${_subtotal.toStringAsFixed(2)}',
+                      s.subtotalAmount(_subtotal.toStringAsFixed(2)),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
@@ -337,42 +341,42 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     if (_fulfillment == PrasadFulfillment.delivery) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        'Delivery (10%): ₹${_deliveryFee.toStringAsFixed(2)}',
+                        s.deliveryAmount(_deliveryFee.toStringAsFixed(2)),
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Total: ₹${_grandTotal.toStringAsFixed(2)}',
+                      s.totalAmount(_grandTotal.toStringAsFixed(2)),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: AppColors.peacockGreen,
                             fontWeight: FontWeight.w700,
                           ),
                     ),
                     if (_needsOnlinePayment && _grandTotal < 100)
-                      const Padding(
+                      Padding(
                         padding: EdgeInsets.only(top: 6),
                         child: Text(
-                          'Minimum ₹100 for online payment — increase quantity.',
+                          s.min100IncreaseQty,
                           style: TextStyle(fontFamily: 'Poppins', fontSize: 11, color: AppColors.urgentRed),
                         ),
                       ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Fulfillment',
+                      s.fulfillmentLabel,
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     SegmentedButton<PrasadFulfillment>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: PrasadFulfillment.pickup,
-                          label: Text('Pickup'),
+                          label: Text(s.pickup),
                           icon: Icon(Icons.temple_hindu),
                         ),
                         ButtonSegment(
                           value: PrasadFulfillment.delivery,
-                          label: Text('Delivery'),
+                          label: Text(s.delivery),
                           icon: Icon(Icons.local_shipping_outlined),
                         ),
                       ],
@@ -384,20 +388,20 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                     if (_fulfillment == PrasadFulfillment.pickup) ...[
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        'Payment',
+                        s.paymentLabel,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       SegmentedButton<PrasadPickupPayment>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: PrasadPickupPayment.temple,
-                            label: Text('Pay at temple'),
+                            label: Text(s.payAtTemple),
                             icon: Icon(Icons.payments_outlined),
                           ),
                           ButtonSegment(
                             value: PrasadPickupPayment.online,
-                            label: Text('Pay online'),
+                            label: Text(s.payOnline),
                             icon: Icon(Icons.phone_android),
                           ),
                         ],
@@ -414,48 +418,48 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
               const SizedBox(height: AppSpacing.lg),
 
               _field(
-                label: 'Your Name',
+                label: s.yourNameLabel,
                 icon: Icons.person,
                 controller: _nameController,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Please enter your name';
-                  if (v.trim().length < 2) return 'Name is too short';
+                  if (v == null || v.trim().isEmpty) return s.pleaseEnterName;
+                  if (v.trim().length < 2) return s.nameTooShort;
                   return null;
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               _field(
-                label: 'Phone Number',
+                label: s.phoneNumberLabel,
                 icon: Icons.phone,
                 keyboardType: TextInputType.phone,
                 controller: _phoneController,
                 validator: (v) {
                   final raw = (v ?? '').trim();
-                  if (raw.isEmpty) return 'Please enter phone number';
+                  if (raw.isEmpty) return s.pleaseEnterPhone;
                   final digits = raw.replaceAll(RegExp(r'\D'), '');
-                  if (digits.length < 10) return 'Enter a valid phone number';
+                  if (digits.length < 10) return s.enterValidPhone;
                   return null;
                 },
               ),
               const SizedBox(height: AppSpacing.md),
               if (_fulfillment == PrasadFulfillment.delivery) ...[
                 _field(
-                  label: 'Delivery Address',
+                  label: s.deliveryAddress,
                   icon: Icons.location_on_outlined,
                   controller: _addressController,
                   minLines: 2,
                   maxLines: 3,
                   validator: (v) {
                     if (_fulfillment != PrasadFulfillment.delivery) return null;
-                    if (v == null || v.trim().isEmpty) return 'Please enter delivery address';
-                    if (v.trim().length < 10) return 'Address is too short';
+                    if (v == null || v.trim().isEmpty) return s.enterDeliveryAddress;
+                    if (v.trim().length < 10) return s.addressTooShort;
                     return null;
                   },
                 ),
                 const SizedBox(height: AppSpacing.md),
               ],
               _field(
-                label: 'Notes (optional)',
+                label: s.notesOptionalLabel,
                 icon: Icons.sticky_note_2_outlined,
                 controller: _notesController,
                 minLines: 2,
@@ -480,8 +484,8 @@ class _PrasadBookingScreenState extends State<PrasadBookingScreen> {
                       )
                     : Text(
                         _needsOnlinePayment
-                            ? 'Pay ₹${_grandTotal.toStringAsFixed(2)}'
-                            : 'Book • Pay ₹${_grandTotal.toStringAsFixed(2)} at temple',
+                            ? s.payAmount(_grandTotal.toStringAsFixed(2))
+                            : s.bookAndPayAtTemple(_grandTotal.toStringAsFixed(2)),
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                       ),
               ),

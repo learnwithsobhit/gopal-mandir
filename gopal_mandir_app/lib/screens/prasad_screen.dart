@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -29,10 +30,11 @@ class _PrasadScreenState extends State<PrasadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('प्रसाद बुकिंग'),
+        title: Text(s.prasad),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
@@ -115,7 +117,7 @@ class _PrasadScreenState extends State<PrasadScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               child: Text(
-                                item.available ? 'Book' : 'Unavailable',
+                                item.available ? s.bookLabel : s.unavailableLabel,
                                 style: const TextStyle(fontFamily: 'Poppins', fontSize: 13, color: Colors.white),
                               ),
                             ),

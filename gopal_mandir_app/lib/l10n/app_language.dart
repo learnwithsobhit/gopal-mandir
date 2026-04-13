@@ -74,6 +74,225 @@ class AppStrings {
   String get seoLinkMandir => isHindi ? 'गोपाल मंदिर पेज' : 'Gopal Mandir page';
   String get seoLinkLaddu => isHindi ? 'लड्डू गोपाल पेज' : 'Laddu Gopal page';
   String get seoLinkMathura => isHindi ? 'गोपाल जी मथुरा पेज' : 'Gopal Ji Mathura page';
+  String get festivalsLabel => isHindi ? 'उत्सव' : 'Festivals';
+  String get muteLabel => isHindi ? 'म्यूट' : 'Mute';
+  String get unmuteLabel => isHindi ? 'अनम्यूट' : 'Unmute';
+  String get tapToEnter => isHindi ? 'प्रवेश हेतु टैप करें' : 'Tap to enter';
+  String get liveDarshanLabel => isHindi ? 'लाइव दर्शन' : 'Live Darshan';
+  String get bannerTodayDarshan => isHindi
+      ? 'श्री गोपाल वैष्णव पीठ गोपाल मंदिर — आज का दर्शन'
+      : 'Shri Gopal Vaishnav Pith Shri Gopal Mandir — Today\'s Darshan';
+  String get eventsTitle => isHindi ? 'उत्सव एवं कार्यक्रम' : 'Events and Programs';
+  String get retryLabel => isHindi ? 'पुनः प्रयास करें' : 'Retry';
+  String get featuredLabel => isHindi ? 'विशेष' : 'Featured';
+  String get joinLabel => isHindi ? 'जुड़ें' : 'Join';
+  String get donateLabel => isHindi ? 'दान' : 'Donate';
+  String get unavailableLabel => isHindi ? 'उपलब्ध नहीं' : 'Unavailable';
+  String get bookSevaCta => isHindi ? 'सेवा बुक करें' : 'Book Seva';
+  String get bookLabel => isHindi ? 'बुक करें' : 'Book';
+  String commentsFor(String title) => isHindi ? '$title के लिए टिप्पणियां' : 'Comments for $title';
+  String joinFor(String title) => isHindi ? '$title में शामिल हों' : 'Join $title';
+  String get noCommentsYet => isHindi ? 'अभी कोई टिप्पणी नहीं। पहली टिप्पणी करें!' : 'No comments yet. Be the first!';
+  String get yourComment => isHindi ? 'आपकी टिप्पणी' : 'Your Comment';
+  String get postComment => isHindi ? 'टिप्पणी पोस्ट करें' : 'Post Comment';
+  String get failedToAddComment => isHindi ? 'टिप्पणी जोड़ने में विफल' : 'Failed to add comment';
+  String get allLabel => isHindi ? 'सभी' : 'All';
+  String get pleaseEnterNameAndComment => isHindi ? 'कृपया नाम और टिप्पणी दर्ज करें' : 'Please enter name and comment';
+  String get pleaseEnterNameAndPhone => isHindi ? 'कृपया नाम और फोन दर्ज करें' : 'Please enter name and phone';
+  String get confirmJoin => isHindi ? 'शामिल होना पुष्टि करें' : 'Confirm Join';
+  String get notesOptionalLabel => isHindi ? 'नोट्स (वैकल्पिक)' : 'Notes (optional)';
+  String get donateForEvent => isHindi ? 'इस कार्यक्रम के लिए दान' : 'Donate for this event';
+  String get selectAmount => isHindi ? 'राशि चुनें (₹)' : 'Select Amount (₹)';
+  String get purpose => isHindi ? 'उद्देश्य' : 'Purpose';
+  String get donationSubtitle => isHindi
+      ? 'आपका योगदान मंदिर सेवा और समुदाय कल्याण में सहायक है'
+      : 'Your contribution supports temple seva and community welfare';
+  String get otherLabel => isHindi ? 'अन्य' : 'Other';
+  String get amountMin100Label => isHindi ? 'राशि (₹, न्यूनतम 100)' : 'Amount (₹, min 100)';
+  String get enterAmount => isHindi ? 'राशि दर्ज करें' : 'Enter an amount';
+  String get enterValidNumber => isHindi ? 'मान्य संख्या दर्ज करें' : 'Enter a valid number';
+  String get minimumDonation100 => isHindi ? 'न्यूनतम दान ₹100 है' : 'Minimum donation is ₹100';
+  String get maximumDonationLimit => isHindi ? 'अधिकतम राशि ₹5,00,000 है' : 'Maximum amount is ₹5,00,000';
+  String get yourNameLabel => isHindi ? 'आपका नाम' : 'Your Name';
+  String get nameOptional => isHindi ? 'नाम (वैकल्पिक)' : 'Name (optional)';
+  String get phoneNumberLabel => isHindi ? 'फोन नंबर' : 'Phone Number';
+  String get emailOptionalLabel => isHindi ? 'ईमेल (वैकल्पिक)' : 'Email (optional)';
+  String get messageOptionalLabel => isHindi ? 'संदेश (वैकल्पिक)' : 'Message (optional)';
+  String get pleaseEnterName => isHindi ? 'कृपया नाम दर्ज करें' : 'Please enter your name';
+  String get nameTooShort => isHindi ? 'नाम बहुत छोटा है' : 'Name is too short';
+  String get pleaseEnterPhone => isHindi ? 'कृपया फोन नंबर दर्ज करें' : 'Please enter phone number';
+  String get enterValidPhone => isHindi ? 'मान्य फोन नंबर दर्ज करें' : 'Enter a valid phone number';
+  String get enterValidEmail => isHindi ? 'मान्य ईमेल दर्ज करें' : 'Enter a valid email';
+  String donateWithAmount(String amount) => isHindi ? '₹$amount दान करें' : 'Donate ₹$amount';
+  String get secureTrusted => isHindi ? 'सुरक्षित और विश्वसनीय' : 'Secure & Trusted';
+  String get enterValidAmountMin100 => isHindi ? 'मान्य राशि दर्ज करें (न्यूनतम ₹100)।' : 'Enter a valid amount (minimum ₹100).';
+  String get paymentStartFailed => isHindi ? 'भुगतान शुरू नहीं हो सका। बाद में पुनः प्रयास करें।' : 'Could not start payment. Try again later.';
+  String errorWithDetail(String msg) => isHindi ? 'त्रुटि: $msg' : 'Error: $msg';
+  String referenceSaved(String ref) => isHindi
+      ? 'संदर्भ सहेजा गया: $ref — टीम फॉलोअप करेगी।'
+      : 'Reference saved: $ref — team can follow up.';
+  String get onlineDonationMobileOnly => isHindi
+      ? 'ऑनलाइन दान Android या iOS पर चलता है। भुगतान हेतु फोन पर ऐप खोलें।'
+      : 'Online donation runs on Android or iOS. Open the app on your phone to pay.';
+  String get paymentCancelled => isHindi ? 'भुगतान रद्द कर दिया गया।' : 'Payment was cancelled.';
+  String get thankYouTitle => isHindi ? 'धन्यवाद!' : 'Thank you!';
+  String donationReceived(String amount) => isHindi
+      ? 'धन्यवाद! आपका ₹$amount दान प्राप्त हुआ। जय गोपाल!'
+      : 'Thank you! Your donation of ₹$amount was received. Jai Gopal!';
+  String eventDonationReceived(String amount) => isHindi
+      ? 'धन्यवाद! इस कार्यक्रम के लिए आपका ₹$amount दान प्राप्त हुआ। जय गोपाल!'
+      : 'Thank you! Your donation of ₹$amount for this event was received. Jai Gopal!';
+  String get paymentCompletedAwaitingConfirm => isHindi
+      ? 'धन्यवाद! आपका भुगतान पूरा हुआ। पुष्टि थोड़ी देर में आ सकती है। जय गोपाल!'
+      : 'Thank you! Your payment completed. Confirmation may arrive in a moment. Jai Gopal!';
+  String referenceId(String ref) => isHindi ? 'संदर्भ आईडी: $ref' : 'Reference ID: $ref';
+  String get okLabel => isHindi ? 'ठीक है' : 'OK';
+  String get bookingConfirmed => isHindi ? 'बुकिंग पुष्टि' : 'Booking Confirmed';
+  String get onlineMinOrder100 => isHindi
+      ? 'ऑनलाइन भुगतान के लिए कुल राशि कम से कम ₹100 होनी चाहिए।'
+      : 'Online payment requires a minimum order total of ₹100.';
+  String get prasadBookingTitle => isHindi ? 'प्रसाद बुक करें' : 'Book Prasad';
+  String get quantityTitle => isHindi ? 'मात्रा' : 'Quantity';
+  String subtotalAmount(String amount) => isHindi ? 'उप-योग: ₹$amount' : 'Subtotal: ₹$amount';
+  String deliveryAmount(String amount) => isHindi ? 'डिलीवरी (10%): ₹$amount' : 'Delivery (10%): ₹$amount';
+  String totalAmount(String amount) => isHindi ? 'कुल: ₹$amount' : 'Total: ₹$amount';
+  String get min100IncreaseQty => isHindi
+      ? 'ऑनलाइन भुगतान हेतु न्यूनतम ₹100 — मात्रा बढ़ाएं।'
+      : 'Minimum ₹100 for online payment — increase quantity.';
+  String get fulfillmentLabel => isHindi ? 'प्राप्ति प्रकार' : 'Fulfillment';
+  String get paymentLabel => isHindi ? 'भुगतान' : 'Payment';
+  String get payAtTemple => isHindi ? 'मंदिर में भुगतान' : 'Pay at temple';
+  String get payOnline => isHindi ? 'ऑनलाइन भुगतान' : 'Pay online';
+  String get deliveryAddress => isHindi ? 'डिलीवरी पता' : 'Delivery Address';
+  String get enterDeliveryAddress => isHindi ? 'कृपया डिलीवरी पता दर्ज करें' : 'Please enter delivery address';
+  String get addressTooShort => isHindi ? 'पता बहुत छोटा है' : 'Address is too short';
+  String payAmount(String amount) => isHindi ? '₹$amount भुगतान करें' : 'Pay ₹$amount';
+  String bookAndPayAtTemple(String amount) =>
+      isHindi ? 'बुक करें • ₹$amount मंदिर में भुगतान' : 'Book • Pay ₹$amount at temple';
+  String prasadBookedToast(String name) => isHindi ? '🙏 $name प्रसाद बुक हुआ! जय गोपाल!' : '🙏 $name booked! Jai Gopal!';
+  String get sevaBookingTitle => isHindi ? 'सेवा बुक करें' : 'Book Seva';
+  String get sevaBookingDialogTitle => isHindi ? 'सेवा बुकिंग' : 'Seva Booking';
+  String sevaBookedToast(String name) => isHindi ? '🙏 $name सेवा बुक हुई! जय गोपाल!' : '🙏 $name seva booked! Jai Gopal!';
+  String get sevaBelow100Info => isHindi
+      ? 'यह सेवा ₹100 से कम है — आपकी बुकिंग बिना ऑनलाइन भुगतान के जमा होगी।'
+      : 'This seva is listed under ₹100 — your booking is submitted without online payment.';
+  String get yourDetails => isHindi ? 'आपका विवरण' : 'Your Details';
+  String get fullName => isHindi ? 'पूरा नाम' : 'Full Name';
+  String get validPhoneShort => isHindi ? 'कृपया मान्य फोन दर्ज करें' : 'Please enter a valid phone';
+  String get confirmSevaBooking => isHindi ? 'सेवा बुकिंग पुष्टि करें' : 'Confirm Seva Booking';
+  String get payAndBookSeva => isHindi ? 'भुगतान करें और सेवा बुक करें' : 'Pay & book seva';
+  String get paymentReceivedSeva => isHindi
+      ? 'भुगतान प्राप्त हुआ। आपकी सेवा बुकिंग पुष्टि है। जय गोपाल!'
+      : 'Payment received. Your seva booking is confirmed. Jai Gopal!';
+  String get paymentCompletedSeva => isHindi
+      ? 'भुगतान पूरा हुआ। पुष्टि थोड़ी देर में आएगी। जय गोपाल!'
+      : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+  String get paymentReceivedPrasad => isHindi
+      ? 'भुगतान प्राप्त हुआ। आपकी प्रसाद बुकिंग पुष्टि है। जय गोपाल!'
+      : 'Payment received. Your prasad order is confirmed. Jai Gopal!';
+  String get paymentCompletedPrasad => isHindi
+      ? 'भुगतान पूरा हुआ। पुष्टि थोड़ी देर में आएगी। जय गोपाल!'
+      : 'Payment completed. Confirmation may take a moment. Jai Gopal!';
+  String get membershipTitle => isHindi ? 'सदस्यता' : 'Membership';
+  String get membershipJoin => isHindi ? 'सदस्य बनें' : 'Join as a member';
+  String get sendOtp => isHindi ? 'OTP भेजें' : 'Send OTP';
+  String get enterOtp => isHindi ? 'OTP दर्ज करें' : 'Enter OTP';
+  String get verifyJoin => isHindi ? 'सत्यापित करें और जुड़ें' : 'Verify & Join';
+  String get logoutLabel => isHindi ? 'लॉगआउट' : 'Logout';
+  String get yourMembership => isHindi ? 'आपकी सदस्यता' : 'Your membership';
+  String get phoneLabel => isHindi ? 'फोन' : 'Phone';
+  String get nameLabel => isHindi ? 'नाम' : 'Name';
+  String get emailLabel => isHindi ? 'ईमेल' : 'Email';
+  String get statusLabel => isHindi ? 'स्थिति' : 'Status';
+  String get membershipSessionLoadError => isHindi
+      ? 'सदस्यता सत्र लोड नहीं हो सका। कृपया पुनः प्रयास करें।'
+      : 'Could not load membership session. Please try again.';
+  String get sessionExpiredRequestOtp => isHindi
+      ? 'सत्र समाप्त हो गया। कृपया फिर से OTP मांगें।'
+      : 'Session expired. Please request OTP again.';
+  String membershipLoadError(String msg) => isHindi
+      ? 'सदस्यता सत्र लोड नहीं हो सका: $msg'
+      : 'Could not load membership session: $msg';
+  String get failedToSendOtp => isHindi ? 'OTP भेजने में विफल' : 'Failed to send OTP';
+  String get enterPhoneAndOtp => isHindi ? 'कृपया फोन और OTP दर्ज करें' : 'Please enter phone and OTP';
+  String get otpVerificationFailed => isHindi ? 'OTP सत्यापन विफल' : 'OTP verification failed';
+  String devOtpValue(String otp) => isHindi ? 'डेव OTP: $otp' : 'Dev OTP: $otp';
+  String get videoUrlMissing => isHindi ? 'वीडियो URL उपलब्ध नहीं है' : 'Video URL missing';
+  String get invalidVideoUrl => isHindi ? 'अमान्य वीडियो URL' : 'Invalid video URL';
+  String get cannotOpenVideoUrl => isHindi ? 'वीडियो URL नहीं खुल सका' : 'Cannot open video URL';
+  String get adminLoginTitle => isHindi ? 'मंदिर स्टाफ लॉगिन' : 'Temple staff login';
+  String get adminSecretCodeMode => isHindi ? 'सीक्रेट कोड' : 'Secret code';
+  String get adminPhoneOtpMode => isHindi ? 'फोन OTP' : 'Phone OTP';
+  String get adminSecretHint => isHindi
+      ? 'ओनर द्वारा जनरेट किया गया सीक्रेट कोड लॉगिन। कोड एक बार उपयोगी है और समाप्त हो जाता है।'
+      : 'Owner-generated secret code login. Code is single-use and expires.';
+  String get adminOtpHint => isHindi
+      ? 'एडमिन एक्सेस केवल पंजीकृत मंदिर फोन के लिए है। OTP केवल अधिकृत नंबर पर भेजा जाता है।'
+      : 'Admin access is restricted to registered temple phones. OTP is sent only for authorized numbers.';
+  String get adminDisplayNameOptional => isHindi
+      ? 'डिस्प्ले नाम (वैकल्पिक, पहली लॉगिन)'
+      : 'Display name (optional, first login)';
+  String get adminSecretCode => isHindi ? 'सीक्रेट कोड' : 'Secret code';
+  String get adminLoginWithSecret => isHindi ? 'सीक्रेट कोड से लॉगिन' : 'Login with secret code';
+  String get adminRequestOtp => isHindi ? 'OTP मांगें' : 'Request OTP';
+  String get adminVerifySignIn => isHindi ? 'सत्यापित करें और लॉगिन' : 'Verify & sign in';
+  String get adminInvalidOtp => isHindi ? 'अमान्य OTP' : 'Invalid OTP';
+  String get adminInvalidSecret => isHindi ? 'अमान्य सीक्रेट कोड' : 'Invalid secret code';
+  String get adminTooManyOtpRequests => isHindi ? 'बहुत अधिक OTP अनुरोध।' : 'Too many OTP requests.';
+  String adminTryAgainIn(String wait) => isHindi ? '$wait में पुनः प्रयास करें।' : 'Try again in $wait.';
+  String attemptsUsed(int used, int limit) => isHindi ? '($used/$limit प्रयास उपयोग)' : '($used/$limit attempts used)';
+  String get adminOtpSendFailed => isHindi
+      ? 'OTP भेजा नहीं जा सका। यह नंबर एडमिन के रूप में पंजीकृत नहीं हो सकता।'
+      : 'Could not send OTP. This number may not be registered as admin.';
+  String get adminHomeTitle => isHindi ? 'एडमिन' : 'Admin';
+  String get adminOwnerAccess => isHindi ? 'ओनर एक्सेस' : 'Owner access';
+  String get adminOwnerAccessSub => isHindi ? 'सीक्रेट कोड बनाएं और एडमिन अधिकार प्रबंधित करें' : 'Generate secret codes and manage admin rights';
+  String get adminRecentActivity => isHindi ? 'हाल की गतिविधि' : 'Recent activity';
+  String get adminRecentActivitySub => isHindi ? 'प्रसाद, सेवा, दान, सदस्य आदि के अपडेट' : 'Cross-module updates — prasad, seva, donations, members, and more';
+  String get adminGallery => isHindi ? 'गैलरी' : 'Gallery';
+  String get adminGallerySub => isHindi ? 'छवियां और वीडियो अपलोड व प्रबंधन' : 'Upload & manage images and videos';
+  String get adminLiveDarshan => isHindi ? 'लाइव दर्शन' : 'Live Darshan';
+  String get adminLiveDarshanSub => isHindi ? 'स्ट्रीम URL और लाइव स्थिति' : 'Stream URL and on-air flag';
+  String get adminPrasadOrders => isHindi ? 'प्रसाद ऑर्डर' : 'Prasad orders';
+  String get adminPrasadOrdersSub => isHindi ? 'ऑर्डर स्थिति फिल्टर और अपडेट करें' : 'Filter and update order status';
+  String get adminPanchang => isHindi ? 'पंचांग' : 'Panchang';
+  String get adminPanchangSub => isHindi ? 'दैनिक हिंदू पंचांग जोड़ें/संपादित करें' : 'Add & edit daily Hindu Panchang';
+  String get adminFestivals => isHindi ? 'उत्सव' : 'Festivals';
+  String get adminFestivalsSub => isHindi ? 'तारीख-आधारित उत्सव/कार्यक्रम CRUD' : 'Date-wise festivals/events CRUD';
+  String get adminSevaItems => isHindi ? 'सेवा आइटम' : 'Seva Items';
+  String get adminSevaItemsSub => isHindi ? 'सेवा ऑफर जोड़ें, संपादित करें, हटाएं' : 'Add, edit & remove seva offerings';
+  String get adminSevaBookings => isHindi ? 'सेवा बुकिंग' : 'Seva Bookings';
+  String get adminSevaBookingsSub => isHindi ? 'सेवा बुकिंग स्थिति देखें/अपडेट करें' : 'View & update seva booking status';
+  String get adminPoojaOfferings => isHindi ? 'पूजा ऑफरिंग' : 'Pooja offerings';
+  String get adminPoojaOfferingsSub => isHindi ? 'अनुष्ठान और पैकेज' : 'Ceremonies & packages';
+  String get adminPoojaAvailability => isHindi ? 'पूजा उपलब्धता' : 'Pooja availability';
+  String get adminPoojaAvailabilitySub => isHindi ? 'गुरु जी/बाबा जी स्लॉट और दैनिक सीमा' : 'Guru Ji & Baba Ji — slots and daily limits';
+  String get adminPoojaBookings => isHindi ? 'पूजा बुकिंग' : 'Pooja bookings';
+  String get adminPoojaBookingsSub => isHindi ? 'अनुरोध, भुगतान मोड, ऑफलाइन भुगतान प्रबंधन' : 'Confirm requests, payment mode, offline paid';
+  String get adminEvents => isHindi ? 'कार्यक्रम' : 'Events';
+  String get adminEventsSub => isHindi ? 'मंदिर कार्यक्रम जोड़ें, संपादित करें, हटाएं' : 'Add, edit & remove temple events';
+  String get adminEventParticipations => isHindi ? 'कार्यक्रम सहभागिता' : 'Event Participations';
+  String get adminEventParticipationsSub => isHindi ? 'किसने कार्यक्रम जॉइन किया देखें' : 'View who joined each event';
+  String get adminEventDonations => isHindi ? 'कार्यक्रम दान' : 'Event Donations';
+  String get adminEventDonationsSub => isHindi ? 'सभी कार्यक्रम दान देखें' : 'View all event donations';
+  String get adminGeneralDonations => isHindi ? 'सामान्य दान' : 'General Donations';
+  String get adminGeneralDonationsSub => isHindi ? 'भुगतान स्थिति, विफलताएं और दाता संपर्क' : 'Payment status, failures, and donor contact';
+  String get adminAartiSchedule => isHindi ? 'आरती समय' : 'Aarti Schedule';
+  String get adminAartiScheduleSub => isHindi ? 'आरती समय जोड़ें, संपादित करें, हटाएं' : 'Add, edit & remove aarti timings';
+  String get adminDainikShlok => isHindi ? 'दैनिक श्लोक' : 'Dainik Shlok';
+  String get adminDainikShlokSub => isHindi ? 'होम स्क्रीन दैनिक श्लोक अपडेट करें' : 'Update home screen daily shlok content';
+  String get adminAboutTemple => isHindi ? 'मंदिर के बारे में' : 'About Temple';
+  String get adminAboutTempleSub => isHindi ? 'More → About Temple की जानकारी' : 'History and info on More → About Temple';
+  String get adminDailyUpasana => isHindi ? 'दैनिक उपासना' : 'Daily Upasana';
+  String get adminDailyUpasanaSub => isHindi ? 'दैनिक उपासना पाठ बनाएं और प्रबंधित करें' : 'Create and manage daily upasana readings';
+  String get adminMembers => isHindi ? 'सदस्य' : 'Members';
+  String get adminMembersSub => isHindi ? 'मंदिर सदस्यों को देखें और प्रबंधित करें' : 'View & manage temple members';
+  String get adminVolunteerRequests => isHindi ? 'स्वयंसेवक अनुरोध' : 'Volunteer Requests';
+  String get adminVolunteerRequestsSub => isHindi ? 'स्वयंसेवक आवेदन की समीक्षा और प्रबंधन' : 'Review & manage volunteer applications';
+  String get adminFeedbackQueue => isHindi ? 'फीडबैक कतार' : 'Feedback Queue';
+  String get adminFeedbackQueueSub => isHindi ? 'यूजर फीडबैक की ट्रायेज और प्रतिक्रिया' : 'Triage and respond to user feedback';
+  String get adminFeedbackAnalytics => isHindi ? 'फीडबैक विश्लेषण' : 'Feedback Analytics';
+  String get adminFeedbackAnalyticsSub => isHindi ? 'रेटिंग, ट्रेंड और क्लोजर मीट्रिक्स' : 'Ratings, trends and closure metrics';
   String get dailyUpasanaTitle => isHindi ? 'दैनिक उपासना' : 'Daily Upasana';
   String get dailyUpasanaEmpty =>
       isHindi ? 'कोई उपासना सामग्री उपलब्ध नहीं है' : 'No upasana items available';

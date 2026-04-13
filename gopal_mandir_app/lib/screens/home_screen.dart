@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         QuickActionButton(
                           icon: Icons.celebration,
-                          label: 'Festivals',
+                          label: s.festivalsLabel,
                           color: AppColors.krishnaBlue,
                           onTap: () => _navigateTo(context, const FestivalsScreen()),
                         ),

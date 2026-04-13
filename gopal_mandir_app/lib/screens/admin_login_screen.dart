@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../data/country_dial_codes.dart';
 import '../services/api_service.dart';
 import '../services/admin_auth_service.dart';
@@ -39,6 +40,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   Future<void> _requestOtp() async {
+    final s = AppLocaleScope.of(context).strings;
     final composed = tryComposeE164(
       dialDigits: _selectedCountry.dialDigits,
       nationalRaw: _phoneCtrl.text,
@@ -65,20 +67,21 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           final waitText = mins > 0 ? '${mins}m ${secs}s' : '${secs}s';
           final attemptsText =
               (r.attemptsUsed != null && r.attemptsLimit != null)
-                  ? ' (${r.attemptsUsed}/${r.attemptsLimit} attempts used)'
+              ? ' ${s.attemptsUsed(r.attemptsUsed!, r.attemptsLimit!)}'
                   : '';
           _error =
-              '${r.error ?? 'Too many OTP requests.'} Try again in $waitText.$attemptsText';
+              '${r.error ?? s.adminTooManyOtpRequests} ${s.adminTryAgainIn(waitText)}$attemptsText';
         } else {
           _error =
               r.error ??
-              'Could not send OTP. This number may not be registered as admin.';
+              s.adminOtpSendFailed;
         }
       }
     });
   }
 
   Future<void> _verify() async {
+    final s = AppLocaleScope.of(context).strings;
     final composed = tryComposeE164(
       dialDigits: _selectedCountry.dialDigits,
       nationalRaw: _phoneCtrl.text,
@@ -107,11 +110,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     }
     setState(() {
       _loading = false;
-      _error = r.error ?? 'Invalid OTP';
+      _error = r.error ?? s.adminInvalidOtp;
     });
   }
 
   Future<void> _loginWithSecret() async {
+    final s = AppLocaleScope.of(context).strings;
     setState(() {
       _loading = true;
       _error = null;
@@ -131,16 +135,17 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     }
     setState(() {
       _loading = false;
-      _error = r.error ?? 'Invalid secret code';
+      _error = r.error ?? s.adminInvalidSecret;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     return Scaffold(
       backgroundColor: AppColors.softWhite,
       appBar: AppBar(
-        title: const Text('Temple staff login'),
+        title: Text(s.adminLoginTitle),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -148,9 +153,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment<bool>(value: true, label: Text('Secret code')),
-                ButtonSegment<bool>(value: false, label: Text('Phone OTP')),
+              segments: [
+                ButtonSegment<bool>(value: true, label: Text(s.adminSecretCodeMode)),
+                ButtonSegment<bool>(value: false, label: Text(s.adminPhoneOtpMode)),
               ],
               selected: {_secretMode},
               onSelectionChanged: _loading
@@ -166,15 +171,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             const SizedBox(height: 20),
             Text(
               _secretMode
-                  ? 'Owner-generated secret code login. Code is single-use and expires.'
-                  : 'Admin access is restricted to registered temple phones. OTP is sent only for authorized numbers.',
+                  ? s.adminSecretHint
+                  : s.adminOtpHint,
               style: const TextStyle(fontFamily: 'Poppins', color: AppColors.warmGrey, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Display name (optional, first login)',
+              decoration: InputDecoration(
+                labelText: s.adminDisplayNameOptional,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -183,8 +188,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               TextField(
                 controller: _secretCodeCtrl,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Secret code',
+                decoration: InputDecoration(
+                  labelText: s.adminSecretCode,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -198,7 +203,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         width: 22,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Login with secret code'),
+                    : Text(s.adminLoginWithSecret),
               ),
             ] else ...[
               AdminPhoneCountryRow(
@@ -216,12 +221,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         width: 22,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Request OTP'),
+                    : Text(s.adminRequestOtp),
               ),
               if (_devOtp != null) ...[
                 const SizedBox(height: 12),
                 SelectableText(
-                  'Dev OTP: $_devOtp',
+                  s.devOtpValue(_devOtp!),
                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown),
                 ),
               ],
@@ -230,15 +235,15 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 controller: _otpCtrl,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                decoration: const InputDecoration(
-                  labelText: 'OTP',
+                decoration: InputDecoration(
+                  labelText: s.enterOtp,
                   border: OutlineInputBorder(),
                 ),
               ),
               FilledButton(
                 onPressed: _loading ? null : _verify,
                 style: FilledButton.styleFrom(backgroundColor: AppColors.peacockGreen),
-                child: const Text('Verify & sign in'),
+                child: Text(s.adminVerifySignIn),
               ),
             ],
             if (_error != null) ...[

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_service.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../models/models.dart';
@@ -19,7 +20,6 @@ class MembershipScreen extends StatefulWidget {
 class _MembershipScreenState extends State<MembershipScreen> {
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'membership_token';
-  static const _defaultError = 'Could not load membership session. Please try again.';
 
   final ApiService _api = ApiService();
   final _phoneCtrl = TextEditingController();
@@ -100,6 +100,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _restoreSession() async {
+    final s = AppLocaleScope.of(context).strings;
     try {
       if (!mounted) return;
       setState(() {
@@ -129,7 +130,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           _token = null;
           _member = null;
           _loading = false;
-          _error = 'Session expired. Please request OTP again.';
+          _error = s.sessionExpiredRequestOtp;
         });
       }
     } catch (e) {
@@ -137,15 +138,16 @@ class _MembershipScreenState extends State<MembershipScreen> {
       setState(() {
         _loading = false;
         final msg = e.toString();
-        _error = msg.isNotEmpty ? 'Could not load membership session: $msg' : _defaultError;
+        _error = msg.isNotEmpty ? s.membershipLoadError(msg) : s.membershipSessionLoadError;
       });
     }
   }
 
   Future<void> _sendOtp() async {
+    final s = AppLocaleScope.of(context).strings;
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      setState(() => _error = 'Please enter phone number');
+      setState(() => _error = s.pleaseEnterPhone);
       return;
     }
     setState(() {
@@ -158,7 +160,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     setState(() {
       _loading = false;
       if (res == null) {
-        _error = 'Failed to send OTP';
+        _error = s.failedToSendOtp;
       } else {
         _devOtp = res;
         _otpCtrl.text = res; // Dev-mode convenience
@@ -167,10 +169,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _verifyOtp() async {
+    final s = AppLocaleScope.of(context).strings;
     final phone = _phoneCtrl.text.trim();
     final otp = _otpCtrl.text.trim();
     if (phone.isEmpty || otp.isEmpty) {
-      setState(() => _error = 'Please enter phone and OTP');
+      setState(() => _error = s.enterPhoneAndOtp);
       return;
     }
     setState(() {
@@ -187,7 +190,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     if (res.token == null || res.member == null) {
       setState(() {
         _loading = false;
-        _error = res.error ?? 'OTP verification failed';
+        _error = res.error ?? s.otpVerificationFailed;
       });
       return;
     }
@@ -224,10 +227,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     final member = _member;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('Membership')),
+      appBar: AppBar(title: Text(s.membershipTitle)),
       body: _loading
           ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
           : (member != null ? _buildLoggedIn(member) : _buildJoinFlow()),
@@ -235,6 +239,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Widget _buildLoggedIn(MemberProfile member) {
+    final s = AppLocaleScope.of(context).strings;
     return ListView(
       padding: AppSpacing.screenInsets,
       children: [
@@ -243,34 +248,35 @@ class _MembershipScreenState extends State<MembershipScreen> {
         const SizedBox(height: AppSpacing.md),
         FilledButton(
           onPressed: _logout,
-          child: const Text('Logout'),
+          child: Text(s.logoutLabel),
         ),
       ],
     );
   }
 
   Widget _buildJoinFlow() {
+    final s = AppLocaleScope.of(context).strings;
     final theme = Theme.of(context);
     return ListView(
       padding: AppSpacing.screenInsets,
       children: [
         if (_error != null) _errorBanner(_error!),
-        _sectionTitle('Join as a member'),
+        _sectionTitle(s.membershipJoin),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _phoneCtrl,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(labelText: 'Phone number'),
+          decoration: InputDecoration(labelText: s.phoneNumberLabel),
         ),
         const SizedBox(height: AppSpacing.md),
         FilledButton(
           onPressed: _sendOtp,
-          child: const Text('Send OTP'),
+          child: Text(s.sendOtp),
         ),
         if (_devOtp != null) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Dev OTP: $_devOtp',
+            s.devOtpValue(_devOtp!),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -278,18 +284,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
         TextField(
           controller: _otpCtrl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Enter OTP'),
+          decoration: InputDecoration(labelText: s.enterOtp),
         ),
         const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _nameCtrl,
-          decoration: const InputDecoration(labelText: 'Name (optional)'),
+          decoration: InputDecoration(labelText: s.nameOptional),
         ),
         const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _emailCtrl,
           keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Email (optional)'),
+          decoration: InputDecoration(labelText: s.emailOptionalLabel),
         ),
         const SizedBox(height: AppSpacing.lg),
         FilledButton(
@@ -298,7 +304,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
             backgroundColor: AppColors.templeGold,
             foregroundColor: Colors.black87,
           ),
-          child: const Text('Verify & Join'),
+          child: Text(s.verifyJoin),
         ),
       ],
     );
@@ -328,6 +334,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Widget _profileCard(MemberProfile member) {
+    final s = AppLocaleScope.of(context).strings;
     return AppSurface(
       level: AppSurfaceLevel.low,
       padding: AppSpacing.screenInsets,
@@ -335,14 +342,14 @@ class _MembershipScreenState extends State<MembershipScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your membership',
+            s.yourMembership,
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: AppSpacing.md),
-          _kv('Phone', member.phone),
-          _kv('Name', member.name.isEmpty ? '—' : member.name),
-          _kv('Email', member.email.isEmpty ? '—' : member.email),
-          _kv('Status', member.status),
+          _kv(s.phoneLabel, member.phone),
+          _kv(s.nameLabel, member.name.isEmpty ? '—' : member.name),
+          _kv(s.emailLabel, member.email.isEmpty ? '—' : member.email),
+          _kv(s.statusLabel, member.status),
         ],
       ),
     );

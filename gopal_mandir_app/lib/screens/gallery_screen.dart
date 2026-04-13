@@ -35,7 +35,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
   LandingWebAudio? _webGalleryAudio;
 
   List<String> get _categories {
-    final set = <String>{'All'};
+    final s = AppLocaleScope.of(context).strings;
+    final set = <String>{s.allLabel};
     for (final item in _items) {
       set.add(item.category);
     }
@@ -43,7 +44,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   List<GalleryItem> get _filteredItems {
-    if (_selectedCategory == 'All') return _items;
+    final s = AppLocaleScope.of(context).strings;
+    if (_selectedCategory == s.allLabel || _selectedCategory == 'All') return _items;
     return _items.where((i) => i.category == _selectedCategory).toList();
   }
 
@@ -789,23 +791,24 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Future<void> _openVideo(BuildContext context, GalleryItem item) async {
+    final s = AppLocaleScope.of(context).strings;
     final raw = item.videoUrl.trim();
     if (raw.isEmpty) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video URL missing')),
+        SnackBar(content: Text(s.videoUrlMissing)),
       );
       return;
     }
     final uri = Uri.tryParse(raw);
     if (uri == null) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid video URL')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.invalidVideoUrl)));
       return;
     }
     if (!await canLaunchUrl(uri)) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot open video URL')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.cannotOpenVideoUrl)));
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -893,6 +896,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Future<void> _showCommentsSheet(GalleryItem item) async {
+    final s = AppLocaleScope.of(context).strings;
     List<GalleryComment> comments = await _api.getGalleryComments(item.id);
     if (!mounted) return;
     _commentCounts[item.id] = comments.length;
@@ -924,7 +928,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Comments for ${item.title}',
+                          s.commentsFor(item.title),
                           style: const TextStyle(
                             fontFamily: 'PlayfairDisplay',
                             fontSize: 16,
@@ -943,9 +947,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   SizedBox(
                     height: 240,
                     child: comments.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'No comments yet. Be the first!',
+                              s.noCommentsYet,
                               style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
                             ),
                           )
@@ -979,8 +983,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Your Name',
+                    decoration: InputDecoration(
+                      labelText: s.yourNameLabel,
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -989,8 +993,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     controller: commentCtrl,
                     minLines: 2,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Your Comment',
+                    decoration: InputDecoration(
+                      labelText: s.yourComment,
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -1003,8 +1007,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         final text = commentCtrl.text.trim();
                         if (name.isEmpty || text.isEmpty) {
                           ScaffoldMessenger.of(modalContext).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please enter name and comment'),
+                            SnackBar(
+                              content: Text(s.pleaseEnterNameAndComment),
                               backgroundColor: AppColors.urgentRed,
                             ),
                           );
@@ -1017,8 +1021,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         if (count == null) {
                           if (!modalContext.mounted) return;
                           ScaffoldMessenger.of(modalContext).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to add comment'),
+                            SnackBar(
+                              content: Text(s.failedToAddComment),
                               backgroundColor: AppColors.urgentRed,
                             ),
                           );
@@ -1040,7 +1044,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      child: const Text('Post Comment'),
+                      child: Text(s.postComment),
                     ),
                   ),
                 ],

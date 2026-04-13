@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
@@ -33,6 +34,7 @@ class SevaScreenState extends State<SevaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppLocaleScope.of(context).strings;
     // Group by category
     final categories = <String, List<SevaItem>>{};
     for (final item in _items) {
@@ -42,7 +44,7 @@ class SevaScreenState extends State<SevaScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('सेवा बुकिंग'),
+        title: Text(s.sevaBookingTitle),
         backgroundColor: AppColors.krishnaBlue,
         foregroundColor: Colors.white,
       ),
@@ -155,7 +157,7 @@ class SevaScreenState extends State<SevaScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               child: Text(
-                                item.available ? 'Book Seva' : 'Unavailable',
+                                item.available ? s.bookSevaCta : s.unavailableLabel,
                                 style: const TextStyle(fontFamily: 'Poppins', color: Colors.white),
                               ),
                             ),
