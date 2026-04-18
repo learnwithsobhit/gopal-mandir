@@ -15,6 +15,8 @@ import 'settings_screen.dart';
 import 'volunteer_screen.dart';
 import 'pooja_appointment_screen.dart';
 import 'about_temple_screen.dart';
+import 'astro_consult_screen.dart';
+import 'community_feed_screen.dart';
 import '../widgets/vrindavan_background.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -279,6 +281,34 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           _menuItem(context, Icons.phone, s.contactUs, _info?.phone ?? s.callTempleOffice),
           _menuItem(context, Icons.email, s.email, _info?.email ?? s.emailSub),
+          _menuItem(
+            context,
+            Icons.auto_awesome,
+            s.askAstrologer,
+            s.askAstrologerSub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: AstroConsultScreen()),
+                ),
+              );
+            },
+          ),
+          _menuItem(
+            context,
+            Icons.forum,
+            s.communityQA,
+            s.communityQASub,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const VrindavanBackground(child: CommunityFeedScreen()),
+                ),
+              );
+            },
+          ),
           _menuItem(
             context,
             Icons.people,

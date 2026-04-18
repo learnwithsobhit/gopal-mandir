@@ -26,6 +26,8 @@ import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
 import 'admin_feedback_list_screen.dart';
 import 'admin_feedback_analytics_screen.dart';
+import 'admin_astro_consult_list_screen.dart';
+import 'admin_community_posts_screen.dart';
 import 'admin_festivals_list_screen.dart';
 import 'admin_activity_feed_screen.dart';
 import 'admin_owner_access_screen.dart';
@@ -377,6 +379,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminFeedbackAnalyticsScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.auto_awesome,
+            s.adminAstroConsult,
+            s.adminAstroConsultSub,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminAstroConsultListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.forum,
+            s.adminCommunityQA,
+            s.adminCommunityQASub,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminCommunityPostsScreen(token: _token!),
               ),
             ),
           ),

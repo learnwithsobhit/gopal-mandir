@@ -4463,3 +4463,678 @@ pub async fn admin_activity_feed(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Admin: Astro consultation CRM
+// ──────────────────────────────────────────────
+
+const ASTRO_ALLOWED_STATUSES: &[&str] = &["new", "contacted", "answered", "closed"];
+
+#[get("/api/admin/astro/consult")]
+pub async fn admin_list_astro_consult(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminAstroConsultQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).clamp(1, 200);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let status = q.status.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let category = q.category.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let search = q
+        .search
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+
+    let rows = sqlx::query_as::<_, AdminAstroConsultView>(
+        "SELECT
+            r.id, r.name, r.phone, r.email, r.category, r.subject, r.question,
+            r.dob_date, r.dob_time, r.birth_place, r.status, r.admin_note,
+            r.answered_by, a.name as answered_by_name, r.answered_at,
+            r.created_at, r.updated_at
+         FROM astro_consult_requests r
+         LEFT JOIN admins a ON a.id = r.answered_by
+         WHERE ($1::TEXT IS NULL OR r.status = $1)
+           AND ($2::TEXT IS NULL OR r.category = $2)
+           AND ($3::TEXT IS NULL OR r.name ILIKE $3 OR r.phone ILIKE $3
+                 OR COALESCE(r.email,'') ILIKE $3 OR r.subject ILIKE $3 OR r.question ILIKE $3)
+         ORDER BY r.created_at DESC
+         LIMIT $4 OFFSET $5",
+    )
+    .bind(status)
+    .bind(category)
+    .bind(search)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/astro/consult/{id}")]
+pub async fn admin_patch_astro_consult(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchAstroConsultRequest>,
+) -> HttpResponse {
+    let admin = match require_admin(pool.get_ref(), &req).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+    let id = id.into_inner();
+
+    let status = body
+        .status
+        .as_deref()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty());
+    if let Some(ref s) = status {
+        if !ASTRO_ALLOWED_STATUSES.contains(&s.as_str()) {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "status must be one of: new, contacted, answered, closed"
+            }));
+        }
+    }
+
+    let admin_note = body
+        .admin_note
+        .as_deref()
+        .map(|s| s.trim().to_string());
+
+    let set_answered = status.as_deref() == Some("answered");
+    let answered_by: Option<Uuid> = if set_answered { Some(admin.id) } else { None };
+
+    let r = sqlx::query(
+        "UPDATE astro_consult_requests
+         SET status = COALESCE($1, status),
+             admin_note = COALESCE($2, admin_note),
+             answered_by = CASE WHEN $3::BOOLEAN THEN $4 ELSE answered_by END,
+             answered_at = CASE WHEN $3::BOOLEAN THEN NOW() ELSE answered_at END,
+             updated_at = NOW()
+         WHERE id = $5",
+    )
+    .bind(status)
+    .bind(admin_note)
+    .bind(set_answered)
+    .bind(answered_by)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Consultation updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Consultation not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Admin: Community Q&A moderation + admin answers/comments
+// ──────────────────────────────────────────────
+
+const COMMUNITY_POST_STATUSES: &[&str] = &["visible", "hidden"];
+const COMMUNITY_ANSWER_BODY_MAX: usize = 10_000;
+const COMMUNITY_COMMENT_BODY_MAX: usize = 2_000;
+
+#[get("/api/admin/community/posts")]
+pub async fn admin_list_community_posts(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<CommunityPostListQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).clamp(1, 200);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let include_hidden = q.include_hidden.unwrap_or(true);
+    let category = q.category.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let search = q
+        .search
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+    let sort = q.sort.as_deref().unwrap_or("new").trim().to_lowercase();
+    let order_by: &str = match sort.as_str() {
+        "liked" | "most_liked" | "likes" => "likes_count DESC, created_at DESC",
+        "answered" | "most_answered" | "answers" => "answers_count DESC, created_at DESC",
+        "popular" | "trending" => "(likes_count + 2 * answers_count) DESC, created_at DESC",
+        _ => "created_at DESC",
+    };
+
+    let sql = format!(
+        "SELECT id, author_name, author_phone, category, title, body, status,
+                likes_count, answers_count, created_at
+         FROM community_posts
+         WHERE ($1::BOOLEAN OR status = 'visible')
+           AND ($2::TEXT IS NULL OR category = $2)
+           AND ($3::TEXT IS NULL OR title ILIKE $3 OR body ILIKE $3 OR author_name ILIKE $3 OR author_phone ILIKE $3)
+         ORDER BY {}
+         LIMIT $4 OFFSET $5",
+        order_by
+    );
+
+    let rows = sqlx::query_as::<_, AdminCommunityPostSummary>(&sql)
+        .bind(include_hidden)
+        .bind(category)
+        .bind(search)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.get_ref())
+        .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/community/posts/{id}")]
+pub async fn admin_patch_community_post(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminPatchCommunityPostRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let status = body.status.trim().to_lowercase();
+    if !COMMUNITY_POST_STATUSES.contains(&status.as_str()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "status must be visible or hidden"
+        }));
+    }
+
+    let r = sqlx::query(
+        "UPDATE community_posts SET status = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(&status)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await;
+
+    match r {
+        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Post updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Post not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/community/posts/{id}")]
+pub async fn admin_delete_community_post(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let r = sqlx::query("DELETE FROM community_posts WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await;
+
+    match r {
+        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Post deleted"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Post not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/community/posts/{id}/answers")]
+pub async fn admin_create_community_answer(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminCommunityAnswerCreateRequest>,
+) -> HttpResponse {
+    let admin = match require_admin(pool.get_ref(), &req).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+    let post_id = id.into_inner();
+    let body_text = body.body.trim().to_string();
+    if body_text.is_empty() || body_text.chars().count() > COMMUNITY_ANSWER_BODY_MAX {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "answer body is required (max 10000 characters)"
+        }));
+    }
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM community_posts WHERE id = $1")
+        .bind(post_id)
+        .fetch_one(&mut *tx)
+        .await;
+    match exists {
+        Ok(0) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Post not found"
+            }));
+        }
+        Ok(_) => {}
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    }
+
+    let author_name = admin.name.clone();
+    let row = sqlx::query_as::<_, (i32,)>(
+        "INSERT INTO community_answers (post_id, author_admin_id, author_name, body)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id",
+    )
+    .bind(post_id)
+    .bind(admin.id)
+    .bind(&author_name)
+    .bind(&body_text)
+    .fetch_one(&mut *tx)
+    .await;
+
+    let answer_id = match row {
+        Ok((aid,)) => aid,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to create answer: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = sqlx::query(
+        "UPDATE community_posts
+         SET answers_count = answers_count + 1, updated_at = NOW()
+         WHERE id = $1",
+    )
+    .bind(post_id)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Answer posted",
+        "id": answer_id,
+    }))
+}
+
+#[patch("/api/admin/community/answers/{id}")]
+pub async fn admin_patch_community_answer(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminCommunityAnswerPatchRequest>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let body_text = body.body.trim().to_string();
+    if body_text.is_empty() || body_text.chars().count() > COMMUNITY_ANSWER_BODY_MAX {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "answer body is required (max 10000 characters)"
+        }));
+    }
+
+    let r = sqlx::query("UPDATE community_answers SET body = $1 WHERE id = $2")
+        .bind(&body_text)
+        .bind(id)
+        .execute(pool.get_ref())
+        .await;
+
+    match r {
+        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Answer updated"
+        })),
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Answer not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/community/answers/{id}")]
+pub async fn admin_delete_community_answer(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "DELETE FROM community_answers WHERE id = $1 RETURNING post_id",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let post_id = match row {
+        Ok(Some((p,))) => p,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Answer not found"
+            }));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = sqlx::query(
+        "UPDATE community_posts
+         SET answers_count = GREATEST(answers_count - 1, 0), updated_at = NOW()
+         WHERE id = $1",
+    )
+    .bind(post_id)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Answer deleted"
+    }))
+}
+
+#[post("/api/admin/community/answers/{id}/comments")]
+pub async fn admin_create_community_answer_comment(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminCommunityCommentCreateRequest>,
+) -> HttpResponse {
+    let admin = match require_admin(pool.get_ref(), &req).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+    let answer_id = id.into_inner();
+    let body_text = body.body.trim().to_string();
+    if body_text.is_empty() || body_text.chars().count() > COMMUNITY_COMMENT_BODY_MAX {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "comment body is required (max 2000 characters)"
+        }));
+    }
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let exists = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM community_answers WHERE id = $1",
+    )
+    .bind(answer_id)
+    .fetch_one(&mut *tx)
+    .await;
+    match exists {
+        Ok(0) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Answer not found"
+            }));
+        }
+        Ok(_) => {}
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    }
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "INSERT INTO community_answer_comments (answer_id, author_admin_id, author_name, body)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id",
+    )
+    .bind(answer_id)
+    .bind(admin.id)
+    .bind(admin.name.clone())
+    .bind(&body_text)
+    .fetch_one(&mut *tx)
+    .await;
+
+    let comment_id = match row {
+        Ok((cid,)) => cid,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Failed to create comment: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = sqlx::query(
+        "UPDATE community_answers SET comments_count = comments_count + 1 WHERE id = $1",
+    )
+    .bind(answer_id)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Comment posted",
+        "id": comment_id,
+    }))
+}
+
+#[delete("/api/admin/community/answer-comments/{id}")]
+pub async fn admin_delete_community_answer_comment(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "DELETE FROM community_answer_comments WHERE id = $1 RETURNING answer_id",
+    )
+    .bind(id)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let answer_id = match row {
+        Ok(Some((a,))) => a,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Comment not found"
+            }));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = sqlx::query(
+        "UPDATE community_answers
+         SET comments_count = GREATEST(comments_count - 1, 0)
+         WHERE id = $1",
+    )
+    .bind(answer_id)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Comment deleted"
+    }))
+}

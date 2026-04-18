@@ -4,7 +4,7 @@ use crate::models::*;
 use crate::razorpay::{self, RazorpayConfig};
 use crate::util::{bearer_token, normalize_phone, sha256_hex, truncate_payment_reason};
 use serde_json::{json, Value};
-use chrono::{Datelike, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, Utc};
 use rand::Rng;
 use uuid::Uuid;
 use std::env;
@@ -3263,4 +3263,459 @@ pub async fn cancel_seva_booking(
             "error": format!("Failed to cancel booking: {}", e)
         })),
     }
+}
+
+// ──────────────────────────────────────────────
+// Astro / muhurat consultation (public submit)
+// ──────────────────────────────────────────────
+
+const ASTRO_ALLOWED_CATEGORIES: &[&str] = &[
+    "astrology",
+    "palmistry",
+    "grahdosh",
+    "kundali_matching",
+    "muhurat",
+    "other",
+];
+
+#[post("/api/astro/consult")]
+pub async fn submit_astro_consult(
+    pool: web::Data<PgPool>,
+    body: web::Json<AstroConsultRequest>,
+) -> HttpResponse {
+    let name = body.name.trim().to_string();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Name is required"
+        }));
+    }
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let question = body.question.trim().to_string();
+    if question.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Question is required"
+        }));
+    }
+
+    let category_raw = body
+        .category
+        .clone()
+        .unwrap_or_else(|| "astrology".to_string())
+        .trim()
+        .to_lowercase();
+    let category = if ASTRO_ALLOWED_CATEGORIES.contains(&category_raw.as_str()) {
+        category_raw
+    } else {
+        "other".to_string()
+    };
+
+    let email = body.email.clone().unwrap_or_default().trim().to_string();
+    let subject = body.subject.clone().unwrap_or_default().trim().to_string();
+    let birth_place = body
+        .birth_place
+        .clone()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    let result = sqlx::query(
+        "INSERT INTO astro_consult_requests
+            (name, phone, email, category, subject, question, dob_date, dob_time, birth_place)
+         VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, NULLIF($9, ''))",
+    )
+    .bind(&name)
+    .bind(&phone)
+    .bind(&email)
+    .bind(&category)
+    .bind(&subject)
+    .bind(&question)
+    .bind(body.dob_date)
+    .bind(body.dob_time)
+    .bind(&birth_place)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Thank you! Our team will contact you shortly.".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to submit: {}", e)
+        })),
+    }
+}
+
+// ──────────────────────────────────────────────
+// Community Q&A forum (public)
+// ──────────────────────────────────────────────
+
+const COMMUNITY_DEFAULT_PAGE_SIZE: i64 = 20;
+const COMMUNITY_MAX_PAGE_SIZE: i64 = 100;
+const COMMUNITY_TITLE_MAX: usize = 300;
+const COMMUNITY_BODY_MAX: usize = 10_000;
+
+fn community_sort_order_sql(sort: Option<&str>) -> &'static str {
+    match sort.unwrap_or("new").trim().to_lowercase().as_str() {
+        "liked" | "most_liked" | "likes" => "likes_count DESC, created_at DESC",
+        "answered" | "most_answered" | "answers" => "answers_count DESC, created_at DESC",
+        "popular" | "trending" => "(likes_count + 2 * answers_count) DESC, created_at DESC",
+        _ => "created_at DESC",
+    }
+}
+
+#[post("/api/community/posts")]
+pub async fn submit_community_post(
+    pool: web::Data<PgPool>,
+    body: web::Json<CommunityPostCreateRequest>,
+) -> HttpResponse {
+    let author_name = body.author_name.trim().to_string();
+    if author_name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Name is required"
+        }));
+    }
+    let author_phone = match normalize_phone(&body.author_phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let title = body.title.trim().to_string();
+    if title.is_empty() || title.chars().count() > COMMUNITY_TITLE_MAX {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Title is required (max 300 characters)"
+        }));
+    }
+    let body_text = body.body.trim().to_string();
+    if body_text.is_empty() || body_text.chars().count() > COMMUNITY_BODY_MAX {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Question body is required (max 10000 characters)"
+        }));
+    }
+    let category = body
+        .category
+        .clone()
+        .unwrap_or_else(|| "general".to_string())
+        .trim()
+        .to_lowercase();
+    let category = if category.is_empty() {
+        "general".to_string()
+    } else {
+        category.chars().take(50).collect()
+    };
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "INSERT INTO community_posts (author_name, author_phone, category, title, body)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id",
+    )
+    .bind(&author_name)
+    .bind(&author_phone)
+    .bind(&category)
+    .bind(&title)
+    .bind(&body_text)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match row {
+        Ok((id,)) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": "Your question has been posted.",
+            "id": id,
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to create post: {}", e)
+        })),
+    }
+}
+
+#[get("/api/community/posts")]
+pub async fn list_community_posts(
+    pool: web::Data<PgPool>,
+    q: web::Query<CommunityPostListQuery>,
+) -> HttpResponse {
+    let limit = q
+        .limit
+        .unwrap_or(COMMUNITY_DEFAULT_PAGE_SIZE)
+        .clamp(1, COMMUNITY_MAX_PAGE_SIZE);
+    let offset = q.offset.unwrap_or(0).max(0);
+    let order_by = community_sort_order_sql(q.sort.as_deref());
+    let category = q
+        .category
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let search = q
+        .search
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| format!("%{}%", s));
+
+    let sql = format!(
+        "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
+         FROM community_posts
+         WHERE status = 'visible'
+           AND ($1::TEXT IS NULL OR category = $1)
+           AND ($2::TEXT IS NULL OR title ILIKE $2 OR body ILIKE $2)
+         ORDER BY {}
+         LIMIT $3 OFFSET $4",
+        order_by
+    );
+
+    let rows = sqlx::query_as::<_, CommunityPostSummary>(&sql)
+        .bind(category)
+        .bind(search)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.get_ref())
+        .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/community/posts/{id}")]
+pub async fn get_community_post_detail(
+    pool: web::Data<PgPool>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let id = id.into_inner();
+
+    let post_row = sqlx::query_as::<_, CommunityPostDetailRow>(
+        "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
+         FROM community_posts
+         WHERE id = $1 AND status = 'visible'
+         LIMIT 1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    let post = match post_row {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Post not found"
+            }))
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    // One query: answers + aggregated comments as json_agg (no N+1 per answer).
+    let rows = sqlx::query_as::<_, (i32, i32, Uuid, String, String, i32, i32, DateTime<Utc>, Value)>(
+        "SELECT
+            a.id, a.post_id, a.author_admin_id, a.author_name, a.body,
+            a.likes_count, a.comments_count, a.created_at,
+            COALESCE((
+                SELECT json_agg(c_ordered)
+                FROM (
+                    SELECT c.id, c.answer_id, c.author_admin_id, c.author_name, c.body, c.created_at
+                    FROM community_answer_comments c
+                    WHERE c.answer_id = a.id
+                    ORDER BY c.created_at ASC
+                ) AS c_ordered
+            ), '[]'::json) AS comments
+         FROM community_answers a
+         WHERE a.post_id = $1
+         ORDER BY a.created_at ASC",
+    )
+    .bind(id)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    let answers = match rows {
+        Ok(rs) => rs
+            .into_iter()
+            .map(|(aid, post_id, admin_id, aname, abody, likes, comments_count, created, comments_json)| {
+                let comments: Vec<CommunityAnswerCommentRow> =
+                    serde_json::from_value(comments_json).unwrap_or_default();
+                CommunityAnswerWithComments {
+                    answer: CommunityAnswerRow {
+                        id: aid,
+                        post_id,
+                        author_admin_id: admin_id,
+                        author_name: aname,
+                        body: abody,
+                        likes_count: likes,
+                        comments_count,
+                        created_at: created,
+                    },
+                    comments,
+                }
+            })
+            .collect::<Vec<_>>(),
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "data": CommunityPostDetail { post, answers }
+    }))
+}
+
+#[post("/api/community/posts/{id}/like")]
+pub async fn like_community_post(
+    pool: web::Data<PgPool>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let post_id = id.into_inner();
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if let Err(e) = sqlx::query("INSERT INTO community_post_likes (post_id) VALUES ($1)")
+        .bind(post_id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to like post: {}", e)
+        }));
+    }
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "UPDATE community_posts SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count",
+    )
+    .bind(post_id)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let count = match row {
+        Ok(Some((c,))) => c,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Post not found"
+            }));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count }))
+}
+
+#[post("/api/community/answers/{id}/like")]
+pub async fn like_community_answer(
+    pool: web::Data<PgPool>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let answer_id = id.into_inner();
+
+    let mut tx = match pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }))
+        }
+    };
+
+    if let Err(e) = sqlx::query("INSERT INTO community_answer_likes (answer_id) VALUES ($1)")
+        .bind(answer_id)
+        .execute(&mut *tx)
+        .await
+    {
+        let _ = tx.rollback().await;
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to like answer: {}", e)
+        }));
+    }
+
+    let row = sqlx::query_as::<_, (i32,)>(
+        "UPDATE community_answers SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count",
+    )
+    .bind(answer_id)
+    .fetch_optional(&mut *tx)
+    .await;
+
+    let count = match row {
+        Ok(Some((c,))) => c,
+        Ok(None) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Answer not found"
+            }));
+        }
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Err(e) = tx.commit().await {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        }));
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count }))
 }

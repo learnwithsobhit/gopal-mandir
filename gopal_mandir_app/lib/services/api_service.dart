@@ -3228,4 +3228,370 @@ class ApiService {
     }
     return null;
   }
+
+  // ──────────────────────────────────────────────
+  // Astrology / muhurat consultation (public submit)
+  // ──────────────────────────────────────────────
+
+  Future<({bool success, String message})> submitAstroConsult(
+    AstroConsultSubmitRequest req,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/astro/consult'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (success: true, message: (json['message'] ?? 'Submitted').toString());
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg');
+    } catch (e) {
+      print('submit astro consult: $e');
+      return (success: false, message: 'Network error. Please try again.');
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin: Astro consultation CRM
+  // ──────────────────────────────────────────────
+
+  Future<List<AstroConsultView>> adminListAstroConsults(
+    String token, {
+    String? status,
+    String? category,
+    String? search,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'limit': '$limit',
+        'offset': '$offset',
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (category != null && category.isNotEmpty) 'category': category,
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/astro/consult')
+          .replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => AstroConsultView.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin astro list: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminPatchAstroConsult(
+    String token,
+    int id,
+    AstroConsultPatchRequest req,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/astro/consult/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(req.toJson()),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin astro patch: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Community Q&A (public)
+  // ──────────────────────────────────────────────
+
+  Future<List<CommunityPost>> listCommunityPosts({
+    CommunityPostSort sort = CommunityPostSort.newest,
+    String? category,
+    String? search,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final q = <String, String>{
+        'sort': sort.wire,
+        'limit': '$limit',
+        'offset': '$offset',
+        if (category != null && category.isNotEmpty) 'category': category,
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/api/community/posts')
+          .replace(queryParameters: q);
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => CommunityPost.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('community posts list: $e');
+    }
+    return [];
+  }
+
+  Future<CommunityPostDetail?> getCommunityPostDetail(int id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/community/posts/$id'),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return CommunityPostDetail.fromJson(data);
+      }
+    } catch (e) {
+      print('community post detail: $e');
+    }
+    return null;
+  }
+
+  Future<({bool success, String message, int? id})> submitCommunityPost(
+    CommunityPostCreateRequest req,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/community/posts'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (
+          success: true,
+          message: (json['message'] ?? 'Posted').toString(),
+          id: (json['id'] as num?)?.toInt(),
+        );
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg', id: null);
+    } catch (e) {
+      print('community post create: $e');
+      return (success: false, message: 'Network error. Please try again.', id: null);
+    }
+  }
+
+  Future<int?> likeCommunityPost(int postId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/community/posts/$postId/like'),
+        headers: const {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final c = json?['count'];
+        if (c is num) return c.toInt();
+      }
+    } catch (e) {
+      print('like community post: $e');
+    }
+    return null;
+  }
+
+  Future<int?> likeCommunityAnswer(int answerId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/community/answers/$answerId/like'),
+        headers: const {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final c = json?['count'];
+        if (c is num) return c.toInt();
+      }
+    } catch (e) {
+      print('like community answer: $e');
+    }
+    return null;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin: Community Q&A moderation + authoring
+  // ──────────────────────────────────────────────
+
+  Future<List<CommunityPost>> adminListCommunityPosts(
+    String token, {
+    CommunityPostSort sort = CommunityPostSort.newest,
+    String? category,
+    String? search,
+    int limit = 50,
+    int offset = 0,
+    bool includeHidden = true,
+  }) async {
+    try {
+      final q = <String, String>{
+        'sort': sort.wire,
+        'limit': '$limit',
+        'offset': '$offset',
+        'include_hidden': includeHidden ? 'true' : 'false',
+        if (category != null && category.isNotEmpty) 'category': category,
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/community/posts')
+          .replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .map((e) => CommunityPost.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin community posts: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminPatchCommunityPostStatus(
+    String token,
+    int id,
+    String status,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/community/posts/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'status': status}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin community post patch: $e');
+    }
+    return false;
+  }
+
+  Future<bool> adminDeleteCommunityPost(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/community/posts/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin community post delete: $e');
+    }
+    return false;
+  }
+
+  Future<({bool success, String message, int? id})> adminCreateCommunityAnswer(
+    String token,
+    int postId,
+    String body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/community/posts/$postId/answers'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'body': body}),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (
+          success: true,
+          message: (json['message'] ?? 'Posted').toString(),
+          id: (json['id'] as num?)?.toInt(),
+        );
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg', id: null);
+    } catch (e) {
+      print('admin create answer: $e');
+      return (success: false, message: 'Network error. Please try again.', id: null);
+    }
+  }
+
+  Future<bool> adminPatchCommunityAnswer(
+    String token,
+    int answerId,
+    String body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/community/answers/$answerId'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'body': body}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin patch answer: $e');
+    }
+    return false;
+  }
+
+  Future<bool> adminDeleteCommunityAnswer(String token, int answerId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/community/answers/$answerId'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin delete answer: $e');
+    }
+    return false;
+  }
+
+  Future<({bool success, String message, int? id})>
+      adminCreateCommunityAnswerComment(
+    String token,
+    int answerId,
+    String body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/community/answers/$answerId/comments'),
+        headers: _adminHeaders(token),
+        body: jsonEncode({'body': body}),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (
+          success: true,
+          message: (json['message'] ?? 'Posted').toString(),
+          id: (json['id'] as num?)?.toInt(),
+        );
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg', id: null);
+    } catch (e) {
+      print('admin create comment: $e');
+      return (success: false, message: 'Network error. Please try again.', id: null);
+    }
+  }
+
+  Future<bool> adminDeleteCommunityAnswerComment(
+    String token,
+    int commentId,
+  ) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/community/answer-comments/$commentId'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin delete answer comment: $e');
+    }
+    return false;
+  }
 }

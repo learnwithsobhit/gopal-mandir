@@ -1924,3 +1924,317 @@ class NewCommentRequest {
         'comment': comment,
       };
 }
+
+// ──────────────────────────────────────────────
+// Astrology / muhurat consultation (fire-and-forget)
+// ──────────────────────────────────────────────
+
+class AstroConsultSubmitRequest {
+  final String name;
+  final String phone;
+  final String? email;
+  final String category;
+  final String? subject;
+  final String question;
+  final String? dobDate;
+  final String? dobTime;
+  final String? birthPlace;
+
+  AstroConsultSubmitRequest({
+    required this.name,
+    required this.phone,
+    required this.category,
+    required this.question,
+    this.email,
+    this.subject,
+    this.dobDate,
+    this.dobTime,
+    this.birthPlace,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'category': category,
+        'subject': subject,
+        'question': question,
+        'dob_date': dobDate,
+        'dob_time': dobTime,
+        'birth_place': birthPlace,
+      };
+}
+
+class AstroConsultView {
+  final int id;
+  final String name;
+  final String phone;
+  final String? email;
+  final String category;
+  final String subject;
+  final String question;
+  final String? dobDate;
+  final String? dobTime;
+  final String? birthPlace;
+  final String status;
+  final String adminNote;
+  final String? answeredByName;
+  final String? answeredAt;
+  final String createdAt;
+  final String updatedAt;
+
+  AstroConsultView({
+    required this.id,
+    required this.name,
+    required this.phone,
+    required this.category,
+    required this.subject,
+    required this.question,
+    required this.status,
+    required this.adminNote,
+    required this.createdAt,
+    required this.updatedAt,
+    this.email,
+    this.dobDate,
+    this.dobTime,
+    this.birthPlace,
+    this.answeredByName,
+    this.answeredAt,
+  });
+
+  factory AstroConsultView.fromJson(Map<String, dynamic> json) {
+    return AstroConsultView(
+      id: json['id'] as int,
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: json['email']?.toString(),
+      category: (json['category'] ?? 'astrology').toString(),
+      subject: (json['subject'] ?? '').toString(),
+      question: (json['question'] ?? '').toString(),
+      dobDate: json['dob_date']?.toString(),
+      dobTime: json['dob_time']?.toString(),
+      birthPlace: json['birth_place']?.toString(),
+      status: (json['status'] ?? 'new').toString(),
+      adminNote: (json['admin_note'] ?? '').toString(),
+      answeredByName: json['answered_by_name']?.toString(),
+      answeredAt: json['answered_at']?.toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
+class AstroConsultPatchRequest {
+  final String? status;
+  final String? adminNote;
+
+  AstroConsultPatchRequest({this.status, this.adminNote});
+
+  Map<String, dynamic> toJson() {
+    final out = <String, dynamic>{};
+    if (status != null) out['status'] = status;
+    if (adminNote != null) out['admin_note'] = adminNote;
+    return out;
+  }
+}
+
+// ──────────────────────────────────────────────
+// Community Q&A forum
+// ──────────────────────────────────────────────
+
+enum CommunityPostSort { newest, mostLiked, mostAnswered, popular }
+
+extension CommunityPostSortWire on CommunityPostSort {
+  String get wire {
+    switch (this) {
+      case CommunityPostSort.newest:
+        return 'new';
+      case CommunityPostSort.mostLiked:
+        return 'liked';
+      case CommunityPostSort.mostAnswered:
+        return 'answered';
+      case CommunityPostSort.popular:
+        return 'popular';
+    }
+  }
+}
+
+class CommunityPostCreateRequest {
+  final String authorName;
+  final String authorPhone;
+  final String category;
+  final String title;
+  final String body;
+
+  CommunityPostCreateRequest({
+    required this.authorName,
+    required this.authorPhone,
+    required this.category,
+    required this.title,
+    required this.body,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'author_name': authorName,
+        'author_phone': authorPhone,
+        'category': category,
+        'title': title,
+        'body': body,
+      };
+}
+
+class CommunityPost {
+  final int id;
+  final String authorName;
+  final String? authorPhone;
+  final String category;
+  final String title;
+  final String body;
+  final String status;
+  final int likesCount;
+  final int answersCount;
+  final String createdAt;
+
+  CommunityPost({
+    required this.id,
+    required this.authorName,
+    required this.category,
+    required this.title,
+    required this.body,
+    required this.status,
+    required this.likesCount,
+    required this.answersCount,
+    required this.createdAt,
+    this.authorPhone,
+  });
+
+  factory CommunityPost.fromJson(Map<String, dynamic> json) {
+    return CommunityPost(
+      id: json['id'] as int,
+      authorName: (json['author_name'] ?? '').toString(),
+      authorPhone: json['author_phone']?.toString(),
+      category: (json['category'] ?? 'general').toString(),
+      title: (json['title'] ?? '').toString(),
+      body: (json['body'] ?? '').toString(),
+      status: (json['status'] ?? 'visible').toString(),
+      likesCount: (json['likes_count'] as num?)?.toInt() ?? 0,
+      answersCount: (json['answers_count'] as num?)?.toInt() ?? 0,
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+
+  CommunityPost copyWith({int? likesCount, int? answersCount, String? status}) {
+    return CommunityPost(
+      id: id,
+      authorName: authorName,
+      authorPhone: authorPhone,
+      category: category,
+      title: title,
+      body: body,
+      status: status ?? this.status,
+      likesCount: likesCount ?? this.likesCount,
+      answersCount: answersCount ?? this.answersCount,
+      createdAt: createdAt,
+    );
+  }
+}
+
+class CommunityAnswerComment {
+  final int id;
+  final int answerId;
+  final String authorName;
+  final String body;
+  final String createdAt;
+
+  CommunityAnswerComment({
+    required this.id,
+    required this.answerId,
+    required this.authorName,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory CommunityAnswerComment.fromJson(Map<String, dynamic> json) {
+    return CommunityAnswerComment(
+      id: json['id'] as int,
+      answerId: json['answer_id'] as int,
+      authorName: (json['author_name'] ?? '').toString(),
+      body: (json['body'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+    );
+  }
+}
+
+class CommunityAnswer {
+  final int id;
+  final int postId;
+  final String authorName;
+  final String body;
+  final int likesCount;
+  final int commentsCount;
+  final String createdAt;
+  final List<CommunityAnswerComment> comments;
+
+  CommunityAnswer({
+    required this.id,
+    required this.postId,
+    required this.authorName,
+    required this.body,
+    required this.likesCount,
+    required this.commentsCount,
+    required this.createdAt,
+    required this.comments,
+  });
+
+  factory CommunityAnswer.fromJson(Map<String, dynamic> json) {
+    final rawComments = (json['comments'] as List?) ?? const [];
+    return CommunityAnswer(
+      id: json['id'] as int,
+      postId: json['post_id'] as int,
+      authorName: (json['author_name'] ?? '').toString(),
+      body: (json['body'] ?? '').toString(),
+      likesCount: (json['likes_count'] as num?)?.toInt() ?? 0,
+      commentsCount: (json['comments_count'] as num?)?.toInt() ?? 0,
+      createdAt: (json['created_at'] ?? '').toString(),
+      comments: rawComments
+          .whereType<Map<String, dynamic>>()
+          .map(CommunityAnswerComment.fromJson)
+          .toList(),
+    );
+  }
+
+  CommunityAnswer copyWith({
+    int? likesCount,
+    int? commentsCount,
+    List<CommunityAnswerComment>? comments,
+  }) {
+    return CommunityAnswer(
+      id: id,
+      postId: postId,
+      authorName: authorName,
+      body: body,
+      likesCount: likesCount ?? this.likesCount,
+      commentsCount: commentsCount ?? this.commentsCount,
+      createdAt: createdAt,
+      comments: comments ?? this.comments,
+    );
+  }
+}
+
+class CommunityPostDetail {
+  final CommunityPost post;
+  final List<CommunityAnswer> answers;
+
+  CommunityPostDetail({required this.post, required this.answers});
+
+  factory CommunityPostDetail.fromJson(Map<String, dynamic> json) {
+    final answers = ((json['answers'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(CommunityAnswer.fromJson)
+        .toList();
+    return CommunityPostDetail(
+      post: CommunityPost.fromJson(json),
+      answers: answers,
+    );
+  }
+}

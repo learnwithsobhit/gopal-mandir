@@ -362,6 +362,22 @@ class AppStrings {
   String get emailSub => isHindi ? 'संदेश भेजें' : 'Send message';
   String get volunteer => isHindi ? 'स्वयंसेवक' : 'Volunteer';
   String get volunteerSub => isHindi ? 'सेवक टीम में शामिल हों' : 'Join our sevak team';
+  String get askAstrologer => isHindi ? 'ज्योतिषी से पूछें' : 'Ask an Astrologer';
+  String get askAstrologerSub => isHindi
+      ? 'कुंडली, मुहूर्त, हस्तरेखा और आध्यात्मिक प्रश्न'
+      : 'Kundali, muhurat, palmistry & spiritual queries';
+  String get communityQA => isHindi ? 'समुदाय प्रश्नोत्तर' : 'Community Q&A';
+  String get communityQASub => isHindi
+      ? 'भक्तों से प्रश्न पूछें और उत्तर पाएँ'
+      : 'Ask and discover answers from our community';
+  String get adminAstroConsult => isHindi ? 'ज्योतिष अनुरोध' : 'Astro Consultations';
+  String get adminAstroConsultSub => isHindi
+      ? 'ज्योतिष/मुहूर्त अनुरोधों का प्रबंधन'
+      : 'Manage astrology & muhurat requests';
+  String get adminCommunityQA => isHindi ? 'समुदाय मॉडरेशन' : 'Community Moderation';
+  String get adminCommunityQASub => isHindi
+      ? 'प्रश्न, उत्तर और टिप्पणियाँ प्रबंधित करें'
+      : 'Manage posts, answers and comments';
   String get membership => isHindi ? 'सदस्यता' : 'Membership';
   String get membershipSub => isHindi ? 'सदस्य बनें' : 'Become a member';
   String get shareApp => isHindi ? 'ऐप शेयर करें' : 'Share App';

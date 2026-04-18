@@ -1384,3 +1384,176 @@ pub struct AdminPoojaOfferingOut {
     pub offering: PoojaOfferingAdminRow,
     pub packages: Vec<PoojaPackageAdminRow>,
 }
+
+// ──────────────────────────────────────────────
+// Astrology / muhurat consultation requests
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct AstroConsultRequest {
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub category: Option<String>,
+    pub subject: Option<String>,
+    pub question: String,
+    pub dob_date: Option<NaiveDate>,
+    pub dob_time: Option<NaiveTime>,
+    pub birth_place: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct AdminAstroConsultView {
+    pub id: i32,
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub category: String,
+    pub subject: String,
+    pub question: String,
+    pub dob_date: Option<NaiveDate>,
+    pub dob_time: Option<NaiveTime>,
+    pub birth_place: Option<String>,
+    pub status: String,
+    pub admin_note: String,
+    pub answered_by: Option<Uuid>,
+    pub answered_by_name: Option<String>,
+    pub answered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminAstroConsultQuery {
+    pub status: Option<String>,
+    pub category: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchAstroConsultRequest {
+    pub status: Option<String>,
+    pub admin_note: Option<String>,
+}
+
+// ──────────────────────────────────────────────
+// Community Q&A forum
+// ──────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct CommunityPostCreateRequest {
+    pub author_name: String,
+    pub author_phone: String,
+    pub category: Option<String>,
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommunityPostListQuery {
+    pub sort: Option<String>,
+    pub category: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+    pub include_hidden: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct CommunityPostSummary {
+    pub id: i32,
+    pub author_name: String,
+    pub category: String,
+    pub title: String,
+    pub body: String,
+    pub status: String,
+    pub likes_count: i32,
+    pub answers_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Includes author_phone (admin view only).
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct AdminCommunityPostSummary {
+    pub id: i32,
+    pub author_name: String,
+    pub author_phone: String,
+    pub category: String,
+    pub title: String,
+    pub body: String,
+    pub status: String,
+    pub likes_count: i32,
+    pub answers_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct CommunityAnswerRow {
+    pub id: i32,
+    pub post_id: i32,
+    pub author_admin_id: Uuid,
+    pub author_name: String,
+    pub body: String,
+    pub likes_count: i32,
+    pub comments_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct CommunityAnswerCommentRow {
+    pub id: i32,
+    pub answer_id: i32,
+    pub author_admin_id: Uuid,
+    pub author_name: String,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommunityAnswerWithComments {
+    #[serde(flatten)]
+    pub answer: CommunityAnswerRow,
+    pub comments: Vec<CommunityAnswerCommentRow>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct CommunityPostDetailRow {
+    pub id: i32,
+    pub author_name: String,
+    pub category: String,
+    pub title: String,
+    pub body: String,
+    pub status: String,
+    pub likes_count: i32,
+    pub answers_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CommunityPostDetail {
+    #[serde(flatten)]
+    pub post: CommunityPostDetailRow,
+    pub answers: Vec<CommunityAnswerWithComments>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCommunityAnswerCreateRequest {
+    pub body: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCommunityAnswerPatchRequest {
+    pub body: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCommunityCommentCreateRequest {
+    pub body: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminPatchCommunityPostRequest {
+    pub status: String,
+}
