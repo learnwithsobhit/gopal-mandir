@@ -62,6 +62,8 @@ class AppStrings {
   String get quickPanchang => isHindi ? 'पंचांग' : 'Panchang';
   String get quickDailyUpasana => isHindi ? 'दैनिक\nउपासना' : 'Daily\nUpasana';
   String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';
+  String get quickAskAstrologer => isHindi ? 'ज्योतिष\nसलाह' : 'Ask\nAstrologer';
+  String get quickCommunityQA => isHindi ? 'समुदाय\nप्रश्न' : 'Community\nQ&A';
   String get seoHeading => isHindi ? 'गोपाल मंदिर, गोपाल जी और मथुरा भक्ति' : 'Gopal Mandir, Gopal Ji and Mathura Bhakti';
   String get seoIntro => isHindi
       ? 'श्री गोपाल मंदिर ऐप में भक्तों के लिए दर्शन, आरती समय, सेवा, उत्सव और आध्यात्मिक अपडेट हिंदी व English में उपलब्ध हैं।'

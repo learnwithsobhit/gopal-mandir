@@ -24,6 +24,8 @@ import 'live_darshan_screen.dart';
 import 'hindu_panchang_screen.dart';
 import 'festivals_screen.dart';
 import 'daily_upasana_screen.dart';
+import 'astro_consult_screen.dart';
+import 'community_feed_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -267,6 +269,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: s.festivalsLabel,
                           color: AppColors.krishnaBlue,
                           onTap: () => _navigateTo(context, const FestivalsScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.auto_awesome,
+                          label: s.quickAskAstrologer,
+                          color: AppColors.templeGoldDark,
+                          onTap: () => _navigateTo(context, const AstroConsultScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.forum,
+                          label: s.quickCommunityQA,
+                          color: AppColors.peacockGreen,
+                          onTap: () => _navigateTo(context, const CommunityFeedScreen()),
                         ),
                       ],
                     ),
