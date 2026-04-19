@@ -23,7 +23,7 @@ pub struct Event {
 }
 
 /// Public events list with aggregated counts (avoids N+1 on the client).
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct EventWithCounts {
     pub id: i32,
     pub title: String,
@@ -46,7 +46,7 @@ pub struct GalleryItem {
 }
 
 /// Public gallery list row with aggregated counts (one query, no N+1).
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct GalleryItemWithCounts {
     pub id: i32,
     pub title: String,
@@ -266,7 +266,7 @@ pub struct FestivalMediaItem {
 }
 
 /// Public festival media list with counts (avoids per-item like requests).
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct FestivalMediaItemWithCounts {
     pub id: i32,
     pub festival_id: i32,
@@ -281,7 +281,7 @@ pub struct FestivalMediaItemWithCounts {
     pub comment_count: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FestivalBootstrapData {
     pub months: Vec<FestivalMonthBucket>,
     pub festivals: Vec<FestivalEntry>,
@@ -1461,7 +1461,7 @@ pub struct CommunityPostListQuery {
     pub include_hidden: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct CommunityPostSummary {
     pub id: i32,
     pub author_name: String,
@@ -1489,7 +1489,7 @@ pub struct AdminCommunityPostSummary {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct CommunityAnswerRow {
     pub id: i32,
     pub post_id: i32,
@@ -1511,14 +1511,14 @@ pub struct CommunityAnswerCommentRow {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CommunityAnswerWithComments {
     #[serde(flatten)]
     pub answer: CommunityAnswerRow,
     pub comments: Vec<CommunityAnswerCommentRow>,
 }
 
-#[derive(Debug, Serialize, Clone, FromRow)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct CommunityPostDetailRow {
     pub id: i32,
     pub author_name: String,
@@ -1531,7 +1531,7 @@ pub struct CommunityPostDetailRow {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CommunityPostDetail {
     #[serde(flatten)]
     pub post: CommunityPostDetailRow,

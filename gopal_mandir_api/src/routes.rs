@@ -1,5 +1,6 @@
 use actix_web::{get, post, patch, web, HttpRequest, HttpResponse};
 use sqlx::PgPool;
+use crate::cache::Cache;
 use crate::models::*;
 use crate::razorpay::{self, RazorpayConfig};
 use crate::util::{bearer_token, normalize_phone, sha256_hex, truncate_payment_reason};
@@ -8,6 +9,7 @@ use chrono::{DateTime, Datelike, Duration, Utc};
 use rand::Rng;
 use uuid::Uuid;
 use std::env;
+use std::time::Duration as StdDuration;
 
 /// Allowed hosts for image proxy (avoids open proxy abuse). Add more if you use other CDNs.
 const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &[
@@ -419,11 +421,20 @@ pub async fn submit_feedback(
 }
 
 #[get("/api/aarti")]
-pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, AartiSchedule>("SELECT * FROM aarti_schedule ORDER BY id")
-        .fetch_all(pool.get_ref())
-        .await
-    {
+pub async fn get_aarti(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<AartiSchedule>, _, _, sqlx::Error>(
+            "aarti",
+            "list",
+            StdDuration::from_secs(6 * 3600),
+            || async {
+                sqlx::query_as::<_, AartiSchedule>("SELECT * FROM aarti_schedule ORDER BY id")
+                    .fetch_all(pool.get_ref())
+                    .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -433,33 +444,42 @@ pub async fn get_aarti(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/events")]
-pub async fn get_events(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, EventWithCounts>(
-        "SELECT
-            e.id,
-            e.title,
-            e.date,
-            e.description,
-            e.image_url,
-            e.is_featured,
-            COALESCE(lc.cnt, 0) AS like_count,
-            COALESCE(cc.cnt, 0) AS comment_count
-         FROM events e
-         LEFT JOIN (
-             SELECT event_id, COUNT(*)::bigint AS cnt
-             FROM event_likes
-             GROUP BY event_id
-         ) lc ON lc.event_id = e.id
-         LEFT JOIN (
-             SELECT event_id, COUNT(*)::bigint AS cnt
-             FROM event_comments
-             GROUP BY event_id
-         ) cc ON cc.event_id = e.id
-         ORDER BY e.id",
-    )
-    .fetch_all(pool.get_ref())
-    .await
-    {
+pub async fn get_events(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<EventWithCounts>, _, _, sqlx::Error>(
+            "events",
+            "list",
+            StdDuration::from_secs(5 * 60),
+            || async {
+                sqlx::query_as::<_, EventWithCounts>(
+                    "SELECT
+                        e.id,
+                        e.title,
+                        e.date,
+                        e.description,
+                        e.image_url,
+                        e.is_featured,
+                        COALESCE(lc.cnt, 0) AS like_count,
+                        COALESCE(cc.cnt, 0) AS comment_count
+                     FROM events e
+                     LEFT JOIN (
+                         SELECT event_id, COUNT(*)::bigint AS cnt
+                         FROM event_likes
+                         GROUP BY event_id
+                     ) lc ON lc.event_id = e.id
+                     LEFT JOIN (
+                         SELECT event_id, COUNT(*)::bigint AS cnt
+                         FROM event_comments
+                         GROUP BY event_id
+                     ) cc ON cc.event_id = e.id
+                     ORDER BY e.id",
+                )
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -532,41 +552,53 @@ pub struct GalleryQuery {
 #[get("/api/gallery")]
 pub async fn get_gallery(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     q: web::Query<GalleryQuery>,
 ) -> HttpResponse {
     let page = q.page.unwrap_or(1).max(1);
     let per_page = q.per_page.unwrap_or(20).min(50).max(1);
     let offset = (page - 1) * per_page;
+    let suffix = format!("page-{}-per-{}", page, per_page);
 
-    match sqlx::query_as::<_, GalleryItemWithCounts>(
-        "SELECT
-            g.id,
-            g.title,
-            g.image_url,
-            g.category,
-            g.video_url,
-            g.media_type,
-            COALESCE(lc.cnt, 0) AS like_count,
-            COALESCE(cc.cnt, 0) AS comment_count
-         FROM gallery g
-         LEFT JOIN (
-             SELECT gallery_id, COUNT(*)::bigint AS cnt
-             FROM gallery_likes
-             GROUP BY gallery_id
-         ) lc ON lc.gallery_id = g.id
-         LEFT JOIN (
-             SELECT gallery_id, COUNT(*)::bigint AS cnt
-             FROM gallery_comments
-             GROUP BY gallery_id
-         ) cc ON cc.gallery_id = g.id
-         ORDER BY g.id
-         LIMIT $1 OFFSET $2",
-    )
-    .bind(per_page as i64)
-    .bind(offset as i64)
-    .fetch_all(pool.get_ref())
-    .await
-    {
+    let result = cache
+        .get_or_compute::<Vec<GalleryItemWithCounts>, _, _, sqlx::Error>(
+            "gallery",
+            &suffix,
+            StdDuration::from_secs(5 * 60),
+            || async move {
+                sqlx::query_as::<_, GalleryItemWithCounts>(
+                    "SELECT
+                        g.id,
+                        g.title,
+                        g.image_url,
+                        g.category,
+                        g.video_url,
+                        g.media_type,
+                        COALESCE(lc.cnt, 0) AS like_count,
+                        COALESCE(cc.cnt, 0) AS comment_count
+                     FROM gallery g
+                     LEFT JOIN (
+                         SELECT gallery_id, COUNT(*)::bigint AS cnt
+                         FROM gallery_likes
+                         GROUP BY gallery_id
+                     ) lc ON lc.gallery_id = g.id
+                     LEFT JOIN (
+                         SELECT gallery_id, COUNT(*)::bigint AS cnt
+                         FROM gallery_comments
+                         GROUP BY gallery_id
+                     ) cc ON cc.gallery_id = g.id
+                     ORDER BY g.id
+                     LIMIT $1 OFFSET $2",
+                )
+                .bind(per_page as i64)
+                .bind(offset as i64)
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -584,8 +616,17 @@ pub struct ImageProxyQuery {
     pub q: Option<u8>,
 }
 
+/// Redis-level binary cache limits for the image proxy. Resized JPEGs are
+/// typically 20–150 KiB; anything larger is almost always an original GIF/PNG
+/// we don't want to spend Redis memory on.
+const IMGPROXY_REDIS_MAX_BYTES: usize = 512 * 1024;
+const IMGPROXY_REDIS_TTL_SECS: u64 = 30 * 24 * 60 * 60;
+
 #[get("/api/gallery/proxy")]
-pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResponse {
+pub async fn get_gallery_image_proxy(
+    cache: web::Data<Cache>,
+    q: web::Query<ImageProxyQuery>,
+) -> HttpResponse {
     let url = match url::Url::parse(&q.url) {
         Ok(u) => u,
         Err(_) => return HttpResponse::BadRequest().body("Invalid url parameter"),
@@ -601,6 +642,29 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
         || host.ends_with(".cloudfront.net");
     if !allowed {
         return HttpResponse::Forbidden().body("URL host not allowed for proxy");
+    }
+
+    let requested_width = q.w.filter(|w| *w > 0 && *w <= 1600);
+    let quality = q.q.unwrap_or(72).clamp(30, 95);
+
+    // Cache key covers the exact output variant (url + width + quality).
+    // Using sha256 keeps keys short and avoids percent-encoded URL collisions.
+    let cache_key = format!(
+        "imgproxy:{}",
+        sha256_hex(&format!(
+            "{}|w={}|q={}",
+            q.url,
+            requested_width.unwrap_or(0),
+            quality
+        ))
+    );
+
+    if let Some((bytes, content_type)) = cache.get_bytes(&cache_key).await {
+        return HttpResponse::Ok()
+            .insert_header(("content-type", content_type))
+            .insert_header(("cache-control", "public, max-age=604800, immutable"))
+            .insert_header(("x-cache", "HIT"))
+            .body(bytes);
     }
 
     let client = match reqwest::Client::builder().build() {
@@ -625,8 +689,6 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
         Err(e) => return HttpResponse::InternalServerError().body(format!("Body error: {}", e)),
     };
 
-    let requested_width = q.w.filter(|w| *w > 0 && *w <= 1600);
-    let quality = q.q.unwrap_or(72).clamp(30, 95);
     let is_animated_gif = upstream_content_type.eq_ignore_ascii_case("image/gif");
 
     if let (Some(target_w), false) = (requested_width, is_animated_gif) {
@@ -651,17 +713,41 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
         .await;
 
         if let Ok(Ok(jpeg)) = resized {
+            if jpeg.len() <= IMGPROXY_REDIS_MAX_BYTES {
+                cache
+                    .set_bytes(
+                        &cache_key,
+                        &jpeg,
+                        "image/jpeg",
+                        std::time::Duration::from_secs(IMGPROXY_REDIS_TTL_SECS),
+                    )
+                    .await;
+            }
             return HttpResponse::Ok()
                 .insert_header(("content-type", "image/jpeg"))
                 .insert_header(("cache-control", "public, max-age=604800, immutable"))
+                .insert_header(("x-cache", "MISS"))
                 .body(jpeg);
         }
+    }
+
+    let body = bytes.to_vec();
+    if body.len() <= IMGPROXY_REDIS_MAX_BYTES {
+        cache
+            .set_bytes(
+                &cache_key,
+                &body,
+                &upstream_content_type,
+                std::time::Duration::from_secs(IMGPROXY_REDIS_TTL_SECS),
+            )
+            .await;
     }
 
     HttpResponse::Ok()
         .insert_header(("content-type", upstream_content_type))
         .insert_header(("cache-control", "public, max-age=86400"))
-        .body(bytes.to_vec())
+        .insert_header(("x-cache", "MISS"))
+        .body(body)
 }
 
 #[post("/api/events/{event_id}/like")]
@@ -898,11 +984,20 @@ pub async fn add_gallery_comment(
     }
 }
 #[get("/api/prasad")]
-pub async fn get_prasad(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, PrasadItem>("SELECT * FROM prasad_items ORDER BY id")
-        .fetch_all(pool.get_ref())
-        .await
-    {
+pub async fn get_prasad(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<PrasadItem>, _, _, sqlx::Error>(
+            "prasad",
+            "list",
+            StdDuration::from_secs(3600),
+            || async {
+                sqlx::query_as::<_, PrasadItem>("SELECT * FROM prasad_items ORDER BY id")
+                    .fetch_all(pool.get_ref())
+                    .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -912,11 +1007,20 @@ pub async fn get_prasad(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/seva")]
-pub async fn get_seva(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, SevaItem>("SELECT * FROM seva_items ORDER BY id")
-        .fetch_all(pool.get_ref())
-        .await
-    {
+pub async fn get_seva(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<SevaItem>, _, _, sqlx::Error>(
+            "seva",
+            "list",
+            StdDuration::from_secs(3600),
+            || async {
+                sqlx::query_as::<_, SevaItem>("SELECT * FROM seva_items ORDER BY id")
+                    .fetch_all(pool.get_ref())
+                    .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -926,11 +1030,20 @@ pub async fn get_seva(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/announcements")]
-pub async fn get_announcements(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, Announcement>("SELECT * FROM announcements ORDER BY id DESC")
-        .fetch_all(pool.get_ref())
-        .await
-    {
+pub async fn get_announcements(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<Announcement>, _, _, sqlx::Error>(
+            "announcements",
+            "list",
+            StdDuration::from_secs(15 * 60),
+            || async {
+                sqlx::query_as::<_, Announcement>("SELECT * FROM announcements ORDER BY id DESC")
+                    .fetch_all(pool.get_ref())
+                    .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -940,16 +1053,25 @@ pub async fn get_announcements(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/daily-quote")]
-pub async fn get_daily_quote(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, DailyQuote>(
-        "SELECT id, shlok, translation, source
-         FROM daily_quotes
-         ORDER BY id DESC
-         LIMIT 1"
-    )
-        .fetch_optional(pool.get_ref())
-        .await
-    {
+pub async fn get_daily_quote(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Option<DailyQuote>, _, _, sqlx::Error>(
+            "daily-quote",
+            "latest",
+            StdDuration::from_secs(3600),
+            || async {
+                sqlx::query_as::<_, DailyQuote>(
+                    "SELECT id, shlok, translation, source
+                     FROM daily_quotes
+                     ORDER BY id DESC
+                     LIMIT 1",
+                )
+                .fetch_optional(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
@@ -963,11 +1085,20 @@ pub async fn get_daily_quote(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/temple-info")]
-pub async fn get_temple_info(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, TempleInfo>("SELECT * FROM temple_info LIMIT 1")
-        .fetch_optional(pool.get_ref())
-        .await
-    {
+pub async fn get_temple_info(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Option<TempleInfo>, _, _, sqlx::Error>(
+            "temple-info",
+            "singleton",
+            StdDuration::from_secs(24 * 3600),
+            || async {
+                sqlx::query_as::<_, TempleInfo>("SELECT * FROM temple_info LIMIT 1")
+                    .fetch_optional(pool.get_ref())
+                    .await
+            },
+        )
+        .await;
+    match result {
         Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
@@ -981,17 +1112,31 @@ pub async fn get_temple_info(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/site/landing-audio")]
-pub async fn get_landing_audio(pool: web::Data<PgPool>) -> HttpResponse {
-    let url: Option<String> = sqlx::query_scalar(
-        "SELECT value FROM site_kv WHERE key = 'landing_audio_url'",
-    )
-    .fetch_optional(pool.get_ref())
-    .await
-    .unwrap_or(None);
+pub async fn get_landing_audio(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+) -> HttpResponse {
+    let url = cache
+        .get_or_compute::<Option<String>, _, _, sqlx::Error>(
+            "landing-audio",
+            "url",
+            StdDuration::from_secs(24 * 3600),
+            || async {
+                sqlx::query_scalar::<_, String>(
+                    "SELECT value FROM site_kv WHERE key = 'landing_audio_url'",
+                )
+                .fetch_optional(pool.get_ref())
+                .await
+            },
+        )
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     HttpResponse::Ok().json(serde_json::json!({
         "success": true,
-        "url": url.unwrap_or_default()
+        "url": url
     }))
 }
 
@@ -1937,43 +2082,58 @@ pub struct DailyUpasanaQuery {
 #[get("/api/panchang")]
 pub async fn get_panchang(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     q: web::Query<PanchangQuery>,
 ) -> HttpResponse {
-    // If date provided, use it; otherwise default to CURRENT_DATE
-    let (sql, bind_date_opt) = if let Some(ref d) = q.date {
-        (
-            "SELECT
-                id,
-                to_char(for_date, 'YYYY-MM-DD') as for_date,
-                content,
-                created_at
-             FROM hindu_panchang
-             WHERE for_date = $1::date
-             LIMIT 1",
-            Some(d.clone()),
+    // Keying on the explicit date (or "today" when absent) lets us keep past
+    // dates cached for 30d (effectively immutable) while "today" rolls over
+    // naturally as the server clock advances.
+    let cache_suffix = q
+        .date
+        .clone()
+        .unwrap_or_else(|| Utc::now().date_naive().to_string());
+
+    let result = cache
+        .get_or_compute::<Option<HinduPanchang>, _, _, sqlx::Error>(
+            "panchang",
+            &format!("date-{}", cache_suffix),
+            StdDuration::from_secs(30 * 24 * 3600),
+            || async {
+                let (sql, bind_date_opt) = if let Some(ref d) = q.date {
+                    (
+                        "SELECT
+                            id,
+                            to_char(for_date, 'YYYY-MM-DD') as for_date,
+                            content,
+                            created_at
+                         FROM hindu_panchang
+                         WHERE for_date = $1::date
+                         LIMIT 1",
+                        Some(d.clone()),
+                    )
+                } else {
+                    (
+                        "SELECT
+                            id,
+                            to_char(for_date, 'YYYY-MM-DD') as for_date,
+                            content,
+                            created_at
+                         FROM hindu_panchang
+                         WHERE for_date = CURRENT_DATE
+                         LIMIT 1",
+                        None,
+                    )
+                };
+                let mut query = sqlx::query_as::<_, HinduPanchang>(sql);
+                if let Some(d) = bind_date_opt {
+                    query = query.bind(d);
+                }
+                query.fetch_optional(pool.get_ref()).await
+            },
         )
-    } else {
-        (
-            "SELECT
-                id,
-                to_char(for_date, 'YYYY-MM-DD') as for_date,
-                content,
-                created_at
-             FROM hindu_panchang
-             WHERE for_date = CURRENT_DATE
-             LIMIT 1",
-            None,
-        )
-    };
+        .await;
 
-    let mut query = sqlx::query_as::<_, HinduPanchang>(sql);
-    if let Some(d) = bind_date_opt {
-        query = query.bind(d);
-    }
-
-    let row = query.fetch_optional(pool.get_ref()).await;
-
-    match row {
+    match result {
         Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
@@ -1989,47 +2149,65 @@ pub async fn get_panchang(
 #[get("/api/daily-upasana")]
 pub async fn get_daily_upasana(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     q: web::Query<DailyUpasanaQuery>,
 ) -> HttpResponse {
-    let fetch = if let Some(ref cat) = q.category {
-        sqlx::query_as::<_, DailyUpasanaItem>(
-            "SELECT
-                id,
-                title,
-                category,
-                content,
-                sort_order,
-                is_published,
-                created_at,
-                updated_at
-             FROM daily_upasana_items
-             WHERE is_published = TRUE
-               AND TRIM(BOTH FROM COALESCE(category, '')) = TRIM(BOTH FROM $1::text)
-             ORDER BY sort_order ASC, title ASC, id ASC",
-        )
-        .bind(cat)
-        .fetch_all(pool.get_ref())
-        .await
-    } else {
-        sqlx::query_as::<_, DailyUpasanaItem>(
-            "SELECT
-                id,
-                title,
-                category,
-                content,
-                sort_order,
-                is_published,
-                created_at,
-                updated_at
-             FROM daily_upasana_items
-             WHERE is_published = TRUE
-             ORDER BY sort_order ASC, title ASC, id ASC",
-        )
-        .fetch_all(pool.get_ref())
-        .await
-    };
+    let cat_key = q
+        .category
+        .clone()
+        .map(|c| format!("cat-{}", c))
+        .unwrap_or_else(|| "all".to_string());
 
-    match fetch {
+    let cat = q.category.clone();
+    let pool_ref = pool.clone();
+    let result = cache
+        .get_or_compute::<Vec<DailyUpasanaItem>, _, _, sqlx::Error>(
+            "daily-upasana",
+            &cat_key,
+            StdDuration::from_secs(3600),
+            || async move {
+                if let Some(c) = cat {
+                    sqlx::query_as::<_, DailyUpasanaItem>(
+                        "SELECT
+                            id,
+                            title,
+                            category,
+                            content,
+                            sort_order,
+                            is_published,
+                            created_at,
+                            updated_at
+                         FROM daily_upasana_items
+                         WHERE is_published = TRUE
+                           AND TRIM(BOTH FROM COALESCE(category, '')) = TRIM(BOTH FROM $1::text)
+                         ORDER BY sort_order ASC, title ASC, id ASC",
+                    )
+                    .bind(c)
+                    .fetch_all(pool_ref.get_ref())
+                    .await
+                } else {
+                    sqlx::query_as::<_, DailyUpasanaItem>(
+                        "SELECT
+                            id,
+                            title,
+                            category,
+                            content,
+                            sort_order,
+                            is_published,
+                            created_at,
+                            updated_at
+                         FROM daily_upasana_items
+                         WHERE is_published = TRUE
+                         ORDER BY sort_order ASC, title ASC, id ASC",
+                    )
+                    .fetch_all(pool_ref.get_ref())
+                    .await
+                }
+            },
+        )
+        .await;
+
+    match result {
         Ok(data) if !data.is_empty() => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
@@ -2044,75 +2222,75 @@ pub async fn get_daily_upasana(
 
 /// Months plus festivals for the first (most recent) month in one round-trip.
 #[get("/api/festivals/bootstrap")]
-pub async fn get_festivals_bootstrap(pool: web::Data<PgPool>) -> HttpResponse {
-    let months = match sqlx::query_as::<_, FestivalMonthBucket>(
-        "SELECT
-            EXTRACT(YEAR FROM for_date)::INT as year,
-            EXTRACT(MONTH FROM for_date)::INT as month,
-            to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
-            COUNT(*)::BIGINT as item_count
-         FROM festival_calendar
-         WHERE is_active = TRUE
-         GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
-         ORDER BY date_trunc('month', for_date) DESC",
-    )
-    .fetch_all(pool.get_ref())
-    .await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(serde_json::json!({
-                "success": false,
-                "error": format!("Database error: {}", e)
-            }))
-        }
-    };
+pub async fn get_festivals_bootstrap(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<FestivalBootstrapData, _, _, sqlx::Error>(
+            "festivals",
+            "bootstrap",
+            StdDuration::from_secs(6 * 3600),
+            || async {
+                let months = sqlx::query_as::<_, FestivalMonthBucket>(
+                    "SELECT
+                        EXTRACT(YEAR FROM for_date)::INT as year,
+                        EXTRACT(MONTH FROM for_date)::INT as month,
+                        to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
+                        COUNT(*)::BIGINT as item_count
+                     FROM festival_calendar
+                     WHERE is_active = TRUE
+                     GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
+                     ORDER BY date_trunc('month', for_date) DESC",
+                )
+                .fetch_all(pool.get_ref())
+                .await?;
 
-    let festivals = if let Some(first) = months.first() {
-        match sqlx::query_as::<_, FestivalEntry>(
-            "SELECT
-                id,
-                to_char(for_date, 'YYYY-MM-DD') as for_date,
-                title,
-                description,
-                icon_url,
-                banner_url,
-                sort_order,
-                is_active,
-                created_at,
-                updated_at
-             FROM festival_calendar
-             WHERE EXTRACT(YEAR FROM for_date) = $1
-               AND EXTRACT(MONTH FROM for_date) = $2
-               AND is_active = TRUE
-             ORDER BY for_date ASC, sort_order ASC, id ASC",
+                let festivals = if let Some(first) = months.first() {
+                    sqlx::query_as::<_, FestivalEntry>(
+                        "SELECT
+                            id,
+                            to_char(for_date, 'YYYY-MM-DD') as for_date,
+                            title,
+                            description,
+                            icon_url,
+                            banner_url,
+                            sort_order,
+                            is_active,
+                            created_at,
+                            updated_at
+                         FROM festival_calendar
+                         WHERE EXTRACT(YEAR FROM for_date) = $1
+                           AND EXTRACT(MONTH FROM for_date) = $2
+                           AND is_active = TRUE
+                         ORDER BY for_date ASC, sort_order ASC, id ASC",
+                    )
+                    .bind(first.year)
+                    .bind(first.month)
+                    .fetch_all(pool.get_ref())
+                    .await?
+                } else {
+                    vec![]
+                };
+
+                Ok(FestivalBootstrapData { months, festivals })
+            },
         )
-        .bind(first.year)
-        .bind(first.month)
-        .fetch_all(pool.get_ref())
-        .await
-        {
-            Ok(f) => f,
-            Err(e) => {
-                return HttpResponse::InternalServerError().json(serde_json::json!({
-                    "success": false,
-                    "error": format!("Database error: {}", e)
-                }))
-            }
-        }
-    } else {
-        vec![]
-    };
+        .await;
 
-    HttpResponse::Ok().json(ApiResponse {
-        success: true,
-        data: FestivalBootstrapData { months, festivals },
-    })
+    match result {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
 }
 
 #[get("/api/festivals")]
 pub async fn get_festivals(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     q: web::Query<FestivalListQuery>,
 ) -> HttpResponse {
     let year = q.year.unwrap_or_else(|| chrono::Utc::now().year());
@@ -2123,30 +2301,40 @@ pub async fn get_festivals(
             "error": "month must be between 1 and 12"
         }));
     }
+    let suffix = format!("list-{}-{:02}", year, month);
 
-    match sqlx::query_as::<_, FestivalEntry>(
-        "SELECT
-            id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
-            title,
-            description,
-            icon_url,
-            banner_url,
-            sort_order,
-            is_active,
-            created_at,
-            updated_at
-         FROM festival_calendar
-         WHERE EXTRACT(YEAR FROM for_date) = $1
-           AND EXTRACT(MONTH FROM for_date) = $2
-           AND is_active = TRUE
-         ORDER BY for_date ASC, sort_order ASC, id ASC",
-    )
-    .bind(year)
-    .bind(month as i32)
-    .fetch_all(pool.get_ref())
-    .await
-    {
+    let result = cache
+        .get_or_compute::<Vec<FestivalEntry>, _, _, sqlx::Error>(
+            "festivals",
+            &suffix,
+            StdDuration::from_secs(3600),
+            || async move {
+                sqlx::query_as::<_, FestivalEntry>(
+                    "SELECT
+                        id,
+                        to_char(for_date, 'YYYY-MM-DD') as for_date,
+                        title,
+                        description,
+                        icon_url,
+                        banner_url,
+                        sort_order,
+                        is_active,
+                        created_at,
+                        updated_at
+                     FROM festival_calendar
+                     WHERE EXTRACT(YEAR FROM for_date) = $1
+                       AND EXTRACT(MONTH FROM for_date) = $2
+                       AND is_active = TRUE
+                     ORDER BY for_date ASC, sort_order ASC, id ASC",
+                )
+                .bind(year)
+                .bind(month as i32)
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -2156,21 +2344,33 @@ pub async fn get_festivals(
 }
 
 #[get("/api/festivals/months")]
-pub async fn get_festival_months(pool: web::Data<PgPool>) -> HttpResponse {
-    match sqlx::query_as::<_, FestivalMonthBucket>(
-        "SELECT
-            EXTRACT(YEAR FROM for_date)::INT as year,
-            EXTRACT(MONTH FROM for_date)::INT as month,
-            to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
-            COUNT(*)::BIGINT as item_count
-         FROM festival_calendar
-         WHERE is_active = TRUE
-         GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
-         ORDER BY date_trunc('month', for_date) DESC",
-    )
-    .fetch_all(pool.get_ref())
-    .await
-    {
+pub async fn get_festival_months(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<FestivalMonthBucket>, _, _, sqlx::Error>(
+            "festivals",
+            "months",
+            StdDuration::from_secs(6 * 3600),
+            || async {
+                sqlx::query_as::<_, FestivalMonthBucket>(
+                    "SELECT
+                        EXTRACT(YEAR FROM for_date)::INT as year,
+                        EXTRACT(MONTH FROM for_date)::INT as month,
+                        to_char(date_trunc('month', for_date), 'Mon YYYY') as month_label,
+                        COUNT(*)::BIGINT as item_count
+                     FROM festival_calendar
+                     WHERE is_active = TRUE
+                     GROUP BY date_trunc('month', for_date), EXTRACT(YEAR FROM for_date), EXTRACT(MONTH FROM for_date)
+                     ORDER BY date_trunc('month', for_date) DESC",
+                )
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -2180,28 +2380,42 @@ pub async fn get_festival_months(pool: web::Data<PgPool>) -> HttpResponse {
 }
 
 #[get("/api/festivals/{id}")]
-pub async fn get_festival_detail(pool: web::Data<PgPool>, id: web::Path<i32>) -> HttpResponse {
-    match sqlx::query_as::<_, FestivalEntry>(
-        "SELECT
-            id,
-            to_char(for_date, 'YYYY-MM-DD') as for_date,
-            title,
-            description,
-            icon_url,
-            banner_url,
-            sort_order,
-            is_active,
-            created_at,
-            updated_at
-         FROM festival_calendar
-         WHERE id = $1
-           AND is_active = TRUE
-         LIMIT 1",
-    )
-    .bind(id.into_inner())
-    .fetch_optional(pool.get_ref())
-    .await
-    {
+pub async fn get_festival_detail(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let fid = id.into_inner();
+    let result = cache
+        .get_or_compute::<Option<FestivalEntry>, _, _, sqlx::Error>(
+            "festivals",
+            &format!("detail-{}", fid),
+            StdDuration::from_secs(6 * 3600),
+            || async move {
+                sqlx::query_as::<_, FestivalEntry>(
+                    "SELECT
+                        id,
+                        to_char(for_date, 'YYYY-MM-DD') as for_date,
+                        title,
+                        description,
+                        icon_url,
+                        banner_url,
+                        sort_order,
+                        is_active,
+                        created_at,
+                        updated_at
+                     FROM festival_calendar
+                     WHERE id = $1
+                       AND is_active = TRUE
+                     LIMIT 1",
+                )
+                .bind(fid)
+                .fetch_optional(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(Some(data)) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
@@ -2215,38 +2429,52 @@ pub async fn get_festival_detail(pool: web::Data<PgPool>, id: web::Path<i32>) ->
 }
 
 #[get("/api/festivals/{id}/media")]
-pub async fn get_festival_media(pool: web::Data<PgPool>, id: web::Path<i32>) -> HttpResponse {
-    match sqlx::query_as::<_, FestivalMediaItemWithCounts>(
-        "SELECT
-            m.id,
-            m.festival_id,
-            m.title,
-            m.image_url,
-            m.video_url,
-            m.media_type,
-            m.sort_order,
-            m.created_at,
-            m.updated_at,
-            COALESCE(lc.cnt, 0) AS like_count,
-            COALESCE(cc.cnt, 0) AS comment_count
-         FROM festival_media m
-         LEFT JOIN (
-             SELECT media_id, COUNT(*)::bigint AS cnt
-             FROM festival_media_likes
-             GROUP BY media_id
-         ) lc ON lc.media_id = m.id
-         LEFT JOIN (
-             SELECT media_id, COUNT(*)::bigint AS cnt
-             FROM festival_media_comments
-             GROUP BY media_id
-         ) cc ON cc.media_id = m.id
-         WHERE m.festival_id = $1
-         ORDER BY m.sort_order ASC, m.id ASC",
-    )
-    .bind(id.into_inner())
-    .fetch_all(pool.get_ref())
-    .await
-    {
+pub async fn get_festival_media(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let fid = id.into_inner();
+    let result = cache
+        .get_or_compute::<Vec<FestivalMediaItemWithCounts>, _, _, sqlx::Error>(
+            "festivals",
+            &format!("media-{}", fid),
+            StdDuration::from_secs(6 * 3600),
+            || async move {
+                sqlx::query_as::<_, FestivalMediaItemWithCounts>(
+                    "SELECT
+                        m.id,
+                        m.festival_id,
+                        m.title,
+                        m.image_url,
+                        m.video_url,
+                        m.media_type,
+                        m.sort_order,
+                        m.created_at,
+                        m.updated_at,
+                        COALESCE(lc.cnt, 0) AS like_count,
+                        COALESCE(cc.cnt, 0) AS comment_count
+                     FROM festival_media m
+                     LEFT JOIN (
+                         SELECT media_id, COUNT(*)::bigint AS cnt
+                         FROM festival_media_likes
+                         GROUP BY media_id
+                     ) lc ON lc.media_id = m.id
+                     LEFT JOIN (
+                         SELECT media_id, COUNT(*)::bigint AS cnt
+                         FROM festival_media_comments
+                         GROUP BY media_id
+                     ) cc ON cc.media_id = m.id
+                     WHERE m.festival_id = $1
+                     ORDER BY m.sort_order ASC, m.id ASC",
+                )
+                .bind(fid)
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
         Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
@@ -3418,6 +3646,7 @@ fn community_sort_order_sql(sort: Option<&str>) -> &'static str {
 #[post("/api/community/posts")]
 pub async fn submit_community_post(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     body: web::Json<CommunityPostCreateRequest>,
 ) -> HttpResponse {
     let author_name = body.author_name.trim().to_string();
@@ -3476,11 +3705,14 @@ pub async fn submit_community_post(
     .await;
 
     match row {
-        Ok((id,)) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Your question has been posted.",
-            "id": id,
-        })),
+        Ok((id,)) => {
+            cache.invalidate("community").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Your question has been posted.",
+                "id": id,
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to create post: {}", e)
@@ -3491,6 +3723,7 @@ pub async fn submit_community_post(
 #[get("/api/community/posts")]
 pub async fn list_community_posts(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     q: web::Query<CommunityPostListQuery>,
 ) -> HttpResponse {
     let limit = q
@@ -3503,7 +3736,8 @@ pub async fn list_community_posts(
         .category
         .as_deref()
         .map(|s| s.trim())
-        .filter(|s| !s.is_empty());
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
     let search = q
         .search
         .as_deref()
@@ -3511,26 +3745,42 @@ pub async fn list_community_posts(
         .filter(|s| !s.is_empty())
         .map(|s| format!("%{}%", s));
 
-    let sql = format!(
-        "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
-         FROM community_posts
-         WHERE status = 'visible'
-           AND ($1::TEXT IS NULL OR category = $1)
-           AND ($2::TEXT IS NULL OR title ILIKE $2 OR body ILIKE $2)
-         ORDER BY {}
-         LIMIT $3 OFFSET $4",
-        order_by
+    let sort_tag = q.sort.as_deref().unwrap_or("default");
+    let cat_tag = category.clone().unwrap_or_else(|| "all".to_string());
+    let search_tag = sha256_hex(q.search.as_deref().unwrap_or(""));
+    let suffix = format!(
+        "posts-{}-{}-{}-l{}-o{}",
+        sort_tag, cat_tag, &search_tag[..8], limit, offset
     );
 
-    let rows = sqlx::query_as::<_, CommunityPostSummary>(&sql)
-        .bind(category)
-        .bind(search)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(pool.get_ref())
+    let result = cache
+        .get_or_compute::<Vec<CommunityPostSummary>, _, _, sqlx::Error>(
+            "community",
+            &suffix,
+            StdDuration::from_secs(120),
+            || async move {
+                let sql = format!(
+                    "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
+                     FROM community_posts
+                     WHERE status = 'visible'
+                       AND ($1::TEXT IS NULL OR category = $1)
+                       AND ($2::TEXT IS NULL OR title ILIKE $2 OR body ILIKE $2)
+                     ORDER BY {}
+                     LIMIT $3 OFFSET $4",
+                    order_by
+                );
+                sqlx::query_as::<_, CommunityPostSummary>(&sql)
+                    .bind(category)
+                    .bind(search)
+                    .bind(limit)
+                    .bind(offset)
+                    .fetch_all(pool.get_ref())
+                    .await
+            },
+        )
         .await;
 
-    match rows {
+    match result {
         Ok(data) => HttpResponse::Ok().json(serde_json::json!({
             "success": true,
             "data": data,
@@ -3545,96 +3795,101 @@ pub async fn list_community_posts(
 #[get("/api/community/posts/{id}")]
 pub async fn get_community_post_detail(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     id: web::Path<i32>,
 ) -> HttpResponse {
-    let id = id.into_inner();
+    let post_id = id.into_inner();
 
-    let post_row = sqlx::query_as::<_, CommunityPostDetailRow>(
-        "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
-         FROM community_posts
-         WHERE id = $1 AND status = 'visible'
-         LIMIT 1",
-    )
-    .bind(id)
-    .fetch_optional(pool.get_ref())
-    .await;
+    // Signal "not found" to the caller via a special sqlx error variant so it
+    // short-circuits the cache read-through.
+    let result = cache
+        .get_or_compute::<CommunityPostDetail, _, _, sqlx::Error>(
+            "community",
+            &format!("post-{}", post_id),
+            StdDuration::from_secs(120),
+            || async move {
+                let post_row = sqlx::query_as::<_, CommunityPostDetailRow>(
+                    "SELECT id, author_name, category, title, body, status, likes_count, answers_count, created_at
+                     FROM community_posts
+                     WHERE id = $1 AND status = 'visible'
+                     LIMIT 1",
+                )
+                .bind(post_id)
+                .fetch_optional(pool.get_ref())
+                .await?;
 
-    let post = match post_row {
-        Ok(Some(p)) => p,
-        Ok(None) => {
-            return HttpResponse::NotFound().json(serde_json::json!({
-                "success": false,
-                "error": "Post not found"
-            }))
-        }
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(serde_json::json!({
-                "success": false,
-                "error": format!("Database error: {}", e)
-            }))
-        }
-    };
+                let post = match post_row {
+                    Some(p) => p,
+                    None => return Err(sqlx::Error::RowNotFound),
+                };
 
-    // One query: answers + aggregated comments as json_agg (no N+1 per answer).
-    let rows = sqlx::query_as::<_, (i32, i32, Uuid, String, String, i32, i32, DateTime<Utc>, Value)>(
-        "SELECT
-            a.id, a.post_id, a.author_admin_id, a.author_name, a.body,
-            a.likes_count, a.comments_count, a.created_at,
-            COALESCE((
-                SELECT json_agg(c_ordered)
-                FROM (
-                    SELECT c.id, c.answer_id, c.author_admin_id, c.author_name, c.body, c.created_at
-                    FROM community_answer_comments c
-                    WHERE c.answer_id = a.id
-                    ORDER BY c.created_at ASC
-                ) AS c_ordered
-            ), '[]'::json) AS comments
-         FROM community_answers a
-         WHERE a.post_id = $1
-         ORDER BY a.created_at ASC",
-    )
-    .bind(id)
-    .fetch_all(pool.get_ref())
-    .await;
+                let rows = sqlx::query_as::<_, (i32, i32, Uuid, String, String, i32, i32, DateTime<Utc>, Value)>(
+                    "SELECT
+                        a.id, a.post_id, a.author_admin_id, a.author_name, a.body,
+                        a.likes_count, a.comments_count, a.created_at,
+                        COALESCE((
+                            SELECT json_agg(c_ordered)
+                            FROM (
+                                SELECT c.id, c.answer_id, c.author_admin_id, c.author_name, c.body, c.created_at
+                                FROM community_answer_comments c
+                                WHERE c.answer_id = a.id
+                                ORDER BY c.created_at ASC
+                            ) AS c_ordered
+                        ), '[]'::json) AS comments
+                     FROM community_answers a
+                     WHERE a.post_id = $1
+                     ORDER BY a.created_at ASC",
+                )
+                .bind(post_id)
+                .fetch_all(pool.get_ref())
+                .await?;
 
-    let answers = match rows {
-        Ok(rs) => rs
-            .into_iter()
-            .map(|(aid, post_id, admin_id, aname, abody, likes, comments_count, created, comments_json)| {
-                let comments: Vec<CommunityAnswerCommentRow> =
-                    serde_json::from_value(comments_json).unwrap_or_default();
-                CommunityAnswerWithComments {
-                    answer: CommunityAnswerRow {
-                        id: aid,
-                        post_id,
-                        author_admin_id: admin_id,
-                        author_name: aname,
-                        body: abody,
-                        likes_count: likes,
-                        comments_count,
-                        created_at: created,
-                    },
-                    comments,
-                }
-            })
-            .collect::<Vec<_>>(),
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(serde_json::json!({
-                "success": false,
-                "error": format!("Database error: {}", e)
-            }))
-        }
-    };
+                let answers = rows
+                    .into_iter()
+                    .map(|(aid, post_id, admin_id, aname, abody, likes, comments_count, created, comments_json)| {
+                        let comments: Vec<CommunityAnswerCommentRow> =
+                            serde_json::from_value(comments_json).unwrap_or_default();
+                        CommunityAnswerWithComments {
+                            answer: CommunityAnswerRow {
+                                id: aid,
+                                post_id,
+                                author_admin_id: admin_id,
+                                author_name: aname,
+                                body: abody,
+                                likes_count: likes,
+                                comments_count,
+                                created_at: created,
+                            },
+                            comments,
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-    HttpResponse::Ok().json(serde_json::json!({
-        "success": true,
-        "data": CommunityPostDetail { post, answers }
-    }))
+                Ok(CommunityPostDetail { post, answers })
+            },
+        )
+        .await;
+
+    match result {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(sqlx::Error::RowNotFound) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Post not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
 }
 
 #[post("/api/community/posts/{id}/like")]
 pub async fn like_community_post(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     id: web::Path<i32>,
 ) -> HttpResponse {
     let post_id = id.into_inner();
@@ -3693,12 +3948,15 @@ pub async fn like_community_post(
         }));
     }
 
+    cache.invalidate("community").await;
+
     HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count }))
 }
 
 #[post("/api/community/answers/{id}/like")]
 pub async fn like_community_answer(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     id: web::Path<i32>,
 ) -> HttpResponse {
     let answer_id = id.into_inner();
@@ -3756,6 +4014,8 @@ pub async fn like_community_answer(
             "error": format!("Database error: {}", e)
         }));
     }
+
+    cache.invalidate("community").await;
 
     HttpResponse::Ok().json(serde_json::json!({ "success": true, "count": count }))
 }

@@ -1,5 +1,6 @@
 mod admin;
 mod admin_pooja;
+mod cache;
 mod models;
 mod pooja_logic;
 mod pooja_routes;
@@ -52,9 +53,12 @@ async fn main() -> std::io::Result<()> {
         println!("⚠️  Razorpay: RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — donation checkout disabled");
     }
 
+    let cache = crate::cache::Cache::from_env().await;
+
     println!("🛕 Server running at http://{}", bind_addr);
 
     let razorpay_data = web::Data::new(razorpay_cfg);
+    let cache_data = web::Data::new(cache);
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -67,6 +71,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .app_data(web::Data::new(pool.clone()))
             .app_data(razorpay_data.clone())
+            .app_data(cache_data.clone())
             .service(routes::root_health)
             .service(routes::health)
             .service(routes::api_health)
@@ -98,6 +103,7 @@ async fn main() -> std::io::Result<()> {
             .service(admin::admin_patch_daily_quote)
             .service(admin::admin_patch_temple_about)
             .service(admin::admin_patch_landing_audio)
+            .service(admin::admin_cache_stats)
             .service(admin::admin_get_live_darshan)
             .service(admin::admin_patch_live_darshan)
             .service(admin::admin_list_prasad_orders)

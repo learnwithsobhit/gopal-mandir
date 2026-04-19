@@ -7,6 +7,7 @@ use sqlx::PgPool;
 use std::env;
 use uuid::Uuid;
 
+use crate::cache::Cache;
 use crate::s3_presign::{encode_s3_object_path, path_style_object_path, presign_put_url};
 
 use crate::models::*;
@@ -1003,6 +1004,7 @@ pub async fn admin_list_gallery(
 #[post("/api/admin/gallery")]
 pub async fn admin_create_gallery(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateGalleryRequest>,
 ) -> HttpResponse {
@@ -1073,7 +1075,10 @@ pub async fn admin_create_gallery(
     .await;
 
     match row {
-        Ok(item) => HttpResponse::Ok().json(ApiResponse { success: true, data: item }),
+        Ok(item) => {
+            cache.invalidate("gallery").await;
+            HttpResponse::Ok().json(ApiResponse { success: true, data: item })
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -1084,6 +1089,7 @@ pub async fn admin_create_gallery(
 #[patch("/api/admin/gallery/{id}")]
 pub async fn admin_patch_gallery(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchGalleryRequest>,
@@ -1154,7 +1160,10 @@ pub async fn admin_patch_gallery(
     .await;
 
     match updated {
-        Ok(item) => HttpResponse::Ok().json(ApiResponse { success: true, data: item }),
+        Ok(item) => {
+            cache.invalidate("gallery").await;
+            HttpResponse::Ok().json(ApiResponse { success: true, data: item })
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -1165,6 +1174,7 @@ pub async fn admin_patch_gallery(
 #[delete("/api/admin/gallery/{id}")]
 pub async fn admin_delete_gallery(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -1179,10 +1189,13 @@ pub async fn admin_delete_gallery(
         .await;
 
     match r {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
-            success: true,
-            message: "Deleted".to_string(),
-        }),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("gallery").await;
+            HttpResponse::Ok().json(SimpleActionResponse {
+                success: true,
+                message: "Deleted".to_string(),
+            })
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Not found"
@@ -1550,6 +1563,7 @@ pub async fn admin_list_panchang(
 #[post("/api/admin/panchang")]
 pub async fn admin_create_panchang(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreatePanchangRequest>,
 ) -> HttpResponse {
@@ -1584,10 +1598,13 @@ pub async fn admin_create_panchang(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("panchang").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => {
             let msg = format!("{}", e);
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
@@ -1608,6 +1625,7 @@ pub async fn admin_create_panchang(
 #[patch("/api/admin/panchang/{id}")]
 pub async fn admin_patch_panchang(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchPanchangRequest>,
@@ -1663,10 +1681,13 @@ pub async fn admin_patch_panchang(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("panchang").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => {
             let msg = format!("{}", e);
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
@@ -1687,6 +1708,7 @@ pub async fn admin_patch_panchang(
 #[delete("/api/admin/panchang/{id}")]
 pub async fn admin_delete_panchang(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -1699,10 +1721,13 @@ pub async fn admin_delete_panchang(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("panchang").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Entry not found"
@@ -1767,6 +1792,7 @@ pub async fn admin_list_daily_upasana(
 #[post("/api/admin/daily-upasana")]
 pub async fn admin_create_daily_upasana(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateDailyUpasanaRequest>,
 ) -> HttpResponse {
@@ -1806,10 +1832,13 @@ pub async fn admin_create_daily_upasana(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("daily-upasana").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => {
             let msg = format!("{}", e);
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
@@ -1830,6 +1859,7 @@ pub async fn admin_create_daily_upasana(
 #[patch("/api/admin/daily-upasana/{id}")]
 pub async fn admin_patch_daily_upasana(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchDailyUpasanaRequest>,
@@ -1913,10 +1943,13 @@ pub async fn admin_patch_daily_upasana(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("daily-upasana").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => {
             let msg = format!("{}", e);
             if msg.contains("duplicate key") || msg.contains("unique constraint") {
@@ -1937,6 +1970,7 @@ pub async fn admin_patch_daily_upasana(
 #[delete("/api/admin/daily-upasana/{id}")]
 pub async fn admin_delete_daily_upasana(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -1949,10 +1983,13 @@ pub async fn admin_delete_daily_upasana(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("daily-upasana").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Daily upasana item not found"
@@ -2032,6 +2069,7 @@ pub async fn admin_list_festivals(
 #[post("/api/admin/festivals")]
 pub async fn admin_create_festival(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateFestivalRequest>,
 ) -> HttpResponse {
@@ -2089,10 +2127,13 @@ pub async fn admin_create_festival(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2103,6 +2144,7 @@ pub async fn admin_create_festival(
 #[patch("/api/admin/festivals/{id}")]
 pub async fn admin_patch_festival(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchFestivalRequest>,
@@ -2213,10 +2255,13 @@ pub async fn admin_patch_festival(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2227,6 +2272,7 @@ pub async fn admin_patch_festival(
 #[delete("/api/admin/festivals/{id}")]
 pub async fn admin_delete_festival(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -2240,10 +2286,13 @@ pub async fn admin_delete_festival(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Festival entry not found"
@@ -2295,6 +2344,7 @@ pub async fn admin_list_festival_media(
 #[post("/api/admin/festivals/{id}/media")]
 pub async fn admin_create_festival_media(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminCreateFestivalMediaRequest>,
@@ -2362,7 +2412,10 @@ pub async fn admin_create_festival_media(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Ok(data) => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(ApiResponse { success: true, data })
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2373,6 +2426,7 @@ pub async fn admin_create_festival_media(
 #[patch("/api/admin/festival-media/{media_id}")]
 pub async fn admin_patch_festival_media(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     media_id: web::Path<i32>,
     body: web::Json<AdminPatchFestivalMediaRequest>,
@@ -2470,7 +2524,10 @@ pub async fn admin_patch_festival_media(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Ok(data) => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(ApiResponse { success: true, data })
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2481,6 +2538,7 @@ pub async fn admin_patch_festival_media(
 #[delete("/api/admin/festival-media/{media_id}")]
 pub async fn admin_delete_festival_media(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     media_id: web::Path<i32>,
 ) -> HttpResponse {
@@ -2492,10 +2550,13 @@ pub async fn admin_delete_festival_media(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(SimpleActionResponse {
-            success: true,
-            message: "Deleted".to_string(),
-        }),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("festivals").await;
+            HttpResponse::Ok().json(SimpleActionResponse {
+                success: true,
+                message: "Deleted".to_string(),
+            })
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Festival media not found"
@@ -2556,6 +2617,7 @@ pub async fn admin_list_seva_items(
 #[post("/api/admin/seva/items")]
 pub async fn admin_create_seva_item(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateSevaItemRequest>,
 ) -> HttpResponse {
@@ -2586,10 +2648,13 @@ pub async fn admin_create_seva_item(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("seva").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2600,6 +2665,7 @@ pub async fn admin_create_seva_item(
 #[patch("/api/admin/seva/items/{id}")]
 pub async fn admin_patch_seva_item(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchSevaItemRequest>,
@@ -2652,10 +2718,13 @@ pub async fn admin_patch_seva_item(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("seva").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2666,6 +2735,7 @@ pub async fn admin_patch_seva_item(
 #[delete("/api/admin/seva/items/{id}")]
 pub async fn admin_delete_seva_item(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -2678,10 +2748,13 @@ pub async fn admin_delete_seva_item(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("seva").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Seva item not found"
@@ -2934,6 +3007,7 @@ pub async fn admin_list_events(
 #[post("/api/admin/events")]
 pub async fn admin_create_event(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateEventRequest>,
 ) -> HttpResponse {
@@ -2965,10 +3039,13 @@ pub async fn admin_create_event(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("events").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -2979,6 +3056,7 @@ pub async fn admin_create_event(
 #[patch("/api/admin/events/{id}")]
 pub async fn admin_patch_event(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchEventRequest>,
@@ -3035,10 +3113,13 @@ pub async fn admin_patch_event(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("events").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -3049,6 +3130,7 @@ pub async fn admin_patch_event(
 #[delete("/api/admin/events/{id}")]
 pub async fn admin_delete_event(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -3061,10 +3143,13 @@ pub async fn admin_delete_event(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("events").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Event not found"
@@ -3430,6 +3515,7 @@ pub async fn admin_list_aarti(
 #[post("/api/admin/aarti")]
 pub async fn admin_create_aarti(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminCreateAartiRequest>,
 ) -> HttpResponse {
@@ -3459,10 +3545,13 @@ pub async fn admin_create_aarti(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("aarti").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -3473,6 +3562,7 @@ pub async fn admin_create_aarti(
 #[patch("/api/admin/aarti/{id}")]
 pub async fn admin_patch_aarti(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchAartiRequest>,
@@ -3523,10 +3613,13 @@ pub async fn admin_patch_aarti(
     .fetch_one(pool.get_ref())
     .await
     {
-        Ok(row) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": row
-        })),
+        Ok(row) => {
+            cache.invalidate("aarti").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -3537,6 +3630,7 @@ pub async fn admin_patch_aarti(
 #[delete("/api/admin/aarti/{id}")]
 pub async fn admin_delete_aarti(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -3549,10 +3643,13 @@ pub async fn admin_delete_aarti(
         .execute(pool.get_ref())
         .await
     {
-        Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Deleted"
-        })),
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("aarti").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Aarti not found"
@@ -4140,6 +4237,7 @@ pub async fn admin_get_daily_quote(pool: web::Data<PgPool>, req: HttpRequest) ->
 #[patch("/api/admin/daily-quote")]
 pub async fn admin_patch_daily_quote(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminPatchDailyQuoteRequest>,
 ) -> HttpResponse {
@@ -4189,10 +4287,13 @@ pub async fn admin_patch_daily_quote(
     };
 
     match result {
-        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": data
-        })),
+        Ok(data) => {
+            cache.invalidate("daily-quote").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": data
+            }))
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -4205,6 +4306,7 @@ const MAX_TEMPLE_ABOUT_CHARS: usize = 50_000;
 #[patch("/api/admin/temple-about")]
 pub async fn admin_patch_temple_about(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminPatchTempleAboutRequest>,
 ) -> HttpResponse {
@@ -4231,10 +4333,13 @@ pub async fn admin_patch_temple_about(
     .fetch_optional(pool.get_ref())
     .await
     {
-        Ok(Some(data)) => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "data": data
-        })),
+        Ok(Some(data)) => {
+            cache.invalidate("temple-info").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": data
+            }))
+        }
         Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Temple info row not found"
@@ -4249,6 +4354,7 @@ pub async fn admin_patch_temple_about(
 #[patch("/api/admin/site/landing-audio")]
 pub async fn admin_patch_landing_audio(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     body: web::Json<AdminPatchLandingAudioRequest>,
 ) -> HttpResponse {
@@ -4273,14 +4379,17 @@ pub async fn admin_patch_landing_audio(
     .await;
 
     match res {
-        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
-            success: true,
-            message: if url.is_empty() {
-                "Landing audio disabled".to_string()
-            } else {
-                "Landing audio updated".to_string()
-            },
-        }),
+        Ok(_) => {
+            cache.invalidate("landing-audio").await;
+            HttpResponse::Ok().json(SimpleActionResponse {
+                success: true,
+                message: if url.is_empty() {
+                    "Landing audio disabled".to_string()
+                } else {
+                    "Landing audio updated".to_string()
+                },
+            })
+        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Database error: {}", e)
@@ -4666,6 +4775,7 @@ pub async fn admin_list_community_posts(
 #[patch("/api/admin/community/posts/{id}")]
 pub async fn admin_patch_community_post(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminPatchCommunityPostRequest>,
@@ -4691,10 +4801,13 @@ pub async fn admin_patch_community_post(
     .await;
 
     match r {
-        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Post updated"
-        })),
+        Ok(res) if res.rows_affected() > 0 => {
+            cache.invalidate("community").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Post updated"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Post not found"
@@ -4709,6 +4822,7 @@ pub async fn admin_patch_community_post(
 #[delete("/api/admin/community/posts/{id}")]
 pub async fn admin_delete_community_post(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -4722,10 +4836,13 @@ pub async fn admin_delete_community_post(
         .await;
 
     match r {
-        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Post deleted"
-        })),
+        Ok(res) if res.rows_affected() > 0 => {
+            cache.invalidate("community").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Post deleted"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Post not found"
@@ -4740,6 +4857,7 @@ pub async fn admin_delete_community_post(
 #[post("/api/admin/community/posts/{id}/answers")]
 pub async fn admin_create_community_answer(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminCommunityAnswerCreateRequest>,
@@ -4836,6 +4954,8 @@ pub async fn admin_create_community_answer(
         }));
     }
 
+    cache.invalidate("community").await;
+
     HttpResponse::Ok().json(serde_json::json!({
         "success": true,
         "message": "Answer posted",
@@ -4846,6 +4966,7 @@ pub async fn admin_create_community_answer(
 #[patch("/api/admin/community/answers/{id}")]
 pub async fn admin_patch_community_answer(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminCommunityAnswerPatchRequest>,
@@ -4869,10 +4990,13 @@ pub async fn admin_patch_community_answer(
         .await;
 
     match r {
-        Ok(res) if res.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({
-            "success": true,
-            "message": "Answer updated"
-        })),
+        Ok(res) if res.rows_affected() > 0 => {
+            cache.invalidate("community").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Answer updated"
+            }))
+        }
         Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
             "success": false,
             "error": "Answer not found"
@@ -4887,6 +5011,7 @@ pub async fn admin_patch_community_answer(
 #[delete("/api/admin/community/answers/{id}")]
 pub async fn admin_delete_community_answer(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -4953,6 +5078,8 @@ pub async fn admin_delete_community_answer(
         }));
     }
 
+    cache.invalidate("community").await;
+
     HttpResponse::Ok().json(serde_json::json!({
         "success": true,
         "message": "Answer deleted"
@@ -4962,6 +5089,7 @@ pub async fn admin_delete_community_answer(
 #[post("/api/admin/community/answers/{id}/comments")]
 pub async fn admin_create_community_answer_comment(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
     body: web::Json<AdminCommunityCommentCreateRequest>,
@@ -5057,6 +5185,8 @@ pub async fn admin_create_community_answer_comment(
         }));
     }
 
+    cache.invalidate("community").await;
+
     HttpResponse::Ok().json(serde_json::json!({
         "success": true,
         "message": "Comment posted",
@@ -5067,6 +5197,7 @@ pub async fn admin_create_community_answer_comment(
 #[delete("/api/admin/community/answer-comments/{id}")]
 pub async fn admin_delete_community_answer_comment(
     pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
     req: HttpRequest,
     id: web::Path<i32>,
 ) -> HttpResponse {
@@ -5133,8 +5264,31 @@ pub async fn admin_delete_community_answer_comment(
         }));
     }
 
+    cache.invalidate("community").await;
+
     HttpResponse::Ok().json(serde_json::json!({
         "success": true,
         "message": "Comment deleted"
+    }))
+}
+
+// --- Cache observability -------------------------------------------------
+//
+// Exposes hit/miss counters maintained by `Cache::get_or_compute` so we can
+// sanity-check the read-through cache in production without SSHing into Redis.
+
+#[get("/api/admin/cache/stats")]
+pub async fn admin_cache_stats(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let stats = cache.stats().await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "data": stats,
     }))
 }
