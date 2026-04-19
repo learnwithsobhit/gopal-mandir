@@ -20,3 +20,4 @@ sha2 = "0.10"
 hex = "0.4"
 hmac = "0.12"
 urlencoding = "2"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

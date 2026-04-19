@@ -13,6 +13,8 @@ use std::env;
 const IMAGE_PROXY_ALLOWED_HOSTS: &[&str] = &[
     "images.cdn-files-a.com",
     "images.cdn-files.com",
+    "firebasestorage.googleapis.com",
+    "storage.googleapis.com",
 ];
 
 #[get("/")]
@@ -576,6 +578,10 @@ pub async fn get_gallery(
 #[derive(Debug, serde::Deserialize)]
 pub struct ImageProxyQuery {
     pub url: String,
+    #[serde(default)]
+    pub w: Option<u32>,
+    #[serde(default)]
+    pub q: Option<u8>,
 }
 
 #[get("/api/gallery/proxy")]
@@ -608,7 +614,7 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
     if !resp.status().is_success() {
         return HttpResponse::BadGateway().body("Upstream returned non-success");
     }
-    let content_type = resp
+    let upstream_content_type = resp
         .headers()
         .get("content-type")
         .and_then(|v| v.to_str().ok())
@@ -618,8 +624,42 @@ pub async fn get_gallery_image_proxy(q: web::Query<ImageProxyQuery>) -> HttpResp
         Ok(b) => b,
         Err(e) => return HttpResponse::InternalServerError().body(format!("Body error: {}", e)),
     };
+
+    let requested_width = q.w.filter(|w| *w > 0 && *w <= 1600);
+    let quality = q.q.unwrap_or(72).clamp(30, 95);
+    let is_animated_gif = upstream_content_type.eq_ignore_ascii_case("image/gif");
+
+    if let (Some(target_w), false) = (requested_width, is_animated_gif) {
+        let input = bytes.clone();
+        let resized = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
+            let img = image::load_from_memory(&input).map_err(|e| e.to_string())?;
+            let (orig_w, orig_h) = (img.width(), img.height());
+            let out = if orig_w > target_w {
+                let new_h = ((orig_h as u64 * target_w as u64) / orig_w.max(1) as u64) as u32;
+                img.resize(target_w, new_h.max(1), image::imageops::FilterType::Triangle)
+            } else {
+                img
+            };
+            let rgb = out.to_rgb8();
+            let mut buf = Vec::with_capacity(64 * 1024);
+            let mut cursor = std::io::Cursor::new(&mut buf);
+            let encoder =
+                image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, quality);
+            rgb.write_with_encoder(encoder).map_err(|e| e.to_string())?;
+            Ok(buf)
+        })
+        .await;
+
+        if let Ok(Ok(jpeg)) = resized {
+            return HttpResponse::Ok()
+                .insert_header(("content-type", "image/jpeg"))
+                .insert_header(("cache-control", "public, max-age=604800, immutable"))
+                .body(jpeg);
+        }
+    }
+
     HttpResponse::Ok()
-        .insert_header(("content-type", content_type))
+        .insert_header(("content-type", upstream_content_type))
         .insert_header(("cache-control", "public, max-age=86400"))
         .body(bytes.to_vec())
 }

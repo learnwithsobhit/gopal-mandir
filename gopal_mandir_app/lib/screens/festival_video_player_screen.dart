@@ -7,6 +7,25 @@ import 'package:video_player/video_player.dart';
 
 import 'festival_web_video_view.dart';
 
+/// Normalize a festival media video URL so the `video_player` plugin can
+/// decode it. Firebase Storage download URLs need `alt=media` to stream
+/// raw bytes rather than returning a metadata JSON envelope.
+String normalizePlayableVideoUrl(String raw) {
+  final parsed = Uri.tryParse(raw.trim());
+  if (parsed == null) return raw.trim();
+  final isFirebaseHost = parsed.host.contains('firebasestorage.googleapis.com');
+  if (isFirebaseHost && !parsed.queryParameters.containsKey('alt')) {
+    final next = parsed.replace(
+      queryParameters: <String, String>{
+        ...parsed.queryParameters,
+        'alt': 'media',
+      },
+    );
+    return next.toString();
+  }
+  return parsed.toString();
+}
+
 class FestivalVideoPlayerScreen extends StatefulWidget {
   const FestivalVideoPlayerScreen({
     super.key,
@@ -30,26 +49,8 @@ class _FestivalVideoPlayerScreenState extends State<FestivalVideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _playableUrl = _normalizePlayableUrl(widget.videoUrl);
+    _playableUrl = normalizePlayableVideoUrl(widget.videoUrl);
     _initPlayer();
-  }
-
-  String _normalizePlayableUrl(String raw) {
-    final parsed = Uri.tryParse(raw.trim());
-    if (parsed == null) return raw.trim();
-
-    // Firebase Storage download links often require alt=media for direct bytes.
-    final isFirebaseHost = parsed.host.contains('firebasestorage.googleapis.com');
-    if (isFirebaseHost && !parsed.queryParameters.containsKey('alt')) {
-      final next = parsed.replace(
-        queryParameters: <String, String>{
-          ...parsed.queryParameters,
-          'alt': 'media',
-        },
-      );
-      return next.toString();
-    }
-    return parsed.toString();
   }
 
   Future<void> _initPlayer() async {
