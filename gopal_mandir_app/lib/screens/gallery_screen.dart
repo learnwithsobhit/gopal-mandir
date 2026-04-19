@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../widgets/inline_web_video.dart';
+import 'festival_video_player_screen.dart';
 import 'landing_web_audio.dart';
 
 class GalleryScreen extends StatefulWidget {
@@ -22,6 +24,15 @@ class GalleryScreen extends StatefulWidget {
 class _GalleryScreenState extends State<GalleryScreen> {
   final ApiService _api = ApiService();
   static const int _perPage = 20;
+
+  /// Class-level cache of the most recently fetched first page. Shared across
+  /// screen instances so navigating away and back within [_cacheTtl] skips the
+  /// network round-trip entirely. Pagination beyond page 1 is intentionally
+  /// not cached; users who scroll that far already paid the cost.
+  static List<GalleryItem>? _cachedFirstPage;
+  static DateTime? _cachedAt;
+  static const Duration _cacheTtl = Duration(seconds: 60);
+
   String _selectedCategory = 'All';
   List<GalleryItem> _items = [];
   bool _loading = true;
@@ -33,6 +44,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final Map<int, int> _commentCounts = {};
   AudioPlayer? _galleryAudioPlayer;
   LandingWebAudio? _webGalleryAudio;
+
+  /// Only one inline video controller is alive at a time. Every
+  /// [_InlineGalleryVideo] listens and tears itself down when this notifier
+  /// points at a different item — essential for keeping scroll cheap.
+  final ValueNotifier<int?> _activeVideoId = ValueNotifier<int?>(null);
 
   List<String> get _categories {
     final s = AppLocaleScope.of(context).strings;
@@ -105,21 +121,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  /// Thumbnail URL for grid tiles (smaller bytes if CDN supports it).
-  /// Many CDNs ignore unknown params; others return 404 — fallback to original on error.
-  static String _gridImageUrl(String imageUrl) {
-    final sep = imageUrl.contains('?') ? '&' : '?';
-    return '$imageUrl${sep}w=300';
-  }
-
-  /// On web, load via backend proxy to avoid CORS; on mobile use direct URL.
-  static String _effectiveImageUrl(String imageUrl) {
-    if (kIsWeb) {
-      return '${ApiService.baseUrl}/api/gallery/proxy?url=${Uri.encodeComponent(imageUrl)}';
-    }
-    return imageUrl;
-  }
-
   static String _effectiveAudioUrl(String audioUrl) {
     final trimmed = audioUrl.trim();
     if (kIsWeb) {
@@ -149,12 +150,27 @@ class _GalleryScreenState extends State<GalleryScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    final cached = _cachedFirstPage;
+    final at = _cachedAt;
+    if (cached != null &&
+        at != null &&
+        DateTime.now().difference(at) < _cacheTtl) {
+      _items = List<GalleryItem>.from(cached);
+      _loading = false;
+      for (final i in _items) {
+        _likeCounts[i.id] = i.likeCount;
+        _commentCounts[i.id] = i.commentCount;
+      }
+      unawaited(_refreshFirstPageSilently());
+    } else {
+      _load();
+    }
     _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _activeVideoId.dispose();
     _webGalleryAudio?.dispose();
     _webGalleryAudio = null;
     unawaited(_galleryAudioPlayer?.dispose());
@@ -162,6 +178,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Background refetch used after seeding from the in-memory cache, so the
+  /// user still gets fresh like/comment counts without blocking first paint.
+  Future<void> _refreshFirstPageSilently() async {
+    final items = await _api.getGalleryPage(1, perPage: _perPage);
+    if (!mounted) return;
+    _cachedFirstPage = items;
+    _cachedAt = DateTime.now();
+    setState(() {
+      _items = items;
+      _page = 1;
+      _hasMore = items.length >= _perPage;
+    });
+    _applyEngagementAfterFrame(items);
   }
 
   void _onScroll() {
@@ -188,6 +219,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Future<void> _load() async {
     final items = await _api.getGalleryPage(1, perPage: _perPage);
     if (!mounted) return;
+    _cachedFirstPage = items;
+    _cachedAt = DateTime.now();
     setState(() {
       _items = items;
       _page = 1;
@@ -197,6 +230,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
       _loading = false;
     });
     _applyEngagementAfterFrame(items);
+  }
+
+  /// Pull-to-refresh handler: invalidate the static cache so the fresh data
+  /// the user just asked for is what the next screen instance will see too.
+  Future<void> _pullToRefresh() async {
+    _cachedFirstPage = null;
+    _cachedAt = null;
+    await _load();
   }
 
   Future<void> _loadMore() async {
@@ -236,7 +277,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
               itemBuilder: (context, index) => _buildShimmerCard(),
             )
           : RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _pullToRefresh,
               color: AppColors.krishnaBlue,
               child: Column(
                 children: [
@@ -318,7 +359,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           unawaited(_openAudio(item));
                         }
                       } else if (item.isVideo) {
-                        _openVideo(context, item);
+                        _activeVideoId.value = item.id;
                       } else {
                         _showFullImage(context, item);
                       }
@@ -333,30 +374,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               topRight: Radius.circular(16),
                             ),
                             child: item.isVideo
-                                ? Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      if (item.imageUrl.trim().isNotEmpty)
-                                        _GalleryGridImage(
-                                          imageUrl: _effectiveImageUrl(item.imageUrl),
-                                          gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
-                                          placeholder: _buildImageShimmer(),
-                                        )
-                                      else
-                                        ColoredBox(
-                                          color: AppColors.krishnaBlue.withAlpha(40),
-                                          child: const Center(
-                                            child: Icon(Icons.movie, size: 48, color: AppColors.krishnaBlue),
-                                          ),
-                                        ),
-                                      const Center(
-                                        child: Icon(
-                                          Icons.play_circle_fill,
-                                          size: 52,
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ],
+                                ? _InlineGalleryVideo(
+                                    item: item,
+                                    activeVideoId: _activeVideoId,
+                                    placeholder: _buildImageShimmer(),
+                                    onOpenFullscreen: () => _openFullscreenVideo(item),
                                   )
                                 : item.isAudio
                                     ? Stack(
@@ -364,8 +386,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                         children: [
                                           if (item.imageUrl.trim().isNotEmpty)
                                             _GalleryGridImage(
-                                              imageUrl: _effectiveImageUrl(item.imageUrl),
-                                              gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                              imageUrl: item.imageUrl,
                                               placeholder: _buildImageShimmer(),
                                             )
                                           else
@@ -389,8 +410,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                         ],
                                       )
                                     : _GalleryGridImage(
-                                        imageUrl: _effectiveImageUrl(item.imageUrl),
-                                        gridImageUrl: _effectiveImageUrl(_gridImageUrl(item.imageUrl)),
+                                        imageUrl: item.imageUrl,
                                         placeholder: _buildImageShimmer(),
                                       ),
                           ),
@@ -790,28 +810,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
     return '$m:$s';
   }
 
-  Future<void> _openVideo(BuildContext context, GalleryItem item) async {
+  /// Push the full-screen player. Used by the fullscreen icon inside
+  /// [_InlineGalleryVideo] and by the error fallback when inline playback
+  /// can't initialize.
+  void _openFullscreenVideo(GalleryItem item) {
     final s = AppLocaleScope.of(context).strings;
     final raw = item.videoUrl.trim();
     if (raw.isEmpty) {
-      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.videoUrlMissing)),
       );
       return;
     }
-    final uri = Uri.tryParse(raw);
-    if (uri == null) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.invalidVideoUrl)));
-      return;
-    }
-    if (!await canLaunchUrl(uri)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.cannotOpenVideoUrl)));
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FestivalVideoPlayerScreen(
+          videoUrl: raw,
+          title: item.title,
+        ),
+      ),
+    );
   }
 
   void _showFullImage(BuildContext context, GalleryItem item) {
@@ -825,7 +843,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
           child: Stack(
             children: [
               CachedNetworkImage(
-                imageUrl: _effectiveImageUrl(item.imageUrl),
+                imageUrl: ApiService.galleryProxyUrl(
+                  item.imageUrl,
+                  width: 1200,
+                  quality: 80,
+                ),
                 fit: BoxFit.contain,
                 placeholder: (_, __) => const Center(
                   child: CircularProgressIndicator(color: AppColors.krishnaBlue),
@@ -1057,54 +1079,282 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 }
 
-/// Loads grid image with thumbnail URL first; on failure falls back to original URL
-/// so images still load when the CDN does not support resize params.
-class _GalleryGridImage extends StatefulWidget {
+/// Grid tile thumbnail. Always routes through `/api/gallery/proxy` which
+/// resizes to [_proxyWidth] px wide JPEG and is byte-cached in Redis for
+/// 30 days. [memCacheWidth] caps Flutter's decoded bitmap to ~2x DPR so
+/// 2-col tiles don't allocate full-resolution buffers.
+class _GalleryGridImage extends StatelessWidget {
   const _GalleryGridImage({
     required this.imageUrl,
-    required this.gridImageUrl,
     required this.placeholder,
   });
 
+  /// Original upstream URL — we hand it to [ApiService.galleryProxyUrl].
   final String imageUrl;
-  final String gridImageUrl;
   final Widget placeholder;
 
-  @override
-  State<_GalleryGridImage> createState() => _GalleryGridImageState();
-}
-
-class _GalleryGridImageState extends State<_GalleryGridImage> {
-  bool _useOriginalUrl = false;
-  bool _originalAlsoFailed = false;
+  static const int _proxyWidth = 300;
+  static const int _proxyQuality = 72;
+  static const int _memCacheWidth = 600;
 
   @override
   Widget build(BuildContext context) {
-    final url = _useOriginalUrl ? widget.imageUrl : widget.gridImageUrl;
-    if (_originalAlsoFailed && _useOriginalUrl) {
-      return const Center(
-        child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
-      );
-    }
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: ApiService.galleryProxyUrl(
+        imageUrl,
+        width: _proxyWidth,
+        quality: _proxyQuality,
+      ),
       width: double.infinity,
       fit: BoxFit.cover,
-      placeholder: (_, __) => widget.placeholder,
-      errorWidget: (_, __, ___) {
-        if (!_useOriginalUrl) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _useOriginalUrl = true);
-          });
-          return widget.placeholder;
-        }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _originalAlsoFailed = true);
-        });
-        return const Center(
-          child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
-        );
-      },
+      memCacheWidth: _memCacheWidth,
+      placeholder: (_, __) => placeholder,
+      errorWidget: (_, __, ___) => const Center(
+        child: Icon(Icons.image_not_supported, color: AppColors.warmGrey),
+      ),
+    );
+  }
+}
+
+/// Inline video tile. Ports the single-active-controller pattern from the
+/// festival detail screen: at most one [VideoPlayerController] is alive at a
+/// time across the whole grid, gated by [activeVideoId].
+///
+/// Default (inactive) state is the same resized proxy thumbnail shown in the
+/// image grid + a centered play icon, so scrolling has zero video cost. When
+/// the outer tile is tapped, the parent sets `activeVideoId.value = item.id`
+/// and this widget lazily initializes the controller and plays in place.
+class _InlineGalleryVideo extends StatefulWidget {
+  const _InlineGalleryVideo({
+    required this.item,
+    required this.activeVideoId,
+    required this.placeholder,
+    required this.onOpenFullscreen,
+  });
+
+  final GalleryItem item;
+  final ValueNotifier<int?> activeVideoId;
+  final Widget placeholder;
+  final VoidCallback onOpenFullscreen;
+
+  @override
+  State<_InlineGalleryVideo> createState() => _InlineGalleryVideoState();
+}
+
+class _InlineGalleryVideoState extends State<_InlineGalleryVideo> {
+  VideoPlayerController? _controller;
+  bool _initializing = false;
+  String? _error;
+  late final String _playableUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _playableUrl = normalizePlayableVideoUrl(widget.item.videoUrl);
+    widget.activeVideoId.addListener(_onActiveChanged);
+    if (widget.activeVideoId.value == widget.item.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startPlayback());
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.activeVideoId.removeListener(_onActiveChanged);
+    _teardownController();
+    super.dispose();
+  }
+
+  void _onActiveChanged() {
+    if (!mounted) return;
+    final active = widget.activeVideoId.value == widget.item.id;
+    if (active) {
+      if (_controller == null && !_initializing) {
+        _startPlayback();
+      }
+    } else if (_controller != null || _error != null) {
+      setState(() {
+        _teardownController();
+        _error = null;
+      });
+    }
+  }
+
+  void _teardownController() {
+    final c = _controller;
+    _controller = null;
+    if (c != null) {
+      unawaited(c.pause());
+      unawaited(c.dispose());
+    }
+  }
+
+  Future<void> _startPlayback() async {
+    if (_initializing || _controller != null) return;
+
+    final parsed = Uri.tryParse(_playableUrl);
+    if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) {
+      setState(() => _error = 'Invalid video URL');
+      return;
+    }
+
+    // Web: the `<video>` bridge renders itself once `active` is true — no
+    // controller to initialize on this path.
+    if (kIsWeb) {
+      setState(() {
+        _initializing = false;
+        _error = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _initializing = true;
+      _error = null;
+    });
+    try {
+      final c = VideoPlayerController.networkUrl(parsed);
+      await c.initialize();
+      await c.setLooping(false);
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      setState(() {
+        _controller = c;
+        _initializing = false;
+      });
+      unawaited(c.play());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _initializing = false;
+        _error = 'Unable to load this video';
+      });
+    }
+  }
+
+  Widget _posterThumbnail() {
+    final img = widget.item.imageUrl.trim();
+    if (img.isEmpty) {
+      return ColoredBox(
+        color: AppColors.krishnaBlue.withAlpha(40),
+        child: const Center(
+          child: Icon(Icons.movie, size: 48, color: AppColors.krishnaBlue),
+        ),
+      );
+    }
+    return _GalleryGridImage(
+      imageUrl: img,
+      placeholder: widget.placeholder,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final active = widget.activeVideoId.value == widget.item.id;
+
+    if (kIsWeb && active && _error == null) {
+      return InlineWebVideo(
+        playableUrl: _playableUrl,
+        onOpenFullscreen: widget.onOpenFullscreen,
+      );
+    }
+
+    final c = _controller;
+    if (c != null && c.value.isInitialized) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              setState(() {
+                c.value.isPlaying ? c.pause() : c.play();
+              });
+            },
+            child: FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: c.value.size.width,
+                height: c.value.size.height,
+                child: VideoPlayer(c),
+              ),
+            ),
+          ),
+          // Play/pause glyph only while paused — don't cover the video.
+          if (!c.value.isPlaying)
+            const IgnorePointer(
+              child: Center(
+                child: Icon(
+                  Icons.play_circle_fill,
+                  size: 52,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          _fullscreenButton(),
+        ],
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _posterThumbnail(),
+        Container(color: Colors.black.withAlpha(30)),
+        Center(
+          child: _initializing
+              ? const CircularProgressIndicator(color: Colors.white)
+              : _error != null
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                        ),
+                        const SizedBox(height: 4),
+                        OutlinedButton.icon(
+                          onPressed: widget.onOpenFullscreen,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.open_in_new, size: 16),
+                          label: const Text('Open'),
+                        ),
+                      ],
+                    )
+                  : const Icon(
+                      Icons.play_circle_fill,
+                      size: 52,
+                      color: Colors.white70,
+                    ),
+        ),
+        _fullscreenButton(),
+      ],
+    );
+  }
+
+  Widget _fullscreenButton() {
+    return Positioned(
+      top: 4,
+      right: 4,
+      child: Material(
+        color: Colors.black.withAlpha(90),
+        shape: const CircleBorder(),
+        child: IconButton(
+          tooltip: 'Fullscreen',
+          iconSize: 18,
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.all(6),
+          constraints: const BoxConstraints(),
+          onPressed: widget.onOpenFullscreen,
+          icon: const Icon(Icons.fullscreen, color: Colors.white),
+        ),
+      ),
     );
   }
 }

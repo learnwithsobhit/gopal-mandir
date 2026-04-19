@@ -9,20 +9,13 @@ import 'package:video_player/video_player.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/inline_web_video.dart';
 import 'festival_video_player_screen.dart';
-import 'festival_web_video_view.dart';
 
-/// Build a backend-resized thumbnail URL for any festival image.
-///
-/// The upstream hosts (`images.cdn-files-a.com`, Firebase Storage) ignore
-/// client-side resize query params, so we always route through the backend
-/// proxy which decodes + resizes + re-encodes as JPEG with a long immutable
-/// cache-control. When [width] is null we get the original bytes.
-String _festivalProxyUrl(String imageUrl, {int? width}) {
-  final encoded = Uri.encodeComponent(imageUrl);
-  final w = width != null ? 'w=$width&' : '';
-  return '${ApiService.baseUrl}/api/gallery/proxy?$w' 'url=$encoded';
-}
+/// Thin wrapper kept for readability — delegates to the shared helper on
+/// [ApiService] so both festival and gallery screens use one implementation.
+String _festivalProxyUrl(String imageUrl, {int? width}) =>
+    ApiService.galleryProxyUrl(imageUrl, width: width);
 
 class FestivalDetailScreen extends StatefulWidget {
   const FestivalDetailScreen({super.key, required this.festivalId});
@@ -534,7 +527,7 @@ class _InlineFestivalVideoState extends State<_InlineFestivalVideo> {
     final active = widget.activeMediaId.value == widget.media.id;
 
     if (kIsWeb && active && _error == null) {
-      return _WebInlineVideo(
+      return InlineWebVideo(
         playableUrl: _playableUrl,
         onOpenFullscreen: widget.onOpenFullscreen,
       );
@@ -656,32 +649,3 @@ class _InlineFestivalVideoState extends State<_InlineFestivalVideo> {
   }
 }
 
-/// Web inline video: delegates to the existing HTML `<video>` bridge.
-class _WebInlineVideo extends StatelessWidget {
-  const _WebInlineVideo({required this.playableUrl, required this.onOpenFullscreen});
-
-  final String playableUrl;
-  final VoidCallback onOpenFullscreen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: 16 / 9,
-          child: buildFestivalWebVideoView(playableUrl),
-        ),
-        Row(
-          children: [
-            const Spacer(),
-            IconButton(
-              tooltip: 'Fullscreen',
-              onPressed: onOpenFullscreen,
-              icon: const Icon(Icons.fullscreen),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}

@@ -12,6 +12,24 @@ class ApiService {
   static const String baseUrl = 'https://gopal-mandir-production.up.railway.app'; // Production
   // static const String baseUrl = 'http://localhost:8080'; // Local dev
 
+  /// Build a backend-resized thumbnail URL for any gallery/festival image.
+  ///
+  /// Upstream hosts (S3/CDN, Firebase Storage) ignore client-side `?w=`
+  /// params, so we always route through `/api/gallery/proxy` which decodes,
+  /// resizes, and re-encodes as JPEG. The response is Redis-byte-cached for
+  /// 30 days server-side and served with `cache-control: public,
+  /// max-age=604800, immutable`, so clients also cache aggressively.
+  /// Omit [width] to fetch original bytes (still benefits from the proxy's
+  /// Redis cache and content-type handling, but no resize).
+  static String galleryProxyUrl(String imageUrl, {int? width, int? quality}) {
+    final encoded = Uri.encodeComponent(imageUrl);
+    final parts = <String>[];
+    if (width != null) parts.add('w=$width');
+    if (quality != null) parts.add('q=$quality');
+    parts.add('url=$encoded');
+    return '$baseUrl/api/gallery/proxy?${parts.join('&')}';
+  }
+
   Future<List<AartiSchedule>> getAartiSchedule() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/aarti'));
