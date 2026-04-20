@@ -62,6 +62,9 @@ class AppStrings {
   String get fieldBio => isHindi ? 'परिचय' : 'Biography';
   String get fieldQuote => isHindi ? 'उद्धरण / श्लोक' : 'Quote';
   String get fieldPhoto => isHindi ? 'चित्र' : 'Photo';
+  String get successionTenureRange => isHindi ? 'कार्यकाल' : 'Tenure';
+  String get successionNoPhoto =>
+      isHindi ? 'चित्र उपलब्ध नहीं' : 'No photo available';
   String get navLive => isHindi ? 'लाइव' : 'Live';
   String get navEvents => isHindi ? 'कार्यक्रम' : 'Events';
   String get navMore => isHindi ? 'अधिक' : 'More';

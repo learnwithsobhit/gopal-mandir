@@ -6,6 +6,7 @@ import '../l10n/locale_scope.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'succession_detail_screen.dart';
 
 /// Public read-only list of the temple's lineage (परम्परा) — mahants /
 /// acharyas in chronological order. Data comes from `GET /api/successions`
@@ -22,7 +23,6 @@ class _SuccessionsScreenState extends State<SuccessionsScreen> {
   final ApiService _api = ApiService();
   List<Succession> _items = const [];
   bool _loading = true;
-  final Set<int> _expanded = <int>{};
 
   @override
   void initState() {
@@ -84,16 +84,12 @@ class _SuccessionsScreenState extends State<SuccessionsScreen> {
                       final item = _items[i];
                       return _SuccessionCard(
                         item: item,
-                        expanded: _expanded.contains(item.id),
-                        onToggleExpand: () {
-                          setState(() {
-                            if (_expanded.contains(item.id)) {
-                              _expanded.remove(item.id);
-                            } else {
-                              _expanded.add(item.id);
-                            }
-                          });
-                        },
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                SuccessionDetailScreen(item: item),
+                          ),
+                        ),
                       );
                     },
                   ),
@@ -103,146 +99,210 @@ class _SuccessionsScreenState extends State<SuccessionsScreen> {
 }
 
 class _SuccessionCard extends StatelessWidget {
-  const _SuccessionCard({
-    required this.item,
-    required this.expanded,
-    required this.onToggleExpand,
-  });
+  const _SuccessionCard({required this.item, required this.onTap});
 
   final Succession item;
-  final bool expanded;
-  final VoidCallback onToggleExpand;
+  final VoidCallback onTap;
 
   static const int _collapsedBioLines = 6;
 
+  static String _fmtDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  /// Prefer the admin-supplied free-form tenure text; otherwise fall back to
+  /// the structured start/end dates so the list always conveys *when* the
+  /// lineage holder served, even if the admin only filled the date fields.
+  String? _tenureDisplay() {
+    final text = (item.tenureText ?? '').trim();
+    if (text.isNotEmpty) return text;
+    final start = item.tenureStart;
+    final end = item.tenureEnd;
+    if (start != null && end != null) {
+      return '${_fmtDate(start)} → ${_fmtDate(end)}';
+    }
+    if (start != null) return '${_fmtDate(start)} →';
+    if (end != null) return '→ ${_fmtDate(end)}';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final s = AppLocaleScope.of(context).strings;
     final bio = item.bio;
-    final hasLongBio = (bio ?? '').length > 240;
+    final tenure = _tenureDisplay();
+    final hasTitle = (item.title ?? '').isNotEmpty;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.softWhite,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(14),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+    return Material(
+      color: AppColors.softWhite,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppColors.softWhite,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(14),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          padding: const EdgeInsets.all(16),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Avatar(photoUrl: item.photoUrl, position: item.position),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if ((item.title ?? '').isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.templeGold.withAlpha(40),
-                          borderRadius: BorderRadius.circular(999),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _Avatar(photoUrl: item.photoUrl, position: item.position),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _OrderBadge(position: item.position),
+                            if (hasTitle)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.templeGold.withAlpha(40),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  item.title!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.templeGoldDark,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        child: Text(
-                          item.title!,
+                        const SizedBox(height: 6),
+                        Text(
+                          item.name,
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.templeGoldDark,
-                            letterSpacing: 0.3,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.darkBrown,
+                            height: 1.25,
                           ),
                         ),
-                      ),
-                    if ((item.title ?? '').isNotEmpty)
-                      const SizedBox(height: 6),
-                    Text(
-                      item.name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.darkBrown,
-                        height: 1.25,
+                        if (tenure != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 13,
+                                color: AppColors.warmGrey,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  tenure,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.warmGrey,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: AppColors.warmGrey,
+                  ),
+                ],
+              ),
+              if ((bio ?? '').isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Text(
+                  bio!,
+                  maxLines: _collapsedBioLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: AppColors.darkBrown,
+                  ),
+                ),
+              ],
+              if ((item.quote ?? '').isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.templeGold.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border(
+                      left: BorderSide(
+                        color: AppColors.templeGoldDark.withAlpha(140),
+                        width: 3,
                       ),
                     ),
-                    if ((item.tenureText ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        item.tenureText!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.warmGrey,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
+                  child: Text(
+                    item.quote!,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      height: 1.55,
+                      color: AppColors.darkBrown,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
-          if ((bio ?? '').isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text(
-              bio!,
-              maxLines: expanded ? null : _collapsedBioLines,
-              overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 1.6,
-                color: AppColors.darkBrown,
-              ),
-            ),
-            if (hasLongBio) ...[
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: onToggleExpand,
-                child: Text(
-                  expanded ? s.successionReadLess : s.successionReadMore,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.krishnaBlue,
-                  ),
-                ),
-              ),
-            ],
-          ],
-          if ((item.quote ?? '').isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.templeGold.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
-                border: Border(
-                  left: BorderSide(
-                    color: AppColors.templeGoldDark.withAlpha(140),
-                    width: 3,
-                  ),
-                ),
-              ),
-              child: Text(
-                item.quote!,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontStyle: FontStyle.italic,
-                  height: 1.55,
-                  color: AppColors.darkBrown,
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small pill showing the lineage order (e.g. `#1`). Rendered alongside the
+/// optional title pill so the chronological position is always visible on
+/// the list — even when the avatar is occupied by a photo (which otherwise
+/// hides the fallback numeric badge).
+class _OrderBadge extends StatelessWidget {
+  const _OrderBadge({required this.position});
+
+  final int position;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.krishnaBlue.withAlpha(24),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '#$position',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.krishnaBlueDark,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
