@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +12,7 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
+import 'daily_upasana_web_pdf_view.dart';
 
 // ── Persistence keys ────────────────────────────────────────────────────────
 const _prefLastCategory = 'daily_upasana_last_category';
@@ -1014,7 +1016,7 @@ class _DailyUpasanaReaderScreenState extends State<DailyUpasanaReaderScreen> {
   }
 }
 
-class _TextReader extends StatelessWidget {
+class _TextReader extends StatefulWidget {
   const _TextReader({
     super.key,
     required this.item,
@@ -1027,31 +1029,50 @@ class _TextReader extends StatelessWidget {
   final Color foreground;
 
   @override
+  State<_TextReader> createState() => _TextReaderState();
+}
+
+class _TextReaderState extends State<_TextReader> {
+  // A dedicated controller shared by the Scrollbar and SingleChildScrollView
+  // below. Without this, on Flutter Web the Scrollbar falls back to
+  // PrimaryScrollController and throws "ScrollController has no ScrollPosition
+  // attached" on every mouse-wheel scroll.
+  final ScrollController _scrollCtrl = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bodyStyle = GoogleFonts.notoSerifDevanagari(
-      fontSize: 16 * textScale,
+      fontSize: 16 * widget.textScale,
       height: 1.75,
-      color: foreground,
+      color: widget.foreground,
     );
     return Scrollbar(
+      controller: _scrollCtrl,
       child: SingleChildScrollView(
+        controller: _scrollCtrl,
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              item.title,
+              widget.item.title,
               style: GoogleFonts.notoSerifDevanagari(
-                fontSize: 22 * textScale,
+                fontSize: 22 * widget.textScale,
                 fontWeight: FontWeight.w700,
                 height: 1.3,
-                color: foreground,
+                color: widget.foreground,
               ),
             ),
-            if (item.category.trim().isNotEmpty) ...[
+            if (widget.item.category.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                item.category,
+                widget.item.category,
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -1061,7 +1082,7 @@ class _TextReader extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 20),
-            Text(item.content, style: bodyStyle),
+            Text(widget.item.content, style: bodyStyle),
           ],
         ),
       ),
@@ -1090,6 +1111,8 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   List<int> _bookmarks = const [];
   bool _loaded = false;
   bool _failed = false;
+  String? _failDescription;
+  String? _failedUrl;
   int _reloadNonce = 0;
 
   @override
@@ -1255,6 +1278,8 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   void _retry() {
     setState(() {
       _failed = false;
+      _failDescription = null;
+      _failedUrl = null;
       _loaded = false;
       _reloadNonce++;
     });
@@ -1270,9 +1295,22 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
     if (_failed) {
       return _pdfErrorCard(s);
     }
-    // Route through the backend PDF proxy so Flutter Web can fetch the bytes
-    // without running into S3 CORS (PDF.js uses XHR under the hood).
+    // Route through the backend PDF proxy: the proxy normalises Content-Type
+    // to `application/pdf`, strips any weird upstream headers, and lives on
+    // the same origin we already use for API calls, so PDF.js (used by
+    // SfPdfViewer on web) fetches it cleanly with a long Cache-Control.
     final url = ApiService.dailyUpasanaPdfUrl(rawUrl);
+
+    // On Flutter Web, Syncfusion's PDF parser sometimes fails ("There was an
+    // error opening this document") on PDFs that use compression filters or
+    // custom Devanagari fonts its own implementation doesn't handle — even
+    // when the same file renders fine in the browser tab. So on web we
+    // delegate to the browser's native PDF viewer via an `<iframe>`; on
+    // mobile/desktop Syncfusion works well and gives us richer controls.
+    if (kIsWeb) {
+      return buildDailyUpasanaWebPdfView(url);
+    }
+
     return Stack(
       children: [
         SfPdfViewer.network(
@@ -1295,9 +1333,20 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
               });
             }
           },
-          onDocumentLoadFailed: (_) {
+          onDocumentLoadFailed: (details) {
+            // Surface the underlying reason (HTTP status, CORS, bad MIME, etc.)
+            // both to the UI and the console so the viewer doesn't eat the
+            // real error. Keeps diagnostics easy without shipping a debugger.
+            final desc = details.description.isNotEmpty
+                ? details.description
+                : details.error;
+            debugPrint('[DailyUpasanaPdf] load failed for $url: $desc');
             if (!mounted) return;
-            setState(() => _failed = true);
+            setState(() {
+              _failed = true;
+              _failDescription = desc;
+              _failedUrl = url;
+            });
           },
           onPageChanged: (details) {
             _persistPage(details.newPageNumber);
@@ -1326,6 +1375,8 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   }
 
   Widget _pdfErrorCard(AppStrings s) {
+    final desc = _failDescription;
+    final url = _failedUrl;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -1340,6 +1391,28 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.warmGrey),
             ),
+            if (desc != null && desc.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                desc,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.warmGrey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            if (url != null && url.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              SelectableText(
+                url,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.warmGrey,
+                  fontSize: 10,
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _retry,
