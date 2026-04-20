@@ -1263,13 +1263,16 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   @override
   Widget build(BuildContext context) {
     final s = AppLocaleScope.of(context).strings;
-    final url = widget.item.pdfUrl;
-    if (url.trim().isEmpty) {
+    final rawUrl = widget.item.pdfUrl;
+    if (rawUrl.trim().isEmpty) {
       return Center(child: Text(s.readerPdfLoadFailed));
     }
     if (_failed) {
       return _pdfErrorCard(s);
     }
+    // Route through the backend PDF proxy so Flutter Web can fetch the bytes
+    // without running into S3 CORS (PDF.js uses XHR under the hood).
+    final url = ApiService.dailyUpasanaPdfUrl(rawUrl);
     return Stack(
       children: [
         SfPdfViewer.network(

@@ -164,6 +164,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::submit_feedback)
             .service(routes::get_gallery)
             .service(routes::get_gallery_image_proxy)
+            .service(routes::get_daily_upasana_pdf_proxy)
             .service(routes::like_gallery)
             .service(routes::get_gallery_likes_count)
             .service(routes::get_gallery_comments)

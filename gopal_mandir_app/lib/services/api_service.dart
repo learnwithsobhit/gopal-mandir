@@ -30,6 +30,22 @@ class ApiService {
     return '$baseUrl/api/gallery/proxy?${parts.join('&')}';
   }
 
+  /// Route a PDF stored on S3/CloudFront through the backend proxy. Flutter
+  /// Web's PDF viewer fetches the document via XHR (PDF.js), which is blocked
+  /// by default S3 CORS rules. The proxy serves the bytes from the same
+  /// origin as the app with a long `Cache-Control`, so the browser and any
+  /// Flutter HTTP cache can reuse the download. Non-S3 URLs (e.g. already
+  /// routed through the proxy) are returned unchanged so we don't double-wrap.
+  static String dailyUpasanaPdfUrl(String pdfUrl) {
+    final trimmed = pdfUrl.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (trimmed.startsWith('$baseUrl/api/daily-upasana/pdf-proxy')) {
+      return trimmed;
+    }
+    final encoded = Uri.encodeComponent(trimmed);
+    return '$baseUrl/api/daily-upasana/pdf-proxy?url=$encoded';
+  }
+
   Future<List<AartiSchedule>> getAartiSchedule() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/api/aarti'));

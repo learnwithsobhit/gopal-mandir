@@ -750,6 +750,93 @@ pub async fn get_gallery_image_proxy(
         .body(body)
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct PdfProxyQuery {
+    pub url: String,
+}
+
+/// Streams a PDF stored on S3 / CloudFront through the API so Flutter Web can
+/// fetch it without running into S3 CORS (PDF.js uses XHR under the hood). We
+/// don't cache bytes in Redis — PDFs are typically multi-MB and would evict
+/// hot image/list entries — but we do set a long `Cache-Control` so browsers
+/// and the Flutter HTTP cache can reuse the download.
+#[get("/api/daily-upasana/pdf-proxy")]
+pub async fn get_daily_upasana_pdf_proxy(
+    q: web::Query<PdfProxyQuery>,
+) -> HttpResponse {
+    let url = match url::Url::parse(&q.url) {
+        Ok(u) => u,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid url parameter"),
+    };
+    if url.scheme() != "https" {
+        return HttpResponse::BadRequest().body("Only https URLs are allowed");
+    }
+    let host = url.host_str().unwrap_or("");
+    let allowed = IMAGE_PROXY_ALLOWED_HOSTS
+        .iter()
+        .any(|h| host == *h || host.ends_with(&format!(".{}", h)))
+        || host.ends_with(".amazonaws.com")
+        || host.ends_with(".cloudfront.net");
+    if !allowed {
+        return HttpResponse::Forbidden().body("URL host not allowed for proxy");
+    }
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(45))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return HttpResponse::InternalServerError().body(format!("Client error: {}", e))
+        }
+    };
+    let resp = match client.get(url.as_str()).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return HttpResponse::BadGateway().body(format!("Upstream error: {}", e))
+        }
+    };
+    if !resp.status().is_success() {
+        return HttpResponse::BadGateway()
+            .body(format!("Upstream returned status {}", resp.status()));
+    }
+
+    let upstream_ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/pdf")
+        .to_string();
+
+    // Only forward PDFs — refuse anything else so the proxy can't be abused
+    // to pull arbitrary S3 objects.
+    if !(upstream_ct.starts_with("application/pdf")
+        || upstream_ct.starts_with("application/octet-stream"))
+    {
+        return HttpResponse::BadGateway()
+            .body(format!("Unexpected content-type '{}'", upstream_ct));
+    }
+
+    let content_length = resp.content_length();
+
+    let bytes = match resp.bytes().await {
+        Ok(b) => b,
+        Err(e) => {
+            return HttpResponse::InternalServerError().body(format!("Body error: {}", e))
+        }
+    };
+
+    let mut builder = HttpResponse::Ok();
+    builder
+        .insert_header(("content-type", "application/pdf"))
+        .insert_header(("cache-control", "public, max-age=604800, immutable"))
+        .insert_header(("accept-ranges", "bytes"));
+    if let Some(n) = content_length {
+        builder.insert_header(("content-length", n.to_string()));
+    }
+    builder.body(bytes)
+}
+
 #[post("/api/events/{event_id}/like")]
 pub async fn like_event(
     pool: web::Data<PgPool>,
