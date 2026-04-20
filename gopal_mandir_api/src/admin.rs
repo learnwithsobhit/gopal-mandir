@@ -13,7 +13,8 @@ use crate::s3_presign::{encode_s3_object_path, path_style_object_path, presign_p
 use crate::models::*;
 use crate::util::{bearer_token, normalize_phone, sha256_hex};
 
-const MAX_PRESIGN_BYTES: i64 = 100 * 1024 * 1024; // 100 MB
+const MAX_PRESIGN_BYTES: i64 = 100 * 1024 * 1024; // 100 MB (default)
+const MAX_PRESIGN_PDF_BYTES: i64 = 50 * 1024 * 1024; // 50 MB cap for PDFs
 
 pub(crate) async fn require_admin(pool: &PgPool, req: &HttpRequest) -> Result<Admin, HttpResponse> {
     let token = match bearer_token(req) {
@@ -104,6 +105,7 @@ fn validate_media_type(ct: &str, ext_in: &str) -> Option<&'static str> {
         "mp4" if ct == "video/mp4" => Some("video/mp4"),
         "mov" if ct == "video/quicktime" => Some("video/quicktime"),
         "mp3" if ct == "audio/mpeg" || ct == "audio/mp3" => Some("audio/mpeg"),
+        "pdf" if ct == "application/pdf" => Some("application/pdf"),
         _ => None,
     }
 }
@@ -842,15 +844,6 @@ pub async fn admin_media_presign(
         }
     };
 
-    if let Some(sz) = body.size_bytes {
-        if sz <= 0 || sz > MAX_PRESIGN_BYTES {
-            return HttpResponse::BadRequest().json(serde_json::json!({
-                "success": false,
-                "error": format!("size_bytes must be between 1 and {}", MAX_PRESIGN_BYTES)
-            }));
-        }
-    }
-
     let canonical_ct = match validate_media_type(&body.content_type, &body.file_ext) {
         Some(ct) => ct.to_string(),
         None => {
@@ -860,6 +853,20 @@ pub async fn admin_media_presign(
             }))
         }
     };
+
+    let size_cap = if canonical_ct == "application/pdf" {
+        MAX_PRESIGN_PDF_BYTES
+    } else {
+        MAX_PRESIGN_BYTES
+    };
+    if let Some(sz) = body.size_bytes {
+        if sz <= 0 || sz > size_cap {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": format!("size_bytes must be between 1 and {}", size_cap)
+            }));
+        }
+    }
 
     let prefix = body
         .object_key_prefix
@@ -912,6 +919,22 @@ pub async fn admin_media_presign(
         (host_header, uri, true)
     };
 
+    // Default to a long-lived Cache-Control for PDFs so S3 stores it as
+    // object metadata and the Flutter reader can stream + cache per page.
+    let cache_control = body
+        .cache_control
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            if canonical_ct == "application/pdf" {
+                Some("public, max-age=604800".to_string())
+            } else {
+                None
+            }
+        });
+
     let upload_url = match presign_put_url(
         &host_header,
         &canonical_uri,
@@ -919,6 +942,7 @@ pub async fn admin_media_presign(
         access_key.trim(),
         secret_key.trim(),
         &canonical_ct,
+        cache_control.as_deref(),
         900,
         use_https,
     ) {
@@ -938,6 +962,7 @@ pub async fn admin_media_presign(
         public_url,
         key,
         expires_in_sec: 900,
+        cache_control,
     })
 }
 
@@ -1761,6 +1786,8 @@ pub async fn admin_list_daily_upasana(
             title,
             category,
             content,
+            pdf_url,
+            page_count,
             sort_order,
             is_published,
             created_at,
@@ -1800,25 +1827,60 @@ pub async fn admin_create_daily_upasana(
         return resp;
     }
     let title = body.title.trim();
-    let content = body.content.trim();
-    if title.is_empty() || content.is_empty() {
+    if title.is_empty() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "title and content are required"
+            "error": "title is required"
         }));
     }
+    // Either a non-empty text content OR a non-empty pdf_url; not both.
+    let content_opt: Option<String> = body
+        .content
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let pdf_url_opt: Option<String> = body
+        .pdf_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    match (&content_opt, &pdf_url_opt) {
+        (None, None) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Either text content or PDF is required"
+            }));
+        }
+        (Some(_), Some(_)) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Item must be either text OR PDF, not both"
+            }));
+        }
+        _ => {}
+    }
+    // page_count is only meaningful for PDF items.
+    let page_count_opt: Option<i32> = if pdf_url_opt.is_some() {
+        body.page_count.filter(|n| *n > 0)
+    } else {
+        None
+    };
     let category = body.category.as_deref().unwrap_or("").trim();
     let sort_order = body.sort_order.unwrap_or(0);
     let is_published = body.is_published.unwrap_or(false);
 
     match sqlx::query_as::<_, DailyUpasanaItem>(
-        "INSERT INTO daily_upasana_items (title, category, content, sort_order, is_published)
-         VALUES ($1, $2, $3, $4, $5)
+        "INSERT INTO daily_upasana_items (title, category, content, pdf_url, page_count, sort_order, is_published)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING
             id,
             title,
             category,
             content,
+            pdf_url,
+            page_count,
             sort_order,
             is_published,
             created_at,
@@ -1826,7 +1888,9 @@ pub async fn admin_create_daily_upasana(
     )
     .bind(title)
     .bind(category)
-    .bind(content)
+    .bind(content_opt.as_deref())
+    .bind(pdf_url_opt.as_deref())
+    .bind(page_count_opt)
     .bind(sort_order)
     .bind(is_published)
     .fetch_one(pool.get_ref())
@@ -1875,6 +1939,8 @@ pub async fn admin_patch_daily_upasana(
             title,
             category,
             content,
+            pdf_url,
+            page_count,
             sort_order,
             is_published,
             created_at,
@@ -1903,13 +1969,49 @@ pub async fn admin_patch_daily_upasana(
     };
 
     let new_title = body.title.as_deref().unwrap_or(&existing.title).trim().to_string();
-    let new_content = body.content.as_deref().unwrap_or(&existing.content).trim().to_string();
-    if new_title.is_empty() || new_content.is_empty() {
+    if new_title.is_empty() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "title and content are required"
+            "error": "title is required"
         }));
     }
+
+    // For content / pdf_url: `None` means "keep existing". An explicit
+    // empty/whitespace string means "clear" (so the admin can switch modes).
+    fn patch_nullable(existing: &Option<String>, incoming: &Option<String>) -> Option<String> {
+        match incoming {
+            None => existing.clone(),
+            Some(s) => {
+                let t = s.trim();
+                if t.is_empty() { None } else { Some(t.to_string()) }
+            }
+        }
+    }
+    let new_content = patch_nullable(&existing.content, &body.content);
+    let new_pdf_url = patch_nullable(&existing.pdf_url, &body.pdf_url);
+
+    match (&new_content, &new_pdf_url) {
+        (None, None) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Either text content or PDF is required"
+            }));
+        }
+        (Some(_), Some(_)) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Item must be either text OR PDF, not both"
+            }));
+        }
+        _ => {}
+    }
+    let new_page_count: Option<i32> = if new_pdf_url.is_some() {
+        // If caller sent page_count, use it; else keep existing.
+        body.page_count.or(existing.page_count).filter(|n| *n > 0)
+    } else {
+        None
+    };
+
     let new_category = body.category.as_deref().unwrap_or(&existing.category).trim().to_string();
     let new_sort_order = body.sort_order.unwrap_or(existing.sort_order);
     let new_is_published = body.is_published.unwrap_or(existing.is_published);
@@ -1920,15 +2022,19 @@ pub async fn admin_patch_daily_upasana(
             title = $1,
             category = $2,
             content = $3,
-            sort_order = $4,
-            is_published = $5,
+            pdf_url = $4,
+            page_count = $5,
+            sort_order = $6,
+            is_published = $7,
             updated_at = NOW()
-         WHERE id = $6
+         WHERE id = $8
          RETURNING
             id,
             title,
             category,
             content,
+            pdf_url,
+            page_count,
             sort_order,
             is_published,
             created_at,
@@ -1936,7 +2042,9 @@ pub async fn admin_patch_daily_upasana(
     )
     .bind(new_title)
     .bind(new_category)
-    .bind(new_content)
+    .bind(new_content.as_deref())
+    .bind(new_pdf_url.as_deref())
+    .bind(new_page_count)
     .bind(new_sort_order)
     .bind(new_is_published)
     .bind(id)

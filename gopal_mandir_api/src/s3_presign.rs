@@ -29,6 +29,12 @@ fn signing_key(secret: &str, date_stamp: &str, region: &str, service: &str) -> V
 /// Build a presigned PUT URL. `host` is the HTTP Host header value (no port unless needed).
 /// `canonical_uri` must start with `/` and use URI-encoded path segments for the object key.
 /// `use_https` selects the URL scheme for the returned string.
+///
+/// When `cache_control` is a non-empty string it is added to the list of signed
+/// headers (`cache-control;content-type;host`). The client MUST then send the
+/// same `Cache-Control` header on the PUT request, otherwise S3 rejects the
+/// signature.
+#[allow(clippy::too_many_arguments)]
 pub fn presign_put_url(
     host: &str,
     canonical_uri: &str,
@@ -36,17 +42,27 @@ pub fn presign_put_url(
     access_key: &str,
     secret_key: &str,
     content_type: &str,
+    cache_control: Option<&str>,
     expires_secs: u64,
     use_https: bool,
 ) -> Result<String, &'static str> {
     if !canonical_uri.starts_with('/') {
         return Err("canonical_uri must start with /");
     }
+    let cache_control = cache_control
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let now = Utc::now();
     let amz_date = now.format("%Y%m%dT%H%M%SZ").to_string();
     let date_stamp = now.format("%Y%m%d").to_string();
     let credential_scope = format!("{}/{}/s3/aws4_request", date_stamp, region);
     let credential = format!("{}/{}", access_key, credential_scope);
+
+    let signed_headers: &'static str = if cache_control.is_some() {
+        "cache-control;content-type;host"
+    } else {
+        "content-type;host"
+    };
 
     let mut params: BTreeMap<String, String> = BTreeMap::new();
     params.insert(
@@ -56,7 +72,7 @@ pub fn presign_put_url(
     params.insert("X-Amz-Credential".into(), credential);
     params.insert("X-Amz-Date".into(), amz_date.clone());
     params.insert("X-Amz-Expires".into(), expires_secs.to_string());
-    params.insert("X-Amz-SignedHeaders".into(), "content-type;host".into());
+    params.insert("X-Amz-SignedHeaders".into(), signed_headers.to_string());
 
     let canonical_qs = params
         .iter()
@@ -70,12 +86,20 @@ pub fn presign_put_url(
         .collect::<Vec<_>>()
         .join("&");
 
-    let canonical_headers = format!(
-        "content-type:{}\nhost:{}\n",
-        content_type.trim(),
-        host.trim()
-    );
-    let signed_headers = "content-type;host";
+    let canonical_headers = if let Some(cc) = cache_control {
+        format!(
+            "cache-control:{}\ncontent-type:{}\nhost:{}\n",
+            cc,
+            content_type.trim(),
+            host.trim()
+        )
+    } else {
+        format!(
+            "content-type:{}\nhost:{}\n",
+            content_type.trim(),
+            host.trim()
+        )
+    };
     let payload_hash = "UNSIGNED-PAYLOAD";
 
     let canonical_request = format!(

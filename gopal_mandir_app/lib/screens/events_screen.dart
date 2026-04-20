@@ -3,6 +3,7 @@ import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/vrindavan_background.dart';
 import 'event_donate_screen.dart';
 
@@ -66,7 +67,12 @@ class EventsScreenState extends State<EventsScreen> {
         foregroundColor: Colors.white,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.krishnaBlue))
+          ? ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: 4,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (_, __) => const SkeletonCard(height: 180, radius: 16),
+            )
       : _error != null
               ? Center(
                   child: Padding(

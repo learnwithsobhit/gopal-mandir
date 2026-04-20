@@ -100,7 +100,12 @@ pub struct DailyUpasanaItem {
     pub id: i32,
     pub title: String,
     pub category: String,
-    pub content: String,
+    /// Text body for "text" items. `None` when this item is a PDF book.
+    pub content: Option<String>,
+    /// S3 public URL for "pdf" items. `None` when this item is a text article.
+    pub pdf_url: Option<String>,
+    /// Optional page count hint for PDF items (used by reader UX).
+    pub page_count: Option<i32>,
     pub sort_order: i32,
     pub is_published: bool,
     pub created_at: DateTime<Utc>,
@@ -649,6 +654,10 @@ pub struct AdminPresignRequest {
     pub object_key_prefix: Option<String>,
     /// Declared file size in bytes (optional); used for validation only.
     pub size_bytes: Option<i64>,
+    /// Optional Cache-Control header to sign into the PUT URL (e.g. PDFs want
+    /// `public, max-age=604800`). When present the client MUST send the same
+    /// value back on the PUT, otherwise S3 rejects the signature.
+    pub cache_control: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -658,6 +667,10 @@ pub struct AdminPresignResponse {
     pub public_url: String,
     pub key: String,
     pub expires_in_sec: i64,
+    /// Echo of the Cache-Control header signed into the URL (if any). Client
+    /// MUST include this on the PUT request when non-null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -718,7 +731,11 @@ pub struct AdminDailyUpasanaQuery {
 pub struct AdminCreateDailyUpasanaRequest {
     pub title: String,
     pub category: Option<String>,
-    pub content: String,
+    /// Text body. Either `content` (non-empty) or `pdf_url` must be supplied.
+    pub content: Option<String>,
+    /// S3 URL for a PDF book; mutually exclusive with `content`.
+    pub pdf_url: Option<String>,
+    pub page_count: Option<i32>,
     pub sort_order: Option<i32>,
     pub is_published: Option<bool>,
 }
@@ -727,7 +744,11 @@ pub struct AdminCreateDailyUpasanaRequest {
 pub struct AdminPatchDailyUpasanaRequest {
     pub title: Option<String>,
     pub category: Option<String>,
+    /// An empty string ("") is treated as "clear" so the admin can switch modes.
     pub content: Option<String>,
+    /// An empty string ("") is treated as "clear" so the admin can switch modes.
+    pub pdf_url: Option<String>,
+    pub page_count: Option<i32>,
     pub sort_order: Option<i32>,
     pub is_published: Option<bool>,
 }

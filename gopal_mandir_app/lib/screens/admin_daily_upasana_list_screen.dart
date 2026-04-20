@@ -96,13 +96,23 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
                     itemCount: _items.length,
                     itemBuilder: (context, i) {
                       final item = _items[i];
-                      final preview = item.content.length > 90
-                          ? '${item.content.substring(0, 90)}...'
-                          : item.content;
+                      final preview = item.isPdf
+                          ? 'PDF${item.pageCount != null ? ' • ${item.pageCount} pages' : ''}'
+                          : (item.content.length > 90
+                              ? '${item.content.substring(0, 90)}...'
+                              : item.content);
                       return ListTile(
                         leading: Icon(
-                          item.isPublished ? Icons.check_circle : Icons.pending,
-                          color: item.isPublished ? Colors.green : AppColors.warmGrey,
+                          item.isPdf
+                              ? Icons.picture_as_pdf_outlined
+                              : (item.isPublished
+                                  ? Icons.check_circle
+                                  : Icons.pending),
+                          color: item.isPdf
+                              ? AppColors.templeGoldDark
+                              : (item.isPublished
+                                  ? Colors.green
+                                  : AppColors.warmGrey),
                         ),
                         title: Text(item.title),
                         subtitle: Text(

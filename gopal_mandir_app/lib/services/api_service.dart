@@ -1477,6 +1477,7 @@ class ApiService {
     required String fileExt,
     String objectKeyPrefix = 'gallery',
     int? sizeBytes,
+    String? cacheControl,
   }) async {
     try {
       final response = await http.post(
@@ -1487,6 +1488,8 @@ class ApiService {
           'file_ext': fileExt,
           'object_key_prefix': objectKeyPrefix,
           if (sizeBytes != null) 'size_bytes': sizeBytes,
+          if (cacheControl != null && cacheControl.isNotEmpty)
+            'cache_control': cacheControl,
         }),
       );
       if (response.statusCode == 200) {
@@ -1505,11 +1508,16 @@ class ApiService {
     String uploadUrl, {
     required String contentType,
     required Uint8List bytes,
+    String? cacheControl,
   }) async {
     try {
       final response = await http.put(
         Uri.parse(uploadUrl),
-        headers: {'Content-Type': contentType},
+        headers: {
+          'Content-Type': contentType,
+          if (cacheControl != null && cacheControl.isNotEmpty)
+            'Cache-Control': cacheControl,
+        },
         body: bytes,
       );
       return response.statusCode >= 200 && response.statusCode < 300;

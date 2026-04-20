@@ -394,38 +394,55 @@ class _MoreScreenState extends State<MoreScreen> {
   Widget _menuItem(BuildContext context, IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
     final s = AppLocaleScope.of(context).strings;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: AppColors.softWhite,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: AppColors.krishnaBlue.withAlpha(8),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            color: AppColors.krishnaBlue.withAlpha(14),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
         leading: Container(
-          width: 40,
-          height: 40,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
-            color: AppColors.krishnaBlue.withAlpha(12),
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.templeGold.withAlpha(35),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: AppColors.krishnaBlue, size: 20),
+          child: Icon(icon, color: AppColors.templeGoldDark, size: 22),
         ),
         title: Text(
           title,
-          style: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 14),
+          style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.darkBrown,
+          ),
         ),
         subtitle: Text(
           subtitle,
-          style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: AppColors.warmGrey),
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 12,
+            color: AppColors.warmGrey,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        trailing: Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.warmGrey),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 14,
+          color: AppColors.warmGrey,
+        ),
         onTap: () {
+          HapticFeedback.selectionClick();
           if (onTap != null) return onTap();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

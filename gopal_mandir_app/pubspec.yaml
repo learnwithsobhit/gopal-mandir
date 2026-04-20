@@ -22,6 +22,7 @@ dependencies:
   razorpay_flutter: ^1.4.0
   just_audio: ^0.9.46
   video_player: ^2.9.2
+  syncfusion_flutter_pdfviewer: ^27.1.48
 
 dev_dependencies:
   flutter_test:

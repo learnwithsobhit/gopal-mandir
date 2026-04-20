@@ -36,26 +36,31 @@ class AppTheme {
         color: headlineColor,
       ),
       titleMedium: GoogleFonts.poppins(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
         color: headlineColor,
+        height: 1.35,
       ),
       titleSmall: GoogleFonts.poppins(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: headlineColor,
+        height: 1.35,
       ),
       bodyLarge: GoogleFonts.poppins(
         fontSize: 16,
         color: headlineColor,
+        height: 1.4,
       ),
       bodyMedium: GoogleFonts.poppins(
-        fontSize: 14,
+        fontSize: 15,
         color: bodyMuted,
+        height: 1.35,
       ),
       bodySmall: GoogleFonts.poppins(
-        fontSize: 12,
+        fontSize: 12.5,
         color: bodyMuted,
+        height: 1.35,
       ),
       labelLarge: GoogleFonts.poppins(
         fontSize: 14,
@@ -151,11 +156,11 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surfaceContainerLow,
-        elevation: 1,
-        shadowColor: AppColors.krishnaBlue.withAlpha(24),
+        elevation: 2,
+        shadowColor: AppColors.krishnaBlue.withAlpha(36),
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          borderRadius: BorderRadius.circular(18),
         ),
         margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
       ),
@@ -287,26 +292,28 @@ class AppTheme {
         elevation: 8,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: colorScheme.surface,
-        indicatorColor: AppColors.krishnaBlue.withAlpha(36),
+        backgroundColor: AppColors.softWhite,
+        indicatorColor: AppColors.templeGold.withAlpha(70),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return GoogleFonts.poppins(
             fontSize: 12,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? AppColors.krishnaBlue : AppColors.warmGrey,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppColors.krishnaBlueDark : AppColors.warmGrey,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? AppColors.krishnaBlue : AppColors.warmGrey,
-            size: 24,
+            color: selected
+                ? AppColors.krishnaBlueDark
+                : AppColors.warmGrey,
+            size: 26,
           );
         }),
-        height: 72,
-        elevation: 3,
-        shadowColor: AppColors.krishnaBlue.withAlpha(30),
+        height: 76,
+        elevation: 4,
+        shadowColor: AppColors.krishnaBlue.withAlpha(40),
       ),
       tabBarTheme: TabBarThemeData(
         labelColor: Colors.white,
@@ -380,11 +387,11 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: colorScheme.surfaceContainer,
-        elevation: 1,
-        shadowColor: Colors.black45,
+        elevation: 2,
+        shadowColor: Colors.black54,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          borderRadius: BorderRadius.circular(18),
         ),
         margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
       ),

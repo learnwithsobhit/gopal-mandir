@@ -24,6 +24,13 @@ class AppStrings {
   String get sevaAndOfferingsTitle =>
       isHindi ? 'सेवा एवं भेंट' : 'Seva & Offerings';
 
+  String get sevaOfferingsIntro => isHindi
+      ? 'भगवान श्री गोपाल जी की सेवा में सहभागी बनें। अपनी पसंद का विकल्प चुनें।'
+      : 'Participate in the service of Shri Gopal Ji. Choose the option that calls to you.';
+
+  String get sevaOfferingsChoose =>
+      isHindi ? 'अपनी सेवा चुनें' : 'Choose your offering';
+
   /// Compact home-grid label (the home tiles prefer 2-line text for balance
   /// with neighbours like "Book\nPrasad").
   String get quickSevaAndOfferings =>
@@ -73,6 +80,23 @@ class AppStrings {
   String get templeName => isHindi ? 'श्री गोपाल वैष्णव पीठ गोपाल मंदिर' : 'Shri Gopal Vaishnav Pith Shri Gopal Mandir';
   String get todayInTemple => isHindi ? 'आज मंदिर में' : 'Today at Temple';
   String get upcomingEvents => isHindi ? 'आगामी उत्सव' : 'Upcoming Events';
+
+  // ── Home greeting (time-of-day) + grouped section headers ──
+  String get greetMorning => isHindi ? 'जय श्री कृष्ण' : 'Jai Shri Krishna';
+  String get greetEvening => isHindi ? 'राधे राधे' : 'Radhe Radhe';
+  String get greetSubtitle =>
+      isHindi ? 'आप मंदिर परिवार का हिस्सा हैं' : 'Welcome to your temple';
+  String get homeSectionDaily =>
+      isHindi ? 'नित्य दर्शन व उपासना' : 'Daily Practice';
+  String get homeSectionOfferings =>
+      isHindi ? 'सेवा व भेंट' : 'Offerings & Bookings';
+  String get homeSectionCommunity =>
+      isHindi ? 'समुदाय' : 'Community';
+  String get homeSectionEventsMedia =>
+      isHindi ? 'कार्यक्रम व मीडिया' : 'Events & Media';
+  String get homeSectionTemple =>
+      isHindi ? 'मंदिर जानकारी' : 'Temple';
+  String get homeViewAll => isHindi ? 'सभी देखें' : 'View all';
   String get dailyShlok => isHindi ? 'दैनिक श्लोक' : 'Daily Shlok';
   String get panchangTitle => isHindi ? 'हिंदू पंचांग' : 'Hindu Panchang';
   String get quickDarshan => isHindi ? 'दर्शन' : 'Darshan';
@@ -549,6 +573,15 @@ class AppStrings {
   String get settingsAbout => isHindi ? 'जानकारी' : 'About';
   String get settingsVersion => isHindi ? 'संस्करण' : 'Version';
   String get settingsDeveloper => isHindi ? 'विकासकर्ता' : 'Developer';
+  String get settingsFontPreview =>
+      isHindi ? 'नमस्ते — यह एक उदाहरण पाठ है' : 'Sample text preview';
+  String get settingsReset =>
+      isHindi ? 'डिफ़ॉल्ट पर रीसेट करें' : 'Reset to defaults';
+  String get settingsResetDone =>
+      isHindi ? 'सेटिंग्स रीसेट हो गईं' : 'Settings reset to defaults';
+  String get settingsStorageUnavailable => isHindi
+      ? 'इस डिवाइस पर सेटिंग्स सहेजी नहीं जा सकीं। बदलाव अगले रीलोड पर खो सकते हैं।'
+      : 'Settings could not be saved on this device. Changes may not persist across reloads.';
 
   // ── Panchang screen ──
   String get panchangNotFound => isHindi
@@ -556,4 +589,73 @@ class AppStrings {
       : 'Today''s Panchang is not available.';
   String get panchangError =>
       isHindi ? 'पंचांग लोड करने में त्रुटि हुई।' : 'Failed to load Panchang.';
+
+  // ── Daily Upasana hub / reader ──
+  String get dailyUpasanaTodayReading =>
+      isHindi ? 'आज की उपासना' : "Today's reading";
+  String get dailyUpasanaContinueCta =>
+      isHindi ? 'जारी रखें' : 'Continue';
+  String get dailyUpasanaStartCta =>
+      isHindi ? 'पढ़ना शुरू करें' : 'Start reading';
+  String get dailyUpasanaPdfBadge => isHindi ? 'पीडीएफ' : 'PDF';
+  String get dailyUpasanaEmptyHub => isHindi
+      ? 'अभी कोई उपासना प्रविष्टि उपलब्ध नहीं है।'
+      : 'No upasana items are available yet.';
+  String get dailyUpasanaSearchHint =>
+      isHindi ? 'खोजें: शीर्षक या श्रेणी' : 'Search title or category';
+
+  // ── Admin upasana PDF ──
+  String get adminUpasanaContentMode =>
+      isHindi ? 'सामग्री प्रकार' : 'Content mode';
+  String get adminUpasanaModeText => isHindi ? 'पाठ' : 'Text';
+  String get adminUpasanaModePdf => isHindi ? 'पीडीएफ' : 'PDF';
+  String get adminUpasanaUploadPdf =>
+      isHindi ? 'पीडीएफ अपलोड करें' : 'Upload PDF';
+  String get adminUpasanaReplacePdf =>
+      isHindi ? 'पीडीएफ बदलें' : 'Replace PDF';
+  String get adminUpasanaPickPdf =>
+      isHindi ? 'पीडीएफ चुनें' : 'Pick PDF';
+  String get adminUpasanaUploading =>
+      isHindi ? 'अपलोड हो रहा है...' : 'Uploading...';
+  String get adminUpasanaPdfUploaded =>
+      isHindi ? 'पीडीएफ अपलोड हो गया' : 'PDF uploaded';
+  String get adminUpasanaUploadFailed =>
+      isHindi ? 'अपलोड विफल' : 'Upload failed';
+  String get adminUpasanaPickFailed =>
+      isHindi ? 'फ़ाइल पढ़ने में त्रुटि' : 'Could not read file';
+  String get adminUpasanaPdfTooLarge =>
+      isHindi ? 'पीडीएफ 50 एमबी से अधिक है' : 'PDF is larger than 50 MB';
+  String get adminUpasanaPdfRequired =>
+      isHindi ? 'पीडीएफ अनिवार्य है' : 'PDF is required';
+  String get adminUpasanaTextRequired =>
+      isHindi ? 'पाठ सामग्री अनिवार्य है' : 'Text content is required';
+  String get adminUpasanaPdfPages =>
+      isHindi ? 'पृष्ठ (वैकल्पिक)' : 'Pages (optional)';
+  String get adminUpasanaCurrentPdf =>
+      isHindi ? 'वर्तमान पीडीएफ' : 'Current PDF';
+  String get adminUpasanaModeHint => isHindi
+      ? 'प्रत्येक प्रविष्टि या तो पाठ या पीडीएफ हो सकती है।'
+      : 'Each item is either text or a PDF.';
+
+  // ── Reader chrome ──
+  String get readerFontSize => isHindi ? 'फ़ॉन्ट आकार' : 'Font size';
+  String get readerBrightness => isHindi ? 'रात्रि मोड' : 'Night mode';
+  String get readerJumpToPage =>
+      isHindi ? 'पृष्ठ पर जाएं' : 'Jump to page';
+  String get readerBookmarkPage =>
+      isHindi ? 'इस पृष्ठ को चिन्हित करें' : 'Bookmark page';
+  String get readerBookmarks => isHindi ? 'बुकमार्क' : 'Bookmarks';
+  String get readerNoBookmarks =>
+      isHindi ? 'अभी कोई बुकमार्क नहीं' : 'No bookmarks yet';
+  String get readerPageLabel => isHindi ? 'पृष्ठ' : 'Page';
+  String get readerOf => isHindi ? 'में से' : 'of';
+  String get readerPdfLoadFailed => isHindi
+      ? 'पीडीएफ लोड नहीं हो सका। पुनः प्रयास करें।'
+      : 'Could not load PDF. Please retry.';
+  String get readerRetry => isHindi ? 'पुनः प्रयास' : 'Retry';
+  String get readerGo => isHindi ? 'जाएं' : 'Go';
+
+  String readerPageOfTotal(int current, int total) => isHindi
+      ? 'पृष्ठ $current / $total'
+      : 'Page $current of $total';
 }

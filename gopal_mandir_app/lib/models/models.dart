@@ -212,7 +212,12 @@ class DailyUpasanaItem {
   final int id;
   final String title;
   final String category;
+  /// Text body. Empty when the item is a PDF book.
   final String content;
+  /// Public S3 URL for PDF items. Empty when the item is a text article.
+  final String pdfUrl;
+  /// Optional page count hint for PDF items.
+  final int? pageCount;
   final int sortOrder;
   final bool isPublished;
   final String createdAt;
@@ -223,11 +228,16 @@ class DailyUpasanaItem {
     required this.title,
     required this.category,
     required this.content,
+    required this.pdfUrl,
+    required this.pageCount,
     required this.sortOrder,
     required this.isPublished,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  bool get isPdf => pdfUrl.trim().isNotEmpty;
+  bool get hasText => content.trim().isNotEmpty;
 
   factory DailyUpasanaItem.fromJson(Map<String, dynamic> json) {
     return DailyUpasanaItem(
@@ -235,6 +245,8 @@ class DailyUpasanaItem {
       title: (json['title'] ?? '').toString(),
       category: (json['category'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
+      pdfUrl: (json['pdf_url'] ?? '').toString(),
+      pageCount: (json['page_count'] as num?)?.toInt(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       isPublished: json['is_published'] == true,
       createdAt: (json['created_at'] ?? '').toString(),
@@ -1123,18 +1135,24 @@ class AdminPresignResult {
   final String uploadUrl;
   final String publicUrl;
   final String key;
+  /// When non-null, the client MUST send this as the `Cache-Control` header
+  /// on the PUT request — otherwise the signature will not match.
+  final String? cacheControl;
 
   AdminPresignResult({
     required this.uploadUrl,
     required this.publicUrl,
     required this.key,
+    this.cacheControl,
   });
 
   factory AdminPresignResult.fromJson(Map<String, dynamic> json) {
+    final cc = (json['cache_control'] ?? '').toString();
     return AdminPresignResult(
       uploadUrl: (json['upload_url'] ?? '').toString(),
       publicUrl: (json['public_url'] ?? '').toString(),
       key: (json['key'] ?? '').toString(),
+      cacheControl: cc.isEmpty ? null : cc,
     );
   }
 }

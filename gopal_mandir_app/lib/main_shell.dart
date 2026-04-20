@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'l10n/locale_scope.dart';
 import 'screens/events_screen.dart';
@@ -29,6 +30,7 @@ class _MainShellState extends State<MainShell> {
   ];
 
   void _onTabTapped(int index) {
+    HapticFeedback.selectionClick();
     if (index == 3) {
       _eventsKey.currentState?.refresh();
     }
