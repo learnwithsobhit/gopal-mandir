@@ -14,11 +14,7 @@ import '../l10n/app_language.dart';
 import '../l10n/locale_scope.dart';
 import 'aarti_screen.dart';
 import 'events_screen.dart';
-import 'donate_screen.dart';
-import 'prasad_screen.dart';
-import 'seva_screen.dart';
 import 'gallery_screen.dart';
-import 'pooja_appointment_screen.dart';
 import 'announcements_screen.dart';
 import 'live_darshan_screen.dart';
 import 'hindu_panchang_screen.dart';
@@ -26,6 +22,9 @@ import 'festivals_screen.dart';
 import 'daily_upasana_screen.dart';
 import 'astro_consult_screen.dart';
 import 'community_feed_screen.dart';
+import 'seva_offerings_screen.dart';
+import 'about_temple_screen.dart';
+import 'successions_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -217,34 +216,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           onTap: () => _navigateTo(context, const AartiScreen()),
                         ),
                         QuickActionButton(
-                          icon: Icons.volunteer_activism,
-                          label: s.quickDonate,
+                          icon: Icons.self_improvement,
+                          label: s.quickSevaAndOfferings,
                           color: AppColors.peacockGreen,
-                          onTap: () => _navigateTo(context, const DonateScreen()),
-                        ),
-                        QuickActionButton(
-                          icon: Icons.card_giftcard,
-                          label: s.quickBookPrasad,
-                          color: AppColors.templeGoldDark,
-                          onTap: () => _navigateTo(context, const PrasadScreen()),
+                          onTap: () => _navigateTo(context, const SevaOfferingsScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.event,
                           label: s.quickEvents,
                           color: AppColors.krishnaBlue,
                           onTap: () => _navigateTo(context, const EventsScreen()),
-                        ),
-                        QuickActionButton(
-                          icon: Icons.self_improvement,
-                          label: s.quickSeva,
-                          color: AppColors.peacockGreen,
-                          onTap: () => _navigateTo(context, const SevaScreen()),
-                        ),
-                        QuickActionButton(
-                          icon: Icons.event_available,
-                          label: s.quickPoojaAppointment,
-                          color: AppColors.templeGoldDark,
-                          onTap: () => _navigateTo(context, const PoojaAppointmentScreen()),
                         ),
                         QuickActionButton(
                           icon: Icons.photo_library,
@@ -281,6 +262,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           label: s.quickCommunityQA,
                           color: AppColors.peacockGreen,
                           onTap: () => _navigateTo(context, const CommunityFeedScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.info_outline,
+                          label: s.quickTempleInfo,
+                          color: AppColors.krishnaBlue,
+                          onTap: () => _navigateTo(context, const AboutTempleScreen()),
+                        ),
+                        QuickActionButton(
+                          icon: Icons.account_tree_outlined,
+                          label: s.quickSuccession,
+                          color: AppColors.templeGoldDark,
+                          onTap: () => _navigateTo(context, const SuccessionsScreen()),
                         ),
                       ],
                     ),

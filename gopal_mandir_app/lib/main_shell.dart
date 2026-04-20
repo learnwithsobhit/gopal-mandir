@@ -5,7 +5,7 @@ import 'screens/events_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/live_darshan_screen.dart';
 import 'screens/more_screen.dart';
-import 'screens/seva_screen.dart';
+import 'screens/seva_offerings_screen.dart';
 import 'widgets/vrindavan_background.dart';
 
 class MainShell extends StatefulWidget {
@@ -18,21 +18,18 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final _sevaKey = GlobalKey<SevaScreenState>();
   final _eventsKey = GlobalKey<EventsScreenState>();
 
   late final List<Widget> _screens = [
     const HomeScreen(),
-    SevaScreen(key: _sevaKey),
+    const SevaOfferingsScreen(),
     const LiveDarshanScreen(),
     EventsScreen(key: _eventsKey),
     const MoreScreen(),
   ];
 
   void _onTabTapped(int index) {
-    if (index == 1) {
-      _sevaKey.currentState?.refresh();
-    } else if (index == 3) {
+    if (index == 3) {
       _eventsKey.currentState?.refresh();
     }
     setState(() => _currentIndex = index);
@@ -61,7 +58,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(
             icon: const Icon(Icons.self_improvement_outlined),
             selectedIcon: const Icon(Icons.self_improvement),
-            label: s.navSeva,
+            label: s.navSevaAndOfferings,
           ),
           NavigationDestination(
             icon: const Icon(Icons.live_tv_outlined),

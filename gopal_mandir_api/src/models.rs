@@ -1557,3 +1557,42 @@ pub struct AdminCommunityCommentCreateRequest {
 pub struct AdminPatchCommunityPostRequest {
     pub status: String,
 }
+
+// ───────────────────────────────
+// Succession (परम्परा) lineage
+// ───────────────────────────────
+
+/// A single entry in the chronological lineage of mahants/acharyas at the
+/// temple. `position` is the sort order (1 = earliest). Dates are optional
+/// because historical entries are usually only known approximately;
+/// `tenure_text` is the free-form display string.
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct Succession {
+    pub id: i32,
+    pub position: i32,
+    pub name: String,
+    pub title: Option<String>,
+    pub tenure_text: Option<String>,
+    pub tenure_start: Option<NaiveDate>,
+    pub tenure_end: Option<NaiveDate>,
+    pub bio: Option<String>,
+    pub quote: Option<String>,
+    pub photo_url: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Admin create/update payload. `position` and `name` are required; every
+/// other field is optional. Dates accept `YYYY-MM-DD` strings via serde.
+#[derive(Debug, Deserialize)]
+pub struct SuccessionInput {
+    pub position: i32,
+    pub name: String,
+    pub title: Option<String>,
+    pub tenure_text: Option<String>,
+    pub tenure_start: Option<NaiveDate>,
+    pub tenure_end: Option<NaiveDate>,
+    pub bio: Option<String>,
+    pub quote: Option<String>,
+    pub photo_url: Option<String>,
+}

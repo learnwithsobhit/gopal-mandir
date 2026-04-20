@@ -1111,6 +1111,37 @@ pub async fn get_temple_info(pool: web::Data<PgPool>, cache: web::Data<Cache>) -
     }
 }
 
+/// Public lineage (परम्परा) list. Results are ordered by `position` (with
+/// `id` as a stable tiebreak) and cached for 6 hours — lineage data
+/// changes very rarely, so a long TTL keeps the DB idle on read paths.
+#[get("/api/successions")]
+pub async fn get_successions(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<Succession>, _, _, sqlx::Error>(
+            "successions",
+            "list",
+            StdDuration::from_secs(6 * 3600),
+            || async {
+                sqlx::query_as::<_, Succession>(
+                    "SELECT * FROM successions ORDER BY position ASC, id ASC",
+                )
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
 #[get("/api/site/landing-audio")]
 pub async fn get_landing_audio(
     pool: web::Data<PgPool>,

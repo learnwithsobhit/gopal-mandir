@@ -21,6 +21,7 @@ import 'admin_donations_screen.dart';
 import 'admin_aarti_list_screen.dart';
 import 'admin_dainik_shlok_screen.dart';
 import 'admin_temple_about_screen.dart';
+import 'admin_successions_screen.dart';
 import 'admin_daily_upasana_list_screen.dart';
 import 'admin_members_screen.dart';
 import 'admin_volunteers_screen.dart';
@@ -324,6 +325,17 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminTempleAboutScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.account_tree_outlined,
+            s.adminSuccessions,
+            s.adminSuccessionsSub,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminSuccessionsScreen(token: _token!),
               ),
             ),
           ),

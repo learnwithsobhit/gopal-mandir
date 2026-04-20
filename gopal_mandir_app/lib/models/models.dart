@@ -2238,3 +2238,77 @@ class CommunityPostDetail {
     );
   }
 }
+
+/// A single entry in the temple's lineage (परम्परा). Ordered by [position]
+/// server-side (1 = earliest). Most fields are optional because historical
+/// entries usually only carry a name and approximate tenure text.
+class Succession {
+  final int id;
+  final int position;
+  final String name;
+  final String? title;
+  final String? tenureText;
+  final DateTime? tenureStart;
+  final DateTime? tenureEnd;
+  final String? bio;
+  final String? quote;
+  final String? photoUrl;
+
+  Succession({
+    required this.id,
+    required this.position,
+    required this.name,
+    this.title,
+    this.tenureText,
+    this.tenureStart,
+    this.tenureEnd,
+    this.bio,
+    this.quote,
+    this.photoUrl,
+  });
+
+  static String? _trimmedOrNull(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString();
+    if (s.isEmpty) return null;
+    return DateTime.tryParse(s);
+  }
+
+  factory Succession.fromJson(Map<String, dynamic> json) {
+    return Succession(
+      id: (json['id'] as num).toInt(),
+      position: (json['position'] as num).toInt(),
+      name: (json['name'] ?? '').toString(),
+      title: _trimmedOrNull(json['title']),
+      tenureText: _trimmedOrNull(json['tenure_text']),
+      tenureStart: _parseDate(json['tenure_start']),
+      tenureEnd: _parseDate(json['tenure_end']),
+      bio: _trimmedOrNull(json['bio']),
+      quote: _trimmedOrNull(json['quote']),
+      photoUrl: _trimmedOrNull(json['photo_url']),
+    );
+  }
+
+  Map<String, dynamic> toAdminJson() {
+    String? datePart(DateTime? d) =>
+        d == null ? null : '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    return {
+      'position': position,
+      'name': name,
+      'title': title,
+      'tenure_text': tenureText,
+      'tenure_start': datePart(tenureStart),
+      'tenure_end': datePart(tenureEnd),
+      'bio': bio,
+      'quote': quote,
+      'photo_url': photoUrl,
+    };
+  }
+}
+

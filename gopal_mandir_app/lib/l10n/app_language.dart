@@ -15,6 +15,53 @@ class AppStrings {
   String get appTitle => isHindi ? 'श्री गोपाल वैष्णव पीठ गोपाल मंदिर' : 'Shri Gopal Vaishnav Pith Shri Gopal Mandir';
   String get navHome => isHindi ? 'होम' : 'Home';
   String get navSeva => isHindi ? 'सेवा' : 'Seva';
+
+  /// Bottom-nav label for the merged hub screen. Short enough to fit under
+  /// a Material [NavigationBar] destination without clipping.
+  String get navSevaAndOfferings => isHindi ? 'सेवा' : 'Seva';
+
+  /// Full title for the merged hub screen's AppBar and home-grid label.
+  String get sevaAndOfferingsTitle =>
+      isHindi ? 'सेवा एवं भेंट' : 'Seva & Offerings';
+
+  /// Compact home-grid label (the home tiles prefer 2-line text for balance
+  /// with neighbours like "Book\nPrasad").
+  String get quickSevaAndOfferings =>
+      isHindi ? 'सेवा एवं\nभेंट' : 'Seva &\nOfferings';
+
+  // ── Temple Info + Succession (home tiles + dedicated screens) ──
+
+  /// Home-grid label for the existing AboutTempleScreen.
+  String get quickTempleInfo => isHindi ? 'मंदिर\nजानकारी' : 'Temple\nInfo';
+
+  /// Home-grid label for the new SuccessionsScreen (guru lineage).
+  String get quickSuccession => isHindi ? 'परम्परा' : 'Succession';
+
+  /// AppBar title for the SuccessionsScreen.
+  String get successionsScreenTitle => isHindi ? 'परम्परा' : 'Succession';
+
+  /// Shown when the successions list is empty on the public screen.
+  String get successionsEmpty => isHindi
+      ? 'अभी परम्परा जानकारी उपलब्ध नहीं है'
+      : 'Succession details not available yet';
+
+  String get successionReadMore => isHindi ? 'और पढ़ें' : 'Read more';
+  String get successionReadLess => isHindi ? 'कम पढ़ें' : 'Read less';
+
+  // Admin strings for Succession management.
+  String get adminSuccessions => isHindi ? 'परम्परा प्रबंधन' : 'Successions';
+  String get adminSuccessionsSub =>
+      isHindi ? 'गुरु / महन्त परम्परा जोड़ें, संपादित करें' : 'Add, edit or delete lineage entries';
+  String get adminSuccessionNew => isHindi ? 'नई प्रविष्टि' : 'New succession';
+  String get adminSuccessionEdit => isHindi ? 'प्रविष्टि संपादित करें' : 'Edit succession';
+  String get fieldPosition => isHindi ? 'क्रम' : 'Position';
+  String get fieldTitle => isHindi ? 'उपाधि' : 'Title';
+  String get fieldTenure => isHindi ? 'कार्यकाल' : 'Tenure';
+  String get fieldTenureStart => isHindi ? 'आरम्भ तिथि' : 'Start date';
+  String get fieldTenureEnd => isHindi ? 'समाप्ति तिथि' : 'End date';
+  String get fieldBio => isHindi ? 'परिचय' : 'Biography';
+  String get fieldQuote => isHindi ? 'उद्धरण / श्लोक' : 'Quote';
+  String get fieldPhoto => isHindi ? 'चित्र' : 'Photo';
   String get navLive => isHindi ? 'लाइव' : 'Live';
   String get navEvents => isHindi ? 'कार्यक्रम' : 'Events';
   String get navMore => isHindi ? 'अधिक' : 'More';

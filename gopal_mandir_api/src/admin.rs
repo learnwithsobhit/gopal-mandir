@@ -5292,3 +5292,182 @@ pub async fn admin_cache_stats(
         "data": stats,
     }))
 }
+
+// --- Succession (परम्परा) admin CRUD -----------------------------------------
+//
+// All handlers gate on `require_admin` and invalidate the `"successions"`
+// cache namespace on success so the public `/api/successions` read-through
+// picks up the new state on its next miss.
+
+#[get("/api/admin/successions")]
+pub async fn admin_list_successions(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    match sqlx::query_as::<_, Succession>(
+        "SELECT * FROM successions ORDER BY position ASC, id ASC",
+    )
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(rows) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": rows,
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/successions")]
+pub async fn admin_create_succession(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    body: web::Json<SuccessionInput>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let name = body.name.trim();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name is required"
+        }));
+    }
+    match sqlx::query_as::<_, Succession>(
+        "INSERT INTO successions
+            (position, name, title, tenure_text, tenure_start, tenure_end, bio, quote, photo_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *",
+    )
+    .bind(body.position)
+    .bind(name)
+    .bind(body.title.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.tenure_text.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.tenure_start)
+    .bind(body.tenure_end)
+    .bind(body.bio.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.quote.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.photo_url.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => {
+            cache.invalidate("successions").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row,
+            }))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/successions/{id}")]
+pub async fn admin_patch_succession(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<SuccessionInput>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    let name = body.name.trim();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name is required"
+        }));
+    }
+    match sqlx::query_as::<_, Succession>(
+        "UPDATE successions
+            SET position = $1,
+                name = $2,
+                title = $3,
+                tenure_text = $4,
+                tenure_start = $5,
+                tenure_end = $6,
+                bio = $7,
+                quote = $8,
+                photo_url = $9,
+                updated_at = NOW()
+          WHERE id = $10
+         RETURNING *",
+    )
+    .bind(body.position)
+    .bind(name)
+    .bind(body.title.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.tenure_text.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.tenure_start)
+    .bind(body.tenure_end)
+    .bind(body.bio.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.quote.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(body.photo_url.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(row)) => {
+            cache.invalidate("successions").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row,
+            }))
+        }
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Succession entry not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/successions/{id}")]
+pub async fn admin_delete_succession(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+    match sqlx::query("DELETE FROM successions WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("successions").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Succession entry not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

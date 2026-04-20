@@ -649,6 +649,27 @@ class ApiService {
     return _defaultTempleInfo();
   }
 
+  /// Public lineage (परम्परा) list. Backed by a 6 h Redis read-through on
+  /// the server so this call is cheap on the client as well.
+  Future<List<Succession>> getSuccessions() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/successions'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(Succession.fromJson)
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('Error fetching successions: $e');
+    }
+    return const <Succession>[];
+  }
+
   /// Public URL for MP3 played on the app landing screen (may be empty).
   Future<String?> getLandingAudioUrl() async {
     try {
@@ -2523,6 +2544,88 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('admin seva item delete: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Successions (परम्परा)
+  // ──────────────────────────────────────────────
+
+  Future<List<Succession>> adminListSuccessions(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/admin/successions'),
+        headers: _adminHeaders(token),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(Succession.fromJson)
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin successions list: $e');
+    }
+    return const <Succession>[];
+  }
+
+  Future<Succession?> adminCreateSuccession(
+    String token,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/successions'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return Succession.fromJson(data);
+      }
+    } catch (e) {
+      print('admin succession create: $e');
+    }
+    return null;
+  }
+
+  Future<Succession?> adminPatchSuccession(
+    String token,
+    int id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/successions/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return Succession.fromJson(data);
+      }
+    } catch (e) {
+      print('admin succession patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteSuccession(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/successions/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin succession delete: $e');
     }
     return false;
   }
