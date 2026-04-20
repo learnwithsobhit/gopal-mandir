@@ -1,4 +1,3 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,6 +6,7 @@ import '../l10n/locale_scope.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/pdf_upload_picker.dart';
 
 /// Each daily-upasana item is either a rich-text article or a PDF book; admins
 /// pick the mode up-front. Mode is persisted as "content is non-empty" vs
@@ -82,21 +82,16 @@ class _AdminDailyUpasanaEditScreenState
 
   Future<void> _pickAndUploadPdf() async {
     final s = AppLocaleScope.of(context).strings;
-    FilePickerResult? picked;
+    PickedPdfFile? picked;
     try {
-      picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['pdf'],
-        withData: true,
-      );
+      picked = await pickPdfForUpload();
     } catch (e) {
       _toast('${s.adminUpasanaPickFailed}: $e');
       return;
     }
-    if (picked == null || picked.files.isEmpty) return;
-    final f = picked.files.first;
-    final Uint8List? bytes = f.bytes;
-    if (bytes == null || bytes.isEmpty) {
+    if (picked == null) return;
+    final bytes = picked.bytes;
+    if (bytes.isEmpty) {
       _toast(s.adminUpasanaPickFailed);
       return;
     }
@@ -132,7 +127,7 @@ class _AdminDailyUpasanaEditScreenState
       if (!mounted) return;
       setState(() {
         _pdfUrl = presign.publicUrl;
-        _pdfFilename = f.name;
+        _pdfFilename = picked!.name;
       });
       _toast(s.adminUpasanaPdfUploaded);
     } finally {
