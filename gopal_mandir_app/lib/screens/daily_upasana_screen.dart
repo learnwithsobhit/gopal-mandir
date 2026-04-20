@@ -1301,14 +1301,18 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
     // SfPdfViewer on web) fetches it cleanly with a long Cache-Control.
     final url = ApiService.dailyUpasanaPdfUrl(rawUrl);
 
-    // On Flutter Web, Syncfusion's PDF parser sometimes fails ("There was an
-    // error opening this document") on PDFs that use compression filters or
-    // custom Devanagari fonts its own implementation doesn't handle — even
-    // when the same file renders fine in the browser tab. So on web we
-    // delegate to the browser's native PDF viewer via an `<iframe>`; on
-    // mobile/desktop Syncfusion works well and gives us richer controls.
+    // On Flutter Web we render PDFs with bundled Mozilla PDF.js (see
+    // `web/pdfjs/`) rather than Syncfusion or a raw `<iframe src=pdf>`:
+    //   - Syncfusion's web parser rejects some PDFs ("There was an error
+    //     opening this document").
+    //   - Mobile browsers (iOS Safari, Chrome Android) only show page 1 of
+    //     a PDF inside an iframe.
+    // PDF.js is pure JS so it renders every page on every browser including
+    // mobile. The native Syncfusion viewer on mobile/desktop apps keeps
+    // richer controls (resume, bookmarks, jump-to-page) — we pass the saved
+    // page to PDF.js via `#page=N` so resume still works on web.
     if (kIsWeb) {
-      return buildDailyUpasanaWebPdfView(url);
+      return buildDailyUpasanaWebPdfView(url, initialPage: _savedPage);
     }
 
     return Stack(
@@ -1317,10 +1321,16 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
           url,
           key: ValueKey('pdf_${widget.item.id}_$_reloadNonce'),
           controller: _pdfCtrl,
-          pageLayoutMode: PdfPageLayoutMode.single,
-          scrollDirection: PdfScrollDirection.horizontal,
-          canShowScrollHead: false,
-          canShowScrollStatus: false,
+          // Vertical continuous reading feels most natural on mobile — users
+          // scroll through the whole book with one gesture. Horizontal single
+          // page required a side-swipe that most readers missed, so the PDF
+          // felt stuck on page 1.
+          pageLayoutMode: PdfPageLayoutMode.continuous,
+          scrollDirection: PdfScrollDirection.vertical,
+          canShowScrollHead: true,
+          canShowScrollStatus: true,
+          canShowPageLoadingIndicator: true,
+          enableDoubleTapZooming: true,
           onDocumentLoaded: (details) {
             setState(() {
               _totalPages = details.document.pages.count;

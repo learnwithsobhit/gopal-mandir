@@ -1,0 +1,44 @@
+/* Daily Upasana reading mode — strips the authoring / admin toolbar bits
+ * from the bundled PDF.js viewer so end users see a clean reading UI with
+ * just page navigation, zoom, thumbnails, and search. Loaded after
+ * `viewer.css` in `viewer.html`, so these rules win via cascade order. */
+
+/* Hide the entire "editor" toolbar group: highlight, free text, draw, and
+ * the stamp / "Add or edit images" button that the user flagged. These are
+ * authoring tools, not reading tools. */
+#editorModeButtons,
+#editorModeSeparator,
+#editorHighlight,
+#editorFreeText,
+#editorInk,
+#editorStamp,
+#editorHighlightButton,
+#editorFreeTextButton,
+#editorInkButton,
+#editorStampButton {
+  display: none !important;
+}
+
+/* Hide file-system affordances: opening a local PDF and the "Open File"
+ * entry in the overflow menu. We always load a specific PDF from the
+ * backend; letting readers open arbitrary local files was confusing. */
+#secondaryOpenFile,
+#openFile {
+  display: none !important;
+}
+
+/* Hide "Document Properties" and the standalone bookmark-URL button from
+ * the overflow menu — these only make sense for a standalone viewer, not
+ * an embedded reader. */
+#documentProperties,
+#viewBookmark,
+#viewBookmarkSeparator {
+  display: none !important;
+}
+
+/* Keep the print / download buttons — readers often want to save or print
+ * scriptures — but tighten up the toolbar a bit so it doesn't look sparse
+ * with the editor group gone. */
+.toolbar .toolbarHorizontalGroup + .toolbarHorizontalGroup {
+  margin-left: 4px;
+}

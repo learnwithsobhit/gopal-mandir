@@ -5,6 +5,6 @@ import 'package:flutter/material.dart';
 /// `SfPdfViewer`). Exists so that [buildDailyUpasanaWebPdfView] is importable
 /// from any platform through the conditional export in
 /// `daily_upasana_web_pdf_view.dart`.
-Widget buildDailyUpasanaWebPdfView(String url) {
+Widget buildDailyUpasanaWebPdfView(String url, {int? initialPage}) {
   return const SizedBox.shrink();
 }
