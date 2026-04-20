@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/locale_scope.dart';
@@ -108,16 +109,9 @@ class _AdminSuccessionsScreenState extends State<AdminSuccessionsScreen> {
                         margin: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor:
-                                AppColors.templeGold.withAlpha(40),
-                            child: Text(
-                              '${item.position}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.templeGoldDark,
-                              ),
-                            ),
+                          leading: _AdminSuccessionThumb(
+                            photoUrl: item.photoUrl,
+                            position: item.position,
                           ),
                           title: Text(
                             item.name,
@@ -161,6 +155,66 @@ class _AdminSuccessionsScreenState extends State<AdminSuccessionsScreen> {
                     },
                   ),
                 ),
+    );
+  }
+}
+
+/// Small circular thumbnail for the admin list. Falls back to a position
+/// badge when no photo is set — and shows the same badge while the image
+/// is still loading / errors out so admins can visually verify that the
+/// upload produced a usable `photo_url`.
+class _AdminSuccessionThumb extends StatelessWidget {
+  const _AdminSuccessionThumb({
+    required this.photoUrl,
+    required this.position,
+  });
+
+  final String? photoUrl;
+  final int position;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = (photoUrl ?? '').trim().isNotEmpty;
+    if (!hasPhoto) {
+      return CircleAvatar(
+        backgroundColor: AppColors.templeGold.withAlpha(40),
+        child: Text(
+          '$position',
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: AppColors.templeGoldDark,
+          ),
+        ),
+      );
+    }
+    return ClipOval(
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: CachedNetworkImage(
+          imageUrl: ApiService.galleryProxyUrl(
+            photoUrl!,
+            width: 160,
+            quality: 78,
+          ),
+          fit: BoxFit.cover,
+          memCacheWidth: 160,
+          placeholder: (_, __) => Container(
+            color: AppColors.templeGold.withAlpha(20),
+          ),
+          errorWidget: (_, __, ___) => Container(
+            color: AppColors.templeGold.withAlpha(40),
+            alignment: Alignment.center,
+            child: Text(
+              '$position',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.templeGoldDark,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

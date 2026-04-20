@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -312,7 +310,13 @@ class _AdminSuccessionEditScreenState extends State<AdminSuccessionEditScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            _PhotoPreview(url: _photoUrlCtrl.text),
+            // Listen to the controller so pasted URLs also refresh the
+            // preview (upload already calls setState, but manual edits do
+            // not trigger a parent rebuild on their own).
+            AnimatedBuilder(
+              animation: _photoUrlCtrl,
+              builder: (_, __) => _PhotoPreview(url: _photoUrlCtrl.text),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _photoUrlCtrl,
