@@ -179,6 +179,11 @@ class AppStrings {
   String get notesOptionalLabel => isHindi ? 'नोट्स (वैकल्पिक)' : 'Notes (optional)';
   String get donateForEvent => isHindi ? 'इस कार्यक्रम के लिए दान' : 'Donate for this event';
   String get selectAmount => isHindi ? 'राशि चुनें (₹)' : 'Select Amount (₹)';
+  String get contributionAmountTitle =>
+      isHindi ? 'योगदान राशि (₹, न्यूनतम 100)' : 'Contribution amount (₹, min 100)';
+  String get staffContactPaymentDisclaimer => isHindi
+      ? 'मंदिर कार्यालय दिए गए नंबर पर आपसे संपर्क कर सकता है। अंतिम विवरण फोन पर भी तय किए जा सकते हैं। ऑनलाइन भुगतान आपकी दर्ज राशि (न्यूनतम ₹100) पर होगा।'
+      : 'Temple staff may call you on the number you provide to confirm details. Final arrangements can also be settled by phone. Online payment is for the amount you enter (minimum ₹100).';
   String get purpose => isHindi ? 'उद्देश्य' : 'Purpose';
   String get donationSubtitle => isHindi
       ? 'आपका योगदान मंदिर सेवा और समुदाय कल्याण में सहायक है'

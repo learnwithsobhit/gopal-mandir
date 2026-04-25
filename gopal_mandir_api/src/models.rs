@@ -398,10 +398,16 @@ pub struct SevaBookingRequest {
     pub seva_item_id: i32,
     pub name: String,
     pub phone: String,
+    /// User-chosen contribution in INR (min ₹100, same cap as donations).
+    /// Razorpay order amount is derived from this; catalog `seva_items.price`
+    /// is not used for checkout.
+    pub amount: f64,
     pub preferred_date: Option<String>,
     pub notes: Option<String>,
 }
 
+/// Legacy success shape for `POST /api/seva/booking` (handler now returns 400).
+#[allow(dead_code)]
 #[derive(Debug, Serialize)]
 pub struct SevaBookingResponse {
     pub success: bool,

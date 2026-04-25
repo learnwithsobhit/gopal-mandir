@@ -24,6 +24,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
   final _formKey = GlobalKey<FormState>();
   final ApiService _api = ApiService();
 
+  final _amountController = TextEditingController(text: '100');
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _preferredDateController = TextEditingController();
@@ -31,8 +32,17 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
 
   bool _submitting = false;
 
+  double? _parseContributionAmount() {
+    final raw = _amountController.text.trim().replaceAll(',', '');
+    if (raw.isEmpty) return null;
+    final n = double.tryParse(raw);
+    if (n == null || n < 100 || n > 500000) return null;
+    return n;
+  }
+
   @override
   void dispose() {
+    _amountController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _preferredDateController.dispose();
@@ -62,31 +72,27 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
     if (form == null) return;
     if (!form.validate()) return;
 
+    final amount = _parseContributionAmount();
+    if (amount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.enterValidAmountMin100),
+          backgroundColor: AppColors.urgentRed,
+        ),
+      );
+      return;
+    }
+
     final req = SevaBookingRequest(
       sevaItemId: widget.item.id,
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim(),
+      amount: amount,
       preferredDate: _preferredDateController.text.trim().isEmpty
           ? null
           : _preferredDateController.text.trim(),
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
-
-    // Items under ₹100: honor-system booking only (no Razorpay order).
-    if (widget.item.price < 100) {
-      setState(() => _submitting = true);
-      final resp = await _api.submitSevaBooking(req);
-      if (!mounted) return;
-      setState(() => _submitting = false);
-      if (!resp.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(resp.message), backgroundColor: AppColors.urgentRed),
-        );
-        return;
-      }
-      await _showBookingSuccess(resp.message, resp.referenceId);
-      return;
-    }
 
     setState(() => _submitting = true);
     try {
@@ -260,26 +266,10 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        '₹${widget.item.price.toInt()}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.peacockGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                if (widget.item.price < 100)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: Text(
-                      s.sevaBelow100Info,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
                 AppSurface(
                   level: AppSurfaceLevel.low,
                   padding: const EdgeInsets.all(AppSpacing.lg),
@@ -289,6 +279,43 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                       Text(
                         s.yourDetails,
                         style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        s.contributionAmountTitle,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: s.amountMin100Label,
+                          prefixText: '₹ ',
+                          prefixStyle: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        validator: (v) {
+                          final raw = (v ?? '').trim().replaceAll(',', '');
+                          if (raw.isEmpty) return s.enterAmount;
+                          final n = double.tryParse(raw);
+                          if (n == null) return s.enterValidNumber;
+                          if (n < 100) return s.minimumDonation100;
+                          if (n > 500000) return s.maximumDonationLimit;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        s.staffContactPaymentDisclaimer,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.warmGrey,
+                              height: 1.4,
+                            ),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
@@ -301,7 +328,13 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(labelText: s.phoneNumberLabel),
-                        validator: (v) => v == null || v.trim().length < 8 ? s.validPhoneShort : null,
+                        validator: (v) {
+                          final raw = (v ?? '').trim();
+                          if (raw.isEmpty) return s.pleaseEnterPhone;
+                          final digits = raw.replaceAll(RegExp(r'\D'), '');
+                          if (digits.length < 10) return s.enterValidPhone;
+                          return null;
+                        },
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(
@@ -309,7 +342,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                         readOnly: true,
                         decoration: InputDecoration(
                           labelText: s.preferredDateOptional,
-                          suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                          suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18),
                         ),
                         onTap: _pickPreferredDate,
                       ),
@@ -335,7 +368,7 @@ class _SevaBookingScreenState extends State<SevaBookingScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : Text(widget.item.price < 100 ? s.confirmSevaBooking : s.payAndBookSeva),
+                      : Text(s.payAndBookSeva),
                 ),
               ],
             ),

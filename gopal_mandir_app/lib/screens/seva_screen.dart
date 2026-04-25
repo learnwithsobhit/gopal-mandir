@@ -120,21 +120,13 @@ class SevaScreenState extends State<SevaScreen> {
                                   ),
                                 ),
                               ),
-                              Text(
-                                '₹${item.price.toInt()}',
-                                style: const TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.peacockGreen,
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(
                             item.description,
-                            style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
+                            style: const TextStyle(
+                                fontFamily: 'Poppins', fontSize: 13, color: AppColors.warmGrey),
                           ),
                           const SizedBox(height: 12),
                           SizedBox(

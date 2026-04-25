@@ -893,6 +893,8 @@ class SevaBookingRequest {
   final int sevaItemId;
   final String name;
   final String phone;
+  /// User-chosen contribution in INR (min ₹100); server uses this for Razorpay.
+  final double amount;
   final String? preferredDate;
   final String? notes;
 
@@ -900,6 +902,7 @@ class SevaBookingRequest {
     required this.sevaItemId,
     required this.name,
     required this.phone,
+    required this.amount,
     this.preferredDate,
     this.notes,
   });
@@ -908,6 +911,7 @@ class SevaBookingRequest {
         'seva_item_id': sevaItemId,
         'name': name,
         'phone': phone,
+        'amount': amount,
         'preferred_date': preferredDate,
         'notes': notes,
       };

@@ -5,7 +5,6 @@ import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
 import '../payments/razorpay_donation.dart';
-import '../widgets/app_amount_chips.dart';
 import '../widgets/app_screen_header.dart';
 import '../widgets/app_section_title.dart';
 import '../widgets/app_text_form_field.dart';
@@ -23,16 +22,12 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
   final ApiService _api = ApiService();
   final _formKey = GlobalKey<FormState>();
 
-  int _presetAmount = 501;
-  bool _useCustomAmount = false;
-  final _customAmountController = TextEditingController(text: '500');
+  final _amountController = TextEditingController(text: '100');
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _messageController = TextEditingController();
   bool _submitting = false;
-
-  final List<int> _presetAmounts = [100, 251, 501, 1001, 2101, 5001];
 
   @override
   Widget build(BuildContext context) {
@@ -56,67 +51,34 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
                 icon: Icons.favorite_rounded,
               ),
               const SizedBox(height: AppSpacing.xxl),
-              AppSectionTitle(title: s.selectAmount),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  AppAmountChips(
-                    amounts: _presetAmounts,
-                    selectedAmount: _useCustomAmount ? -1 : _presetAmount,
-                    enabled: !_submitting,
-                    onSelect: (a) => setState(() {
-                      _useCustomAmount = false;
-                      _presetAmount = a;
-                    }),
-                  ),
-                  FilterChip(
-                    label: Text(
-                      s.otherLabel,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: _useCustomAmount ? Colors.white : cs.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    selected: _useCustomAmount,
-                    onSelected: _submitting
-                        ? null
-                        : (v) => setState(() => _useCustomAmount = v),
-                    showCheckmark: false,
-                    selectedColor: cs.primary,
-                    backgroundColor: cs.surfaceContainerHigh,
-                    side: BorderSide(
-                      color: _useCustomAmount ? cs.primary : cs.outline.withAlpha(120),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.fieldRadius),
-                    ),
-                  ),
-                ],
-              ),
-              if (_useCustomAmount) ...[
-                const SizedBox(height: AppSpacing.lg),
-                TextFormField(
-                  controller: _customAmountController,
-                  enabled: !_submitting,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: s.amountMin100Label,
-                    prefixText: '₹ ',
-                    prefixStyle: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
-                  ),
-                  validator: (v) {
-                    final raw = (v ?? '').trim().replaceAll(',', '');
-                    if (raw.isEmpty) return s.enterAmount;
-                    final n = double.tryParse(raw);
-                    if (n == null) return s.enterValidNumber;
-                    if (n < 100) return s.minimumDonation100;
-                    if (n > 500000) return s.maximumDonationLimit;
-                    return null;
-                  },
+              AppSectionTitle(title: s.contributionAmountTitle),
+              TextFormField(
+                controller: _amountController,
+                enabled: !_submitting,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: s.amountMin100Label,
+                  prefixText: '₹ ',
+                  prefixStyle: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                 ),
-              ],
+                validator: (v) {
+                  final raw = (v ?? '').trim().replaceAll(',', '');
+                  if (raw.isEmpty) return s.enterAmount;
+                  final n = double.tryParse(raw);
+                  if (n == null) return s.enterValidNumber;
+                  if (n < 100) return s.minimumDonation100;
+                  if (n > 500000) return s.maximumDonationLimit;
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                s.staffContactPaymentDisclaimer,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.warmGrey,
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: AppSpacing.xxl),
               AppTextFormField(
                 labelText: s.yourNameLabel,
@@ -210,24 +172,18 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
   }
 
   String _donateAmountLabel() {
-    if (_useCustomAmount) {
-      final raw = _customAmountController.text.trim().replaceAll(',', '');
-      final n = double.tryParse(raw);
-      if (n == null) return '…';
-      if (n == n.roundToDouble()) return n.round().toString();
-      return n.toStringAsFixed(2);
-    }
-    return _presetAmount.toString();
+    final raw = _amountController.text.trim().replaceAll(',', '');
+    final n = double.tryParse(raw);
+    if (n == null) return '…';
+    if (n == n.roundToDouble()) return n.round().toString();
+    return n.toStringAsFixed(2);
   }
 
   double? _effectiveDonationAmount() {
-    if (_useCustomAmount) {
-      final raw = _customAmountController.text.trim().replaceAll(',', '');
-      final n = double.tryParse(raw);
-      if (n == null || n < 100 || n > 500000) return null;
-      return n;
-    }
-    return _presetAmount.toDouble();
+    final raw = _amountController.text.trim().replaceAll(',', '');
+    final n = double.tryParse(raw);
+    if (n == null || n < 100 || n > 500000) return null;
+    return n;
   }
 
   Future<void> _submit() async {
@@ -255,7 +211,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
           eventId: widget.event.id,
           name: _nameController.text.trim(),
           amount: amount,
-          phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
+          phone: _phoneController.text.trim(),
           email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
           message: _messageController.text.trim().isEmpty ? null : _messageController.text.trim(),
         ),
@@ -369,7 +325,7 @@ class _EventDonateScreenState extends State<EventDonateScreen> {
 
   @override
   void dispose() {
-    _customAmountController.dispose();
+    _amountController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();

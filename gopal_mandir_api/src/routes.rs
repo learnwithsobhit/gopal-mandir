@@ -1394,6 +1394,26 @@ fn amount_to_paise(amount: f64) -> Option<i64> {
     Some(p)
 }
 
+/// Normalized phone suitable for checkout rows; requires a valid 10-digit
+/// Indian mobile (with optional +91 country code), matching the Flutter app.
+fn require_checkout_phone_str(raw: &str) -> Result<String, &'static str> {
+    let normalized = normalize_phone(raw).ok_or("invalid phone number")?;
+    let digits: String = normalized.chars().filter(|c| c.is_ascii_digit()).collect();
+    let ok = digits.len() == 10 || (digits.len() == 12 && digits.starts_with("91"));
+    if !ok {
+        return Err("enter a valid 10-digit mobile number");
+    }
+    Ok(normalized)
+}
+
+fn require_checkout_phone_optional(raw: &Option<String>) -> Result<String, &'static str> {
+    let s = raw.as_ref().map(|s| s.trim()).unwrap_or("");
+    if s.is_empty() {
+        return Err("phone is required");
+    }
+    require_checkout_phone_str(s)
+}
+
 /// Line subtotal, 10% delivery fee (delivery only), and grand total (2 decimal places).
 fn prasad_order_totals(price: f64, quantity: i32, fulfillment: &str) -> (f64, f64, f64) {
     let subtotal = price * quantity as f64;
@@ -1723,8 +1743,18 @@ pub async fn donation_checkout(
     let Some(amount_paise) = amount_to_paise(body.amount) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "amount must be at least ₹100"
+            "error": "amount must be between ₹100 and ₹5,00,000"
         }));
+    };
+
+    let phone_norm = match require_checkout_phone_optional(&body.phone) {
+        Ok(p) => p,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }));
+        }
     };
 
     let reference_id =
@@ -1742,7 +1772,7 @@ pub async fn donation_checkout(
         .bind(&body.name)
         .bind(body.amount)
         .bind(&body.purpose)
-        .bind(&body.phone)
+        .bind(&phone_norm)
         .bind(&body.email)
         .bind(&reference_id)
         .bind(amount_paise as i32)
@@ -1780,7 +1810,7 @@ pub async fn donation_checkout(
             .bind(&body.name)
             .bind(body.amount)
             .bind(&body.purpose)
-            .bind(&body.phone)
+            .bind(&phone_norm)
             .bind(&body.email)
             .bind(&reference_id)
             .bind(amount_paise as i32)
@@ -1810,7 +1840,7 @@ pub async fn donation_checkout(
     .bind(&body.name)
     .bind(body.amount)
     .bind(&body.purpose)
-    .bind(&body.phone)
+    .bind(&phone_norm)
     .bind(&body.email)
     .bind(&reference_id)
     .bind(&order.id)
@@ -1876,8 +1906,18 @@ pub async fn event_donation_checkout(
     let Some(amount_paise) = amount_to_paise(body.amount) else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "success": false,
-            "error": "amount must be at least ₹100"
+            "error": "amount must be between ₹100 and ₹5,00,000"
         }));
+    };
+
+    let phone_norm = match require_checkout_phone_optional(&body.phone) {
+        Ok(p) => p,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }));
+        }
     };
 
     let reference_id = format!(
@@ -1897,7 +1937,7 @@ pub async fn event_donation_checkout(
         .bind(event_id)
         .bind(name)
         .bind(body.amount)
-        .bind(&body.phone)
+        .bind(&phone_norm)
         .bind(&body.email)
         .bind(&body.message)
         .bind(&reference_id)
@@ -1937,7 +1977,7 @@ pub async fn event_donation_checkout(
             .bind(event_id)
             .bind(name)
             .bind(body.amount)
-            .bind(&body.phone)
+            .bind(&phone_norm)
             .bind(&body.email)
             .bind(&body.message)
             .bind(&reference_id)
@@ -1968,7 +2008,7 @@ pub async fn event_donation_checkout(
     .bind(event_id)
     .bind(name)
     .bind(body.amount)
-    .bind(&body.phone)
+    .bind(&phone_norm)
     .bind(&body.email)
     .bind(&body.message)
     .bind(&reference_id)
@@ -3044,69 +3084,14 @@ pub async fn prasad_order_checkout(
 }
 
 #[post("/api/seva/booking")]
-pub async fn create_seva_booking(
-    pool: web::Data<PgPool>,
-    body: web::Json<SevaBookingRequest>,
-) -> HttpResponse {
-    let reference_id = format!(
-        "SEVA-{}",
-        uuid::Uuid::new_v4()
-            .to_string()
-            .split('-')
-            .next()
-            .unwrap_or("0000")
-    );
-
-    let price_row = sqlx::query_scalar::<_, f64>(
-        "SELECT price FROM seva_items WHERE id = $1 AND available = TRUE",
-    )
-    .bind(body.seva_item_id)
-    .fetch_optional(pool.get_ref())
-    .await;
-
-    let item_price = match price_row {
-        Ok(Some(p)) => p,
-        Ok(None) => {
-            return HttpResponse::BadRequest().json(serde_json::json!({
-                "success": false,
-                "error": "Seva item not available"
-            }))
-        }
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(serde_json::json!({
-                "success": false,
-                "error": format!("Database error: {}", e)
-            }))
-        }
-    };
-    let amount_paise = (item_price * 100.0).round() as i32;
-
-    let result = sqlx::query(
-        "INSERT INTO seva_bookings (seva_item_id, name, phone, preferred_date, notes, reference_id,
-         payment_status, amount_paise, paid_at)
-         VALUES ($1,$2,$3,$4,$5,$6,'paid',$7,NOW())"
-    )
-    .bind(body.seva_item_id)
-    .bind(&body.name)
-    .bind(&body.phone)
-    .bind(&body.preferred_date)
-    .bind(&body.notes)
-    .bind(&reference_id)
-    .bind(amount_paise)
-    .execute(pool.get_ref())
-    .await;
-
-    match result {
-        Ok(_) => HttpResponse::Ok().json(SevaBookingResponse {
-            success: true,
-            message: "Seva booking request submitted. Jai Gopal!".to_string(),
-            reference_id,
-        }),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "success": false,
-            "error": format!("Failed to create seva booking: {}", e)
-        })),
-    }
+pub async fn create_seva_booking(_pool: web::Data<PgPool>, _body: web::Json<SevaBookingRequest>) -> HttpResponse {
+    // Legacy honour-system path (no Razorpay) was removed: all seva bookings
+    // go through `POST /api/seva/booking/checkout` with a user-chosen amount
+    // (min ₹100) and validated contact phone.
+    HttpResponse::BadRequest().json(serde_json::json!({
+        "success": false,
+        "error": "Use POST /api/seva/booking/checkout with amount (min ₹100) and contact details for seva bookings."
+    }))
 }
 
 #[post("/api/seva/booking/checkout")]
@@ -3115,42 +3100,52 @@ pub async fn seva_booking_checkout(
     rz: web::Data<Option<RazorpayConfig>>,
     body: web::Json<SevaBookingRequest>,
 ) -> HttpResponse {
-    let price_row = sqlx::query_scalar::<_, f64>(
-        "SELECT price FROM seva_items WHERE id = $1 AND available = TRUE",
+    let name = body.name.trim();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "name is required"
+        }));
+    }
+
+    let phone_norm = match require_checkout_phone_str(body.phone.trim()) {
+        Ok(p) => p,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }));
+        }
+    };
+
+    let Some(amount_paise) = amount_to_paise(body.amount) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "amount must be between ₹100 and ₹5,00,000"
+        }));
+    };
+
+    let item_ok = sqlx::query_scalar::<_, i32>(
+        "SELECT id FROM seva_items WHERE id = $1 AND available = TRUE",
     )
     .bind(body.seva_item_id)
     .fetch_optional(pool.get_ref())
     .await;
 
-    let item_price = match price_row {
-        Ok(Some(p)) => p,
+    match item_ok {
         Ok(None) => {
             return HttpResponse::BadRequest().json(serde_json::json!({
                 "success": false,
                 "error": "Seva item not available"
-            }))
+            }));
         }
         Err(e) => {
             return HttpResponse::InternalServerError().json(serde_json::json!({
                 "success": false,
                 "error": format!("Database error: {}", e)
-            }))
+            }));
         }
-    };
-
-    if item_price < 100.0 {
-        return HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": "This seva item price must be at least ₹100 for online payment"
-        }));
-    }
-
-    let amount_paise = (item_price * 100.0).round() as i64;
-    if amount_paise < 10_000 {
-        return HttpResponse::BadRequest().json(serde_json::json!({
-            "success": false,
-            "error": "Invalid amount for checkout"
-        }));
+        Ok(Some(_)) => {}
     }
 
     let reference_id = format!(
@@ -3172,8 +3167,8 @@ pub async fn seva_booking_checkout(
              VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW(), 'pending')",
         )
         .bind(body.seva_item_id)
-        .bind(&body.name)
-        .bind(&body.phone)
+        .bind(name)
+        .bind(&phone_norm)
         .bind(&body.preferred_date)
         .bind(&body.notes)
         .bind(&reference_id)
@@ -3211,8 +3206,8 @@ pub async fn seva_booking_checkout(
                  VALUES ($1, $2, $3, $4, $5, $6, 'failed', NULL, NULL, $7, $8, NOW(), 'pending')",
             )
             .bind(body.seva_item_id)
-            .bind(&body.name)
-            .bind(&body.phone)
+            .bind(name)
+            .bind(&phone_norm)
             .bind(&body.preferred_date)
             .bind(&body.notes)
             .bind(&reference_id)
@@ -3241,8 +3236,8 @@ pub async fn seva_booking_checkout(
          VALUES ($1, $2, $3, $4, $5, $6, 'pending', 'razorpay', $7, $8, 'pending')",
     )
     .bind(body.seva_item_id)
-    .bind(&body.name)
-    .bind(&body.phone)
+    .bind(name)
+    .bind(&phone_norm)
     .bind(&body.preferred_date)
     .bind(&body.notes)
     .bind(&reference_id)
