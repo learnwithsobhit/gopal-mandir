@@ -4,6 +4,8 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "./gopal_mandir_api"
-healthcheckPath = "/api/temple-info"
+# Use a DB-free endpoint. `/api/temple-info` can return 404 (empty table) or 5xx on DB errors,
+# which makes Railway report "service unavailable" even when the process is up.
+healthcheckPath = "/api/health"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
