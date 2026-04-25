@@ -22,8 +22,13 @@ import 'seva_screen.dart';
 class SevaOfferingsScreen extends StatelessWidget {
   const SevaOfferingsScreen({super.key});
 
-  void _go(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  void _go(BuildContext context, Widget screen, String routeName) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: RouteSettings(name: routeName),
+        builder: (_) => screen,
+      ),
+    );
   }
 
   @override
@@ -110,26 +115,26 @@ class SevaOfferingsScreen extends StatelessWidget {
                       icon: Icons.volunteer_activism,
                       label: s.quickDonate,
                       color: AppColors.peacockGreen,
-                      onTap: () => _go(context, const DonateScreen()),
+                      onTap: () => _go(context, const DonateScreen(), 'donate'),
                     ),
                     QuickActionButton(
                       icon: Icons.card_giftcard,
                       label: s.quickBookPrasad,
                       color: AppColors.templeGoldDark,
-                      onTap: () => _go(context, const PrasadScreen()),
+                      onTap: () => _go(context, const PrasadScreen(), 'prasad'),
                     ),
                     QuickActionButton(
                       icon: Icons.self_improvement,
                       label: s.quickSeva,
                       color: AppColors.krishnaBlue,
-                      onTap: () => _go(context, const SevaScreen()),
+                      onTap: () => _go(context, const SevaScreen(), 'seva'),
                     ),
                     QuickActionButton(
                       icon: Icons.event_available,
                       label: s.quickPoojaAppointment,
                       color: AppColors.templeGoldDark,
                       onTap: () =>
-                          _go(context, const PoojaAppointmentScreen()),
+                          _go(context, const PoojaAppointmentScreen(), 'pooja_appointments'),
                     ),
                   ],
                 ),

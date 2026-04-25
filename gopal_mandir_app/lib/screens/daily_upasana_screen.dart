@@ -189,6 +189,7 @@ class _DailyUpasanaScreenState extends State<DailyUpasanaScreen> {
     HapticFeedback.selectionClick();
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'daily_upasana_chapters'),
         builder: (ctx) => DailyUpasanaChapterListScreen(
           categoryKey: categoryKey,
           displayTitle: _displayCategory(categoryKey, s),
@@ -201,6 +202,7 @@ class _DailyUpasanaScreenState extends State<DailyUpasanaScreen> {
     HapticFeedback.selectionClick();
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'daily_upasana_chapters'),
         builder: (ctx) => DailyUpasanaChapterListScreen(
           categoryKey: _categoryDbKey(item),
           displayTitle: _displayCategory(
@@ -668,6 +670,7 @@ class _DailyUpasanaChapterListScreenState
     HapticFeedback.selectionClick();
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'daily_upasana_reader'),
         builder: (ctx) => DailyUpasanaReaderScreen(
           items: List<DailyUpasanaItem>.from(_items),
           initialIndex: initialIndex.clamp(0, _items.length - 1),

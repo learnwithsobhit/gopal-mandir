@@ -105,7 +105,8 @@ class _PrasadScreenState extends State<PrasadScreen> {
                                   ? () {
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(
+                                        MaterialPageRoute<void>(
+                                          settings: const RouteSettings(name: 'prasad_booking'),
                                           builder: (_) => PrasadBookingScreen(item: item),
                                         ),
                                       );

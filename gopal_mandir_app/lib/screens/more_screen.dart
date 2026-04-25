@@ -238,7 +238,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'my_bookings'),
                   builder: (_) => const VrindavanBackground(child: BookingsScreen()),
                 ),
               );
@@ -252,7 +253,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'pooja_appointments'),
                   builder: (_) => const VrindavanBackground(child: PoojaAppointmentScreen()),
                 ),
               );
@@ -267,6 +269,7 @@ class _MoreScreenState extends State<MoreScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'about_temple'),
                   builder: (_) => const VrindavanBackground(child: AboutTempleScreen()),
                 ),
               );
@@ -289,7 +292,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'astro_consult'),
                   builder: (_) => const VrindavanBackground(child: AstroConsultScreen()),
                 ),
               );
@@ -303,7 +307,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'community_feed'),
                   builder: (_) => const VrindavanBackground(child: CommunityFeedScreen()),
                 ),
               );
@@ -317,7 +322,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'volunteer'),
                   builder: (_) => const VrindavanBackground(child: VolunteerScreen()),
                 ),
               );
@@ -331,7 +337,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'membership'),
                   builder: (_) => const VrindavanBackground(child: MembershipScreen()),
                 ),
               );
@@ -345,7 +352,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'admin_shell'),
                   builder: (_) => const VrindavanBackground(child: AdminShell()),
                 ),
               );
@@ -366,7 +374,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'rate_us'),
                   builder: (_) => const RateUsScreen(),
                 ),
               );
@@ -380,7 +389,8 @@ class _MoreScreenState extends State<MoreScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
+                  settings: const RouteSettings(name: 'settings'),
                   builder: (_) => const SettingsScreen(),
                 ),
               );

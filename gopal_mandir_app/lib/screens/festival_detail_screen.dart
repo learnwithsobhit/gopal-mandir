@@ -161,6 +161,7 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
     await Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'festival_image_viewer'),
         builder: (_) => Scaffold(
           appBar: AppBar(title: Text(title)),
           backgroundColor: Colors.black,
@@ -194,6 +195,7 @@ class _FestivalDetailScreenState extends State<FestivalDetailScreen> {
     await Navigator.push<void>(
       context,
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: 'festival_video_fullscreen'),
         builder: (_) => FestivalVideoPlayerScreen(videoUrl: raw, title: 'Festival Video'),
       ),
     );

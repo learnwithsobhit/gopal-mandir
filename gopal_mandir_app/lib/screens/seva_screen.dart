@@ -136,7 +136,8 @@ class SevaScreenState extends State<SevaScreen> {
                                   ? () {
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(
+                                        MaterialPageRoute<void>(
+                                          settings: const RouteSettings(name: 'seva_booking'),
                                           builder: (_) => VrindavanBackground(
                                             child: SevaBookingScreen(item: item),
                                           ),

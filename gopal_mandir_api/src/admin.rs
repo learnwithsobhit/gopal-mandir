@@ -4681,6 +4681,75 @@ pub async fn admin_activity_feed(
     }
 }
 
+/// Paginated anonymous app screen views (IP/UA captured at ingest).
+#[get("/api/admin/visitor-events")]
+pub async fn admin_list_visitor_events(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<VisitorEventsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+
+    let limit = q.limit.unwrap_or(50).clamp(1, 200) as i64;
+    let offset = q.offset.unwrap_or(0).max(0) as i64;
+
+    let since: Option<DateTime<Utc>> = if let Some(ref s) = q.since {
+        match DateTime::parse_from_rfc3339(s.trim()) {
+            Ok(dt) => Some(dt.with_timezone(&Utc)),
+            Err(_) => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": "since must be RFC3339 / ISO-8601 (e.g. 2025-01-01T00:00:00Z)"
+                }));
+            }
+        }
+    } else {
+        None
+    };
+
+    let until: Option<DateTime<Utc>> = if let Some(ref s) = q.until {
+        match DateTime::parse_from_rfc3339(s.trim()) {
+            Ok(dt) => Some(dt.with_timezone(&Utc)),
+            Err(_) => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": "until must be RFC3339 / ISO-8601 (e.g. 2025-01-01T00:00:00Z)"
+                }));
+            }
+        }
+    } else {
+        None
+    };
+
+    let rows = sqlx::query_as::<_, VisitorEventView>(
+        "SELECT id, occurred_at, screen, session_id, platform, app_version, ip_seen, forwarded_for, user_agent
+         FROM visitor_events
+         WHERE ($1::timestamptz IS NULL OR occurred_at >= $1)
+           AND ($2::timestamptz IS NULL OR occurred_at <= $2)
+         ORDER BY occurred_at DESC
+         LIMIT $3 OFFSET $4",
+    )
+    .bind(since)
+    .bind(until)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await;
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
 // ──────────────────────────────────────────────
 // Admin: Astro consultation CRM
 // ──────────────────────────────────────────────

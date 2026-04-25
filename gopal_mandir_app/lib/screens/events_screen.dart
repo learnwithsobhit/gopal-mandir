@@ -240,7 +240,8 @@ class EventsScreenState extends State<EventsScreen> {
                                         onPressed: () {
                                           Navigator.push(
                                             context,
-                                            MaterialPageRoute(
+                                            MaterialPageRoute<void>(
+                                              settings: const RouteSettings(name: 'event_donate'),
                                               builder: (_) => VrindavanBackground(
                                                 child: EventDonateScreen(event: event),
                                               ),

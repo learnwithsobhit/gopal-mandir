@@ -1135,6 +1135,51 @@ class AdminActivityItem {
   }
 }
 
+/// Row from `GET /api/admin/visitor-events`.
+class VisitorEvent {
+  final int id;
+  final DateTime occurredAt;
+  final String screen;
+  final String? sessionId;
+  final String platform;
+  final String? appVersion;
+  final String? ipSeen;
+  final String? forwardedFor;
+  final String? userAgent;
+
+  VisitorEvent({
+    required this.id,
+    required this.occurredAt,
+    required this.screen,
+    this.sessionId,
+    required this.platform,
+    this.appVersion,
+    this.ipSeen,
+    this.forwardedFor,
+    this.userAgent,
+  });
+
+  factory VisitorEvent.fromJson(Map<String, dynamic> json) {
+    DateTime parseDt(dynamic v) {
+      final s = v?.toString();
+      if (s == null || s.isEmpty) return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+      return DateTime.tryParse(s) ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    }
+
+    return VisitorEvent(
+      id: (json['id'] is int) ? json['id'] as int : int.tryParse('${json['id']}') ?? 0,
+      occurredAt: parseDt(json['occurred_at']),
+      screen: (json['screen'] ?? '').toString(),
+      sessionId: json['session_id']?.toString(),
+      platform: (json['platform'] ?? '').toString(),
+      appVersion: json['app_version']?.toString(),
+      ipSeen: json['ip_seen']?.toString(),
+      forwardedFor: json['forwarded_for']?.toString(),
+      userAgent: json['user_agent']?.toString(),
+    );
+  }
+}
+
 class AdminPresignResult {
   final String uploadUrl;
   final String publicUrl;

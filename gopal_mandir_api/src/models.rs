@@ -490,6 +490,36 @@ pub struct AdminActivityFeedQuery {
     pub since: Option<String>,
 }
 
+/// Public analytics ingest (Flutter public app).
+#[derive(Debug, Deserialize)]
+pub struct PageViewRequest {
+    pub screen: String,
+    pub session_id: Option<String>,
+    pub platform: String,
+    pub app_version: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct VisitorEventView {
+    pub id: i64,
+    pub occurred_at: DateTime<Utc>,
+    pub screen: String,
+    pub session_id: Option<String>,
+    pub platform: String,
+    pub app_version: Option<String>,
+    pub ip_seen: Option<String>,
+    pub forwarded_for: Option<String>,
+    pub user_agent: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VisitorEventsQuery {
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+    pub since: Option<String>,
+    pub until: Option<String>,
+}
+
 // ──────────────────────────────────────────────
 // Membership (free) + phone OTP + sessions
 // ──────────────────────────────────────────────

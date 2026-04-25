@@ -3,6 +3,7 @@ import 'app_controller.dart';
 import 'l10n/app_language.dart';
 import 'l10n/locale_scope.dart';
 import 'screens/landing_screen.dart';
+import 'services/analytics_route_observer.dart';
 import 'services/settings_service.dart';
 import 'theme/app_theme.dart';
 
@@ -91,6 +92,13 @@ class GopalMandirAppState extends State<GopalMandirApp> {
         child: MaterialApp(
           title: 'Shri Gopal Mandir',
           debugShowCheckedModeBanner: false,
+          navigatorObservers: [AnalyticsRouteObserver()],
+          onGenerateInitialRoutes: (_) => [
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'landing'),
+              builder: (_) => const LandingScreen(),
+            ),
+          ],
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: _themeMode,
@@ -110,7 +118,6 @@ class GopalMandirAppState extends State<GopalMandirApp> {
               child: child,
             );
           },
-          home: const LandingScreen(),
         ),
       ),
     );

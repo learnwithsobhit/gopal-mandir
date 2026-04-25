@@ -188,6 +188,7 @@ class _FestivalsScreenState extends State<FestivalsScreen> {
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
+                                    settings: const RouteSettings(name: 'festival_detail'),
                                     builder: (_) => FestivalDetailScreen(festivalId: item.id),
                                   ),
                                 ),
