@@ -112,13 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _navigateTo(BuildContext context, Widget screen, String routeName) {
+  void _navigateTo(BuildContext context, Widget screen) {
     Navigator.push(
       context,
-      MaterialPageRoute<void>(
-        settings: RouteSettings(name: routeName),
-        builder: (_) => VrindavanBackground(child: screen),
-      ),
+      MaterialPageRoute(builder: (_) => VrindavanBackground(child: screen)),
     );
   }
 
@@ -228,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined),
                   onPressed: () =>
-                      _navigateTo(context, const AnnouncementsScreen(), 'announcements'),
+                      _navigateTo(context, const AnnouncementsScreen()),
                 ),
               ],
             ),
@@ -285,25 +282,25 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.remove_red_eye,
             label: s.quickDarshan,
             color: AppColors.krishnaBlue,
-            onTap: () => _navigateTo(context, const LiveDarshanScreen(), 'live_darshan'),
+            onTap: () => _navigateTo(context, const LiveDarshanScreen()),
           ),
           QuickActionButton(
             icon: Icons.access_time_rounded,
             label: s.quickAartiTimings,
             color: AppColors.templeGold,
-            onTap: () => _navigateTo(context, const AartiScreen(), 'aarti'),
+            onTap: () => _navigateTo(context, const AartiScreen()),
           ),
           QuickActionButton(
             icon: Icons.menu_book_rounded,
             label: s.quickDailyUpasana,
             color: AppColors.peacockGreen,
-            onTap: () => _navigateTo(context, const DailyUpasanaScreen(), 'daily_upasana'),
+            onTap: () => _navigateTo(context, const DailyUpasanaScreen()),
           ),
           QuickActionButton(
             icon: Icons.calendar_month,
             label: s.quickPanchang,
             color: AppColors.krishnaBlueDark,
-            onTap: () => _navigateTo(context, const HinduPanchangScreen(), 'panchang'),
+            onTap: () => _navigateTo(context, const HinduPanchangScreen()),
           ),
         ]),
       ],
@@ -323,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.self_improvement,
             label: s.quickSevaAndOfferings,
             color: AppColors.templeGoldDark,
-            onTap: () => _navigateTo(context, const SevaOfferingsScreen(), 'seva_offerings'),
+            onTap: () => _navigateTo(context, const SevaOfferingsScreen()),
           ),
         ]),
       ],
@@ -343,13 +340,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.auto_awesome,
             label: s.quickAskAstrologer,
             color: AppColors.krishnaBlue,
-            onTap: () => _navigateTo(context, const AstroConsultScreen(), 'astro_consult'),
+            onTap: () => _navigateTo(context, const AstroConsultScreen()),
           ),
           QuickActionButton(
             icon: Icons.forum,
             label: s.quickCommunityQA,
             color: AppColors.peacockGreen,
-            onTap: () => _navigateTo(context, const CommunityFeedScreen(), 'community_feed'),
+            onTap: () => _navigateTo(context, const CommunityFeedScreen()),
           ),
         ]),
       ],
@@ -369,19 +366,19 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.event,
             label: s.quickEvents,
             color: AppColors.peacockGreen,
-            onTap: () => _navigateTo(context, const EventsScreen(), 'events'),
+            onTap: () => _navigateTo(context, const EventsScreen()),
           ),
           QuickActionButton(
             icon: Icons.celebration,
             label: s.festivalsLabel,
             color: AppColors.templeGold,
-            onTap: () => _navigateTo(context, const FestivalsScreen(), 'festivals'),
+            onTap: () => _navigateTo(context, const FestivalsScreen()),
           ),
           QuickActionButton(
             icon: Icons.photo_library,
             label: s.quickGallery,
             color: AppColors.krishnaBlue,
-            onTap: () => _navigateTo(context, const GalleryScreen(), 'gallery'),
+            onTap: () => _navigateTo(context, const GalleryScreen()),
           ),
         ]),
       ],
@@ -401,13 +398,13 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.info_outline,
             label: s.quickTempleInfo,
             color: AppColors.krishnaBlue,
-            onTap: () => _navigateTo(context, const AboutTempleScreen(), 'about_temple'),
+            onTap: () => _navigateTo(context, const AboutTempleScreen()),
           ),
           QuickActionButton(
             icon: Icons.account_tree_outlined,
             label: s.quickSuccession,
             color: AppColors.templeGoldDark,
-            onTap: () => _navigateTo(context, const SuccessionsScreen(), 'successions'),
+            onTap: () => _navigateTo(context, const SuccessionsScreen()),
           ),
         ]),
       ],
@@ -443,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: s.todayInTemple,
           icon: Icons.campaign_outlined,
           onViewAll: () =>
-              _navigateTo(context, const AnnouncementsScreen(), 'announcements'),
+              _navigateTo(context, const AnnouncementsScreen()),
           viewAllLabel: s.homeViewAll,
         ),
         SizedBox(
@@ -460,7 +457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _AnnouncementCard(
                   announcement: a,
                   onTap: () =>
-                      _navigateTo(context, const AnnouncementsScreen(), 'announcements'),
+                      _navigateTo(context, const AnnouncementsScreen()),
                 ),
               );
             },
@@ -503,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
         SectionHeader(
           title: s.upcomingEvents,
           icon: Icons.event_available_outlined,
-          onViewAll: () => _navigateTo(context, const EventsScreen(), 'events'),
+          onViewAll: () => _navigateTo(context, const EventsScreen()),
           viewAllLabel: s.homeViewAll,
         ),
         SizedBox(
@@ -515,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (_, i) => _EventRailCard(
               event: list[i],
-              onTap: () => _navigateTo(context, const EventsScreen(), 'events'),
+              onTap: () => _navigateTo(context, const EventsScreen()),
             ),
           ),
         ),

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
@@ -1484,66 +1483,6 @@ class ApiService {
       }
     } catch (e) {
       print('admin activity feed: $e');
-    }
-    return [];
-  }
-
-  /// Fire-and-forget public analytics page view (never throws to caller).
-  void postPageView({
-    required String screen,
-    required String platform,
-    String? sessionId,
-    String? appVersion,
-  }) {
-    unawaited(() async {
-      try {
-        final body = <String, dynamic>{
-          'screen': screen,
-          'platform': platform,
-        };
-        final sid = sessionId?.trim();
-        if (sid != null && sid.isNotEmpty) body['session_id'] = sid;
-        final ver = appVersion?.trim();
-        if (ver != null && ver.isNotEmpty) body['app_version'] = ver;
-        await http.post(
-          Uri.parse('$baseUrl/api/analytics/page-view'),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        );
-      } catch (_) {
-        // ignore — analytics must not affect UX
-      }
-    }());
-  }
-
-  Future<List<VisitorEvent>> adminListVisitorEvents(
-    String token, {
-    int limit = 50,
-    int offset = 0,
-    DateTime? since,
-    DateTime? until,
-  }) async {
-    try {
-      final q = <String, String>{
-        'limit': '$limit',
-        'offset': '$offset',
-        if (since != null) 'since': since.toUtc().toIso8601String(),
-        if (until != null) 'until': until.toUtc().toIso8601String(),
-      };
-      final uri =
-          Uri.parse('$baseUrl/api/admin/visitor-events').replace(queryParameters: q);
-      final response = await http.get(uri, headers: _adminHeaders(token));
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>?;
-        final data = json?['data'] as List<dynamic>?;
-        if (data != null) {
-          return data
-              .map((e) => VisitorEvent.fromJson(e as Map<String, dynamic>))
-              .toList();
-        }
-      }
-    } catch (e) {
-      print('admin visitor events: $e');
     }
     return [];
   }

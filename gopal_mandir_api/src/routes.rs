@@ -3,10 +3,7 @@ use sqlx::PgPool;
 use crate::cache::Cache;
 use crate::models::*;
 use crate::razorpay::{self, RazorpayConfig};
-use crate::util::{
-    bearer_token, client_ip_seen, forwarded_for_raw, normalize_phone, sha256_hex,
-    truncate_payment_reason,
-};
+use crate::util::{bearer_token, normalize_phone, sha256_hex, truncate_payment_reason};
 use serde_json::{json, Value};
 use chrono::{DateTime, Datelike, Duration, Utc};
 use rand::Rng;
@@ -342,109 +339,6 @@ pub async fn submit_volunteer_request(
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
             "success": false,
             "error": format!("Failed to submit volunteer request: {}", e)
-        })),
-    }
-}
-
-const PAGE_VIEW_SCREEN_MAX: usize = 120;
-const PAGE_VIEW_FIELD_MAX: usize = 128;
-const PAGE_VIEW_UA_MAX_STORE: usize = 512;
-const PAGE_VIEWS_PER_IP_PER_HOUR: i64 = 500;
-
-#[post("/api/analytics/page-view")]
-pub async fn post_page_view(
-    pool: web::Data<PgPool>,
-    req: HttpRequest,
-    body: web::Json<PageViewRequest>,
-) -> HttpResponse {
-    let screen = body.screen.trim();
-    if screen.is_empty() || screen.len() > PAGE_VIEW_SCREEN_MAX {
-        return HttpResponse::BadRequest().json(json!({
-            "success": false,
-            "error": "screen is required and must be at most 120 characters"
-        }));
-    }
-
-    let platform = body.platform.trim().to_lowercase();
-    let platform_ok = matches!(
-        platform.as_str(),
-        "web" | "ios" | "android" | "other" | "macos" | "windows" | "linux"
-    );
-    if !platform_ok || platform.len() > 32 {
-        return HttpResponse::BadRequest().json(json!({
-            "success": false,
-            "error": "platform must be one of: web, ios, android, other, macos, windows, linux"
-        }));
-    }
-
-    let session_id = body
-        .session_id
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.chars().take(PAGE_VIEW_FIELD_MAX).collect::<String>());
-
-    let app_version = body
-        .app_version
-        .as_ref()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.chars().take(PAGE_VIEW_FIELD_MAX).collect::<String>());
-
-    let ip_seen = client_ip_seen(&req)
-        .map(|s| s.chars().take(64).collect::<String>())
-        .unwrap_or_else(|| "unknown".to_string());
-
-    let forwarded_for = forwarded_for_raw(&req);
-    let user_agent = req
-        .headers()
-        .get("user-agent")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.chars().take(PAGE_VIEW_UA_MAX_STORE).collect::<String>());
-
-    let count_hour: i64 = match sqlx::query_scalar(
-        "SELECT COUNT(*)::bigint FROM visitor_events
-         WHERE ip_seen = $1 AND occurred_at > NOW() - INTERVAL '1 hour'",
-    )
-    .bind(&ip_seen)
-    .fetch_one(pool.get_ref())
-    .await
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
-                "success": false,
-                "error": format!("Database error: {}", e)
-            }));
-        }
-    };
-
-    if count_hour >= PAGE_VIEWS_PER_IP_PER_HOUR {
-        return HttpResponse::TooManyRequests().json(json!({
-            "success": false,
-            "error": "Too many analytics events from this address. Try again later."
-        }));
-    }
-
-    let ins = sqlx::query(
-        "INSERT INTO visitor_events (screen, session_id, platform, app_version, ip_seen, forwarded_for, user_agent)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
-    )
-    .bind(screen)
-    .bind(&session_id)
-    .bind(&platform)
-    .bind(&app_version)
-    .bind(&ip_seen)
-    .bind(&forwarded_for)
-    .bind(&user_agent)
-    .execute(pool.get_ref())
-    .await;
-
-    match ins {
-        Ok(_) => HttpResponse::Ok().json(json!({ "success": true })),
-        Err(e) => HttpResponse::InternalServerError().json(json!({
-            "success": false,
-            "error": format!("Failed to record page view: {}", e)
         })),
     }
 }

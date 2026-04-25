@@ -330,12 +330,6 @@ class AppStrings {
   String get adminOwnerAccessSub => isHindi ? 'सीक्रेट कोड बनाएं और एडमिन अधिकार प्रबंधित करें' : 'Generate secret codes and manage admin rights';
   String get adminRecentActivity => isHindi ? 'हाल की गतिविधि' : 'Recent activity';
   String get adminRecentActivitySub => isHindi ? 'प्रसाद, सेवा, दान, सदस्य आदि के अपडेट' : 'Cross-module updates — prasad, seva, donations, members, and more';
-  String get adminVisitorAnalytics => isHindi ? 'आगंतुक विश्लेषण' : 'Visitor analytics';
-  String get adminVisitorAnalyticsSub =>
-      isHindi ? 'स्क्रीन, समय, प्लेटफ़ॉर्म, IP व सत्र' : 'Screen views, time, platform, IP, and session';
-  String get adminVisitorEventsEmpty =>
-      isHindi ? 'अभी कोई आगंतुक इवेंट नहीं' : 'No visitor events yet';
-  String get adminVisitorEventsLoadMore => isHindi ? 'और लोड करें' : 'Load more';
   String get adminGallery => isHindi ? 'गैलरी' : 'Gallery';
   String get adminGallerySub => isHindi ? 'छवियां और वीडियो अपलोड व प्रबंधन' : 'Upload & manage images and videos';
   String get adminLiveDarshan => isHindi ? 'लाइव दर्शन' : 'Live Darshan';

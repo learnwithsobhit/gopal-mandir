@@ -94,8 +94,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Future<void> _openDetail(CommunityPost post) async {
     final result = await Navigator.push<CommunityPost>(
       context,
-      MaterialPageRoute<CommunityPost>(
-        settings: const RouteSettings(name: 'community_post_detail'),
+      MaterialPageRoute(
         builder: (_) => VrindavanBackground(
           child: CommunityPostDetailScreen(postId: post.id),
         ),
@@ -112,8 +111,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Future<void> _openNewPost() async {
     final created = await Navigator.push<bool>(
       context,
-      MaterialPageRoute<bool>(
-        settings: const RouteSettings(name: 'community_new_post'),
+      MaterialPageRoute(
         builder: (_) => const VrindavanBackground(
           child: CommunityNewPostScreen(),
         ),

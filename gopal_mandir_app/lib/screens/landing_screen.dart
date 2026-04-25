@@ -157,10 +157,7 @@ class _LandingScreenState extends State<LandingScreen> {
     await _stopAudio();
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: 'main_shell'),
-        builder: (_) => buildPostLandingRoot(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => buildPostLandingRoot()),
     );
   }
 

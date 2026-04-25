@@ -823,8 +823,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: 'gallery_video_fullscreen'),
+      MaterialPageRoute(
         builder: (_) => FestivalVideoPlayerScreen(
           videoUrl: raw,
           title: item.title,

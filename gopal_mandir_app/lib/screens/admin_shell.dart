@@ -32,7 +32,6 @@ import 'admin_community_posts_screen.dart';
 import 'admin_festivals_list_screen.dart';
 import 'admin_activity_feed_screen.dart';
 import 'admin_owner_access_screen.dart';
-import 'admin_visitor_events_screen.dart';
 
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
@@ -139,17 +138,6 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminActivityFeedScreen(token: _token!),
-              ),
-            ),
-          ),
-          _tile(
-            Icons.travel_explore_rounded,
-            s.adminVisitorAnalytics,
-            s.adminVisitorAnalyticsSub,
-            () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => AdminVisitorEventsScreen(token: _token!),
               ),
             ),
           ),
