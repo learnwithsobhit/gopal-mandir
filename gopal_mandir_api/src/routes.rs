@@ -343,6 +343,177 @@ pub async fn submit_volunteer_request(
     }
 }
 
+// ──────────────────────────────────────────────
+// Learning hub (published topics + registrations)
+// ──────────────────────────────────────────────
+
+#[get("/api/learn/topics")]
+pub async fn get_learn_topics(pool: web::Data<PgPool>, cache: web::Data<Cache>) -> HttpResponse {
+    let result = cache
+        .get_or_compute::<Vec<LearningTopicPublic>, _, _, sqlx::Error>(
+            "learn_topics",
+            "list",
+            StdDuration::from_secs(5 * 60),
+            || async {
+                sqlx::query_as::<_, LearningTopicPublic>(
+                    "SELECT id, title, category_key, description, teacher_name, delivery_mode,
+                            schedule_summary, duration_summary, location_note, max_participants, sort_order
+                     FROM learning_topics
+                     WHERE is_published = TRUE
+                     ORDER BY sort_order ASC, id ASC",
+                )
+                .fetch_all(pool.get_ref())
+                .await
+            },
+        )
+        .await;
+    match result {
+        Ok(data) => HttpResponse::Ok().json(ApiResponse { success: true, data }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/learn/topics/{id}")]
+pub async fn get_learn_topic_by_id(
+    pool: web::Data<PgPool>,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    let id = id.into_inner();
+    match sqlx::query_as::<_, LearningTopicPublic>(
+        "SELECT id, title, category_key, description, teacher_name, delivery_mode,
+                schedule_summary, duration_summary, location_note, max_participants, sort_order
+         FROM learning_topics
+         WHERE id = $1 AND is_published = TRUE",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(row)) => HttpResponse::Ok().json(ApiResponse {
+            success: true,
+            data: row,
+        }),
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Topic not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/learn/register")]
+pub async fn submit_learn_registration(
+    pool: web::Data<PgPool>,
+    body: web::Json<LearnRegistrationRequest>,
+) -> HttpResponse {
+    let name = body.name.trim().to_string();
+    if name.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "Name is required"
+        }));
+    }
+    let phone = match normalize_phone(&body.phone) {
+        Some(p) => p,
+        None => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid phone"
+            }))
+        }
+    };
+    let email = body
+        .email
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let notes = body
+        .notes
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let topic_id = body.topic_id;
+    let topic = match sqlx::query_as::<_, LearningTopic>(
+        "SELECT id, title, category_key, description, teacher_name, delivery_mode,
+                schedule_summary, duration_summary, location_note, max_participants,
+                is_published, sort_order, created_at, updated_at
+         FROM learning_topics WHERE id = $1 AND is_published = TRUE",
+    )
+    .bind(topic_id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(t)) => t,
+        Ok(None) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Topic not available for registration"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    if let Some(max) = topic.max_participants {
+        let cnt: Result<i64, sqlx::Error> = sqlx::query_scalar(
+            "SELECT COUNT(*)::bigint FROM learning_registrations
+             WHERE topic_id = $1 AND status IN ('new', 'confirmed', 'waitlist')",
+        )
+        .bind(topic_id)
+        .fetch_one(pool.get_ref())
+        .await;
+        match cnt {
+            Ok(n) if n >= max as i64 => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": "This course has reached its enrollment limit"
+                }));
+            }
+            Err(e) => {
+                return HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                }));
+            }
+            _ => {}
+        }
+    }
+
+    let result = sqlx::query(
+        "INSERT INTO learning_registrations (topic_id, name, phone, email, notes, status)
+         VALUES ($1, $2, $3, $4, $5, 'new')",
+    )
+    .bind(topic_id)
+    .bind(&name)
+    .bind(&phone)
+    .bind(&email)
+    .bind(&notes)
+    .execute(pool.get_ref())
+    .await;
+
+    match result {
+        Ok(_) => HttpResponse::Ok().json(SimpleActionResponse {
+            success: true,
+            message: "Registration received. We will contact you soon.".to_string(),
+        }),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Failed to submit registration: {}", e)
+        })),
+    }
+}
+
 #[post("/api/feedback")]
 pub async fn submit_feedback(
     pool: web::Data<PgPool>,

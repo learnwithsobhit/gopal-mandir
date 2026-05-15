@@ -559,6 +559,175 @@ class VolunteerView {
   }
 }
 
+/// Published learning topic from `GET /api/learn/topics`.
+class LearnTopic {
+  final int id;
+  final String title;
+  final String categoryKey;
+  final String description;
+  final String teacherName;
+  final String deliveryMode;
+  final String scheduleSummary;
+  final String durationSummary;
+  final String? locationNote;
+  final int? maxParticipants;
+  final int sortOrder;
+
+  LearnTopic({
+    required this.id,
+    required this.title,
+    required this.categoryKey,
+    required this.description,
+    required this.teacherName,
+    required this.deliveryMode,
+    required this.scheduleSummary,
+    required this.durationSummary,
+    this.locationNote,
+    this.maxParticipants,
+    required this.sortOrder,
+  });
+
+  factory LearnTopic.fromJson(Map<String, dynamic> json) {
+    final max = json['max_participants'];
+    return LearnTopic(
+      id: (json['id'] as num).toInt(),
+      title: (json['title'] ?? '').toString(),
+      categoryKey: (json['category_key'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      teacherName: (json['teacher_name'] ?? '').toString(),
+      deliveryMode: (json['delivery_mode'] ?? 'online').toString(),
+      scheduleSummary: (json['schedule_summary'] ?? '').toString(),
+      durationSummary: (json['duration_summary'] ?? '').toString(),
+      locationNote: json['location_note']?.toString(),
+      maxParticipants: max is num ? max.toInt() : null,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class LearnRegistrationPayload {
+  final int topicId;
+  final String name;
+  final String phone;
+  final String? email;
+  final String? notes;
+
+  LearnRegistrationPayload({
+    required this.topicId,
+    required this.name,
+    required this.phone,
+    this.email,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'topic_id': topicId,
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'notes': notes,
+      };
+}
+
+/// Full topic row from admin APIs (includes drafts).
+class AdminLearnTopic {
+  final int id;
+  final String title;
+  final String categoryKey;
+  final String description;
+  final String teacherName;
+  final String deliveryMode;
+  final String scheduleSummary;
+  final String durationSummary;
+  final String? locationNote;
+  final int? maxParticipants;
+  final bool isPublished;
+  final int sortOrder;
+  final String createdAt;
+  final String updatedAt;
+
+  AdminLearnTopic({
+    required this.id,
+    required this.title,
+    required this.categoryKey,
+    required this.description,
+    required this.teacherName,
+    required this.deliveryMode,
+    required this.scheduleSummary,
+    required this.durationSummary,
+    this.locationNote,
+    this.maxParticipants,
+    required this.isPublished,
+    required this.sortOrder,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AdminLearnTopic.fromJson(Map<String, dynamic> json) {
+    final max = json['max_participants'];
+    return AdminLearnTopic(
+      id: (json['id'] as num).toInt(),
+      title: (json['title'] ?? '').toString(),
+      categoryKey: (json['category_key'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      teacherName: (json['teacher_name'] ?? '').toString(),
+      deliveryMode: (json['delivery_mode'] ?? 'online').toString(),
+      scheduleSummary: (json['schedule_summary'] ?? '').toString(),
+      durationSummary: (json['duration_summary'] ?? '').toString(),
+      locationNote: json['location_note']?.toString(),
+      maxParticipants: max is num ? max.toInt() : null,
+      isPublished: json['is_published'] == true,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
+class AdminLearnRegistrationView {
+  final int id;
+  final int topicId;
+  final String topicTitle;
+  final String name;
+  final String phone;
+  final String? email;
+  final String? notes;
+  final String status;
+  final String adminNote;
+  final String createdAt;
+  final String updatedAt;
+
+  AdminLearnRegistrationView({
+    required this.id,
+    required this.topicId,
+    required this.topicTitle,
+    required this.name,
+    required this.phone,
+    this.email,
+    this.notes,
+    required this.status,
+    required this.adminNote,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AdminLearnRegistrationView.fromJson(Map<String, dynamic> json) {
+    return AdminLearnRegistrationView(
+      id: (json['id'] as num).toInt(),
+      topicId: (json['topic_id'] as num).toInt(),
+      topicTitle: (json['topic_title'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: json['email']?.toString(),
+      notes: json['notes']?.toString(),
+      status: (json['status'] ?? '').toString(),
+      adminNote: (json['admin_note'] ?? '').toString(),
+      createdAt: (json['created_at'] ?? '').toString(),
+      updatedAt: (json['updated_at'] ?? '').toString(),
+    );
+  }
+}
+
 class FeedbackRequestModel {
   final String? name;
   final String? email;

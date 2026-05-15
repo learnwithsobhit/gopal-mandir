@@ -138,6 +138,7 @@ class AppStrings {
   String get quickPoojaAppointment => isHindi ? 'पूजा\nबुकिंग' : 'Book\nPooja';
   String get quickAskAstrologer => isHindi ? 'ज्योतिष\nसलाह' : 'Ask\nAstrologer';
   String get quickCommunityQA => isHindi ? 'समुदाय\nप्रश्न' : 'Community\nQ&A';
+  String get quickLearn => isHindi ? 'शिक्षा\nकेन्द्र' : 'Learn\nHub';
   String get seoHeading => isHindi ? 'गोपाल मंदिर, गोपाल जी और मथुरा भक्ति' : 'Gopal Mandir, Gopal Ji and Mathura Bhakti';
   String get seoIntro => isHindi
       ? 'श्री गोपाल मंदिर ऐप में भक्तों के लिए दर्शन, आरती समय, सेवा, उत्सव और आध्यात्मिक अपडेट हिंदी व English में उपलब्ध हैं।'
@@ -370,6 +371,70 @@ class AppStrings {
   String get adminMembersSub => isHindi ? 'मंदिर सदस्यों को देखें और प्रबंधित करें' : 'View & manage temple members';
   String get adminVolunteerRequests => isHindi ? 'स्वयंसेवक अनुरोध' : 'Volunteer Requests';
   String get adminVolunteerRequestsSub => isHindi ? 'स्वयंसेवक आवेदन की समीक्षा और प्रबंधन' : 'Review & manage volunteer applications';
+  String get adminLearnTopics => isHindi ? 'शिक्षा विषय' : 'Learning topics';
+  String get adminLearnTopicsSub =>
+      isHindi ? 'पाठ्यक्रम बनाएँ, प्रकाशित करें और क्रम बदलें' : 'Create, publish and reorder course listings';
+  String get adminLearnRegistrations => isHindi ? 'शिक्षा पंजीकरण' : 'Learning registrations';
+  String get adminLearnRegistrationsSub =>
+      isHindi ? 'आवेदकों की स्थिति और आंतरिक नोट अपडेट करें' : 'Update applicant status and internal notes';
+
+  // ── Learn hub (public) ──
+  String get learnHubTitle => isHindi ? 'शिक्षा केन्द्र' : 'Learn';
+  String get learnHubSubtitle =>
+      isHindi ? 'संस्कृत, वेद, पुराण आदि के लिए पंजीकरण करें' : 'Register for Sanskrit, Vedas, Puranas & more';
+  String get learnEmpty =>
+      isHindi ? 'अभी कोई पाठ्यक्रम सूचीबद्ध नहीं। बाद में जाँचें।' : 'No courses listed yet. Please check back soon.';
+  String get learnTeacher => isHindi ? 'अध्यापक' : 'Teacher';
+  String get learnSchedule => isHindi ? 'समय सारांश' : 'Schedule';
+  String get learnDuration => isHindi ? 'अवधि' : 'Duration';
+  String get learnLocation => isHindi ? 'स्थान / ऑनलाइन' : 'Location / online';
+  String get learnCapacity => isHindi ? 'अधिकतम प्रतिभागी' : 'Max participants';
+  String get learnDeliveryOnline => isHindi ? 'ऑनलाइन' : 'Online';
+  String get learnDeliveryOffline => isHindi ? 'ऑफ़लाइन' : 'Offline';
+  String get learnDeliveryBoth => isHindi ? 'दोनों' : 'Both';
+  String get learnRegister => isHindi ? 'पंजीकरण' : 'Register';
+  String get learnRegisterTitle => isHindi ? 'पाठ्यक्रम पंजीकरण' : 'Course registration';
+  String get learnFormName => isHindi ? 'पूरा नाम' : 'Full name';
+  String get learnFormPhone => isHindi ? 'मोबाइल नंबर' : 'Mobile number';
+  String get learnFormEmailOptional => isHindi ? 'ईमेल (वैकल्पिक)' : 'Email (optional)';
+  String get learnFormNotesOptional => isHindi ? 'संदेश (वैकल्पिक)' : 'Message (optional)';
+  String get learnSubmit => isHindi ? 'भेजें' : 'Submit';
+  String get learnNamePhoneRequired =>
+      isHindi ? 'कृपया नाम और फ़ोन दर्ज करें' : 'Please enter name and phone';
+  String learnDeliveryLabel(String mode) {
+    switch (mode.toLowerCase()) {
+      case 'offline':
+        return learnDeliveryOffline;
+      case 'both':
+        return learnDeliveryBoth;
+      default:
+        return learnDeliveryOnline;
+    }
+  }
+
+  // ── Admin Learn (forms) ──
+  String get adminLearnTopicTitle => isHindi ? 'शीर्षक' : 'Title';
+  String get adminLearnCategoryKey => isHindi ? 'श्रेणी कुंजी' : 'Category key';
+  String get adminLearnTeacher => isHindi ? 'अध्यापक का नाम' : 'Teacher name';
+  String get adminLearnDeliveryMode => isHindi ? 'वितरण मोड' : 'Delivery mode';
+  String get adminLearnDescription => isHindi ? 'विवरण' : 'Description';
+  String get adminLearnScheduleSummary => isHindi ? 'समय सारांश' : 'Schedule summary';
+  String get adminLearnDurationSummary => isHindi ? 'अवधि सारांश' : 'Duration summary';
+  String get adminLearnLocationNote => isHindi ? 'स्थान नोट' : 'Location note';
+  String get adminLearnMaxParticipantsHint =>
+      isHindi ? 'अधिकतम प्रतिभागी (खाली = कोई सीमा नहीं)' : 'Max participants (empty = no cap)';
+  String get adminLearnSortOrder => isHindi ? 'क्रम संख्या' : 'Sort order';
+  String get adminLearnPublished => isHindi ? 'प्रकाशित' : 'Published';
+  String get adminLearnSave => isHindi ? 'सहेजें' : 'Save';
+  String get adminLearnNewTopicTitle => isHindi ? 'नया विषय' : 'New topic';
+  String get adminLearnEditTopicTitle => isHindi ? 'विषय संपादित करें' : 'Edit topic';
+  String get adminLearnDeleteConfirm =>
+      isHindi ? 'इस विषय को हटाएँ? पंजीकरण होने पर हटाना असफल हो सकता है।' : 'Delete this topic? Deletes fail if registrations exist.';
+  String get adminLearnFilterTopic => isHindi ? 'विषय' : 'Topic';
+  String get adminLearnFilterStatus => isHindi ? 'स्थिति' : 'Status';
+  String get adminLearnFilterAll => isHindi ? 'सभी' : 'All';
+  String get adminLearnAdminNote => isHindi ? 'प्रशासक नोट' : 'Admin note';
+  String get adminLearnUpdateRegistration => isHindi ? 'पंजीकरण अपडेट करें' : 'Update registration';
   String get adminFeedbackQueue => isHindi ? 'फीडबैक कतार' : 'Feedback Queue';
   String get adminFeedbackQueueSub => isHindi ? 'यूजर फीडबैक की ट्रायेज और प्रतिक्रिया' : 'Triage and respond to user feedback';
   String get adminFeedbackAnalytics => isHindi ? 'फीडबैक विश्लेषण' : 'Feedback Analytics';

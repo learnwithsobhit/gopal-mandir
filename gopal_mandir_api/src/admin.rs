@@ -5579,3 +5579,566 @@ pub async fn admin_delete_succession(
         })),
     }
 }
+
+// ──────────────────────────────────────────────
+// Learning hub (admin)
+// ──────────────────────────────────────────────
+
+fn learning_parse_delivery_mode(raw: &Option<String>) -> Result<String, &'static str> {
+    let s = raw
+        .as_ref()
+        .map(|x| x.trim().to_lowercase())
+        .filter(|x| !x.is_empty())
+        .unwrap_or_else(|| "online".to_string());
+    match s.as_str() {
+        "online" | "offline" | "both" => Ok(s),
+        _ => Err("delivery_mode must be online, offline, or both"),
+    }
+}
+
+#[get("/api/admin/learn/topics")]
+pub async fn admin_list_learn_topics(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminLearnTopicsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+
+    match sqlx::query_as::<_, LearningTopic>(
+        "SELECT id, title, category_key, description, teacher_name, delivery_mode,
+                schedule_summary, duration_summary, location_note, max_participants,
+                is_published, sort_order, created_at, updated_at
+         FROM learning_topics
+         ORDER BY sort_order ASC, id ASC
+         LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool.get_ref())
+    .await
+    {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[post("/api/admin/learn/topics")]
+pub async fn admin_create_learn_topic(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    body: web::Json<AdminLearningTopicCreate>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let title = body.title.trim();
+    if title.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "error": "title is required"
+        }));
+    }
+    let delivery_mode = match learning_parse_delivery_mode(&body.delivery_mode) {
+        Ok(m) => m,
+        Err(msg) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": msg
+            }))
+        }
+    };
+    let category_key = body
+        .category_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("general")
+        .to_string();
+    let description = body.description.as_deref().unwrap_or("").trim().to_string();
+    let teacher_name = body.teacher_name.as_deref().unwrap_or("").trim().to_string();
+    let schedule_summary = body.schedule_summary.as_deref().unwrap_or("").trim().to_string();
+    let duration_summary = body.duration_summary.as_deref().unwrap_or("").trim().to_string();
+    let location_note = body
+        .location_note
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let max_participants = body.max_participants.filter(|&n| n > 0);
+    let is_published = body.is_published.unwrap_or(false);
+    let sort_order = body.sort_order.unwrap_or(0);
+
+    match sqlx::query_as::<_, LearningTopic>(
+        "INSERT INTO learning_topics (
+            title, category_key, description, teacher_name, delivery_mode,
+            schedule_summary, duration_summary, location_note, max_participants,
+            is_published, sort_order
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id, title, category_key, description, teacher_name, delivery_mode,
+                   schedule_summary, duration_summary, location_note, max_participants,
+                   is_published, sort_order, created_at, updated_at",
+    )
+    .bind(title)
+    .bind(&category_key)
+    .bind(&description)
+    .bind(&teacher_name)
+    .bind(&delivery_mode)
+    .bind(&schedule_summary)
+    .bind(&duration_summary)
+    .bind(&location_note)
+    .bind(max_participants)
+    .bind(is_published)
+    .bind(sort_order)
+    .fetch_one(pool.get_ref())
+    .await
+    {
+        Ok(row) => {
+            cache.invalidate("learn_topics").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/learn/topics/{id}")]
+pub async fn admin_patch_learn_topic(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminLearningTopicPatch>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = match sqlx::query_as::<_, LearningTopic>(
+        "SELECT id, title, category_key, description, teacher_name, delivery_mode,
+                schedule_summary, duration_summary, location_note, max_participants,
+                is_published, sort_order, created_at, updated_at
+         FROM learning_topics WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(t)) => t,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Topic not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let mut title = existing.title.clone();
+    if let Some(t) = &body.title {
+        let x = t.trim();
+        if !x.is_empty() {
+            title = x.to_string();
+        }
+    }
+
+    let category_key = body
+        .category_key
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(existing.category_key.clone());
+
+    let description = body
+        .description
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.description.clone());
+
+    let teacher_name = body
+        .teacher_name
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.teacher_name.clone());
+
+    let delivery_mode = if body.delivery_mode.is_some() {
+        match learning_parse_delivery_mode(&body.delivery_mode) {
+            Ok(m) => m,
+            Err(msg) => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "error": msg
+                }))
+            }
+        }
+    } else {
+        existing.delivery_mode.clone()
+    };
+
+    let schedule_summary = body
+        .schedule_summary
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.schedule_summary.clone());
+
+    let duration_summary = body
+        .duration_summary
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.duration_summary.clone());
+
+    let location_note = if body.location_note.is_some() {
+        body.location_note
+            .as_ref()
+            .and_then(|s| {
+                let t = s.trim();
+                if t.is_empty() {
+                    None
+                } else {
+                    Some(t.to_string())
+                }
+            })
+    } else {
+        existing.location_note.clone()
+    };
+
+    let max_participants = if body.max_participants.is_some() {
+        body.max_participants.filter(|&n| n > 0)
+    } else {
+        existing.max_participants
+    };
+
+    let is_published = body.is_published.unwrap_or(existing.is_published);
+    let sort_order = body.sort_order.unwrap_or(existing.sort_order);
+
+    match sqlx::query_as::<_, LearningTopic>(
+        "UPDATE learning_topics SET
+            title = $1,
+            category_key = $2,
+            description = $3,
+            teacher_name = $4,
+            delivery_mode = $5,
+            schedule_summary = $6,
+            duration_summary = $7,
+            location_note = $8,
+            max_participants = $9,
+            is_published = $10,
+            sort_order = $11,
+            updated_at = NOW()
+         WHERE id = $12
+         RETURNING id, title, category_key, description, teacher_name, delivery_mode,
+                   schedule_summary, duration_summary, location_note, max_participants,
+                   is_published, sort_order, created_at, updated_at",
+    )
+    .bind(&title)
+    .bind(&category_key)
+    .bind(&description)
+    .bind(&teacher_name)
+    .bind(&delivery_mode)
+    .bind(&schedule_summary)
+    .bind(&duration_summary)
+    .bind(&location_note)
+    .bind(max_participants)
+    .bind(is_published)
+    .bind(sort_order)
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(row)) => {
+            cache.invalidate("learn_topics").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "data": row
+            }))
+        }
+        Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Topic not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[delete("/api/admin/learn/topics/{id}")]
+pub async fn admin_delete_learn_topic(
+    pool: web::Data<PgPool>,
+    cache: web::Data<Cache>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let cnt: Result<i64, sqlx::Error> = sqlx::query_scalar(
+        "SELECT COUNT(*)::bigint FROM learning_registrations WHERE topic_id = $1",
+    )
+    .bind(id)
+    .fetch_one(pool.get_ref())
+    .await;
+
+    match cnt {
+        Ok(n) if n > 0 => {
+            return HttpResponse::Conflict().json(serde_json::json!({
+                "success": false,
+                "error": "Cannot delete topic with registrations; unpublish instead"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+        _ => {}
+    }
+
+    match sqlx::query("DELETE FROM learning_topics WHERE id = $1")
+        .bind(id)
+        .execute(pool.get_ref())
+        .await
+    {
+        Ok(r) if r.rows_affected() > 0 => {
+            cache.invalidate("learn_topics").await;
+            HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Deleted"
+            }))
+        }
+        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Topic not found"
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[get("/api/admin/learn/registrations")]
+pub async fn admin_list_learn_registrations(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    q: web::Query<AdminLearnRegistrationsQuery>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let page = q.page.unwrap_or(1).max(1);
+    let per_page = q.per_page.unwrap_or(50).min(200);
+    let offset = ((page - 1) * per_page) as i64;
+    let limit = per_page as i64;
+
+    let topic_filter = q.topic_id;
+    let status_raw = q.status.as_deref().map(str::trim).filter(|s| !s.is_empty());
+
+    let rows = if let Some(tid) = topic_filter {
+        if let Some(st) = status_raw {
+            sqlx::query_as::<_, AdminLearningRegistrationView>(
+                "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                        r.status, r.admin_note, r.created_at, r.updated_at
+                 FROM learning_registrations r
+                 JOIN learning_topics t ON t.id = r.topic_id
+                 WHERE r.topic_id = $1 AND r.status = $2
+                 ORDER BY r.created_at DESC
+                 LIMIT $3 OFFSET $4",
+            )
+            .bind(tid)
+            .bind(st)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool.get_ref())
+            .await
+        } else {
+            sqlx::query_as::<_, AdminLearningRegistrationView>(
+                "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                        r.status, r.admin_note, r.created_at, r.updated_at
+                 FROM learning_registrations r
+                 JOIN learning_topics t ON t.id = r.topic_id
+                 WHERE r.topic_id = $1
+                 ORDER BY r.created_at DESC
+                 LIMIT $2 OFFSET $3",
+            )
+            .bind(tid)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(pool.get_ref())
+            .await
+        }
+    } else if let Some(st) = status_raw {
+        sqlx::query_as::<_, AdminLearningRegistrationView>(
+            "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                    r.status, r.admin_note, r.created_at, r.updated_at
+             FROM learning_registrations r
+             JOIN learning_topics t ON t.id = r.topic_id
+             WHERE r.status = $1
+             ORDER BY r.created_at DESC
+             LIMIT $2 OFFSET $3",
+        )
+        .bind(st)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.get_ref())
+        .await
+    } else {
+        sqlx::query_as::<_, AdminLearningRegistrationView>(
+            "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                    r.status, r.admin_note, r.created_at, r.updated_at
+             FROM learning_registrations r
+             JOIN learning_topics t ON t.id = r.topic_id
+             ORDER BY r.created_at DESC
+             LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool.get_ref())
+        .await
+    };
+
+    match rows {
+        Ok(data) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "page": page,
+            "per_page": per_page
+        })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}
+
+#[patch("/api/admin/learn/registrations/{id}")]
+pub async fn admin_patch_learn_registration(
+    pool: web::Data<PgPool>,
+    req: HttpRequest,
+    id: web::Path<i32>,
+    body: web::Json<AdminLearningRegistrationPatch>,
+) -> HttpResponse {
+    if let Err(resp) = require_admin(pool.get_ref(), &req).await {
+        return resp;
+    }
+    let id = id.into_inner();
+
+    let existing = match sqlx::query_as::<_, AdminLearningRegistrationView>(
+        "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                r.status, r.admin_note, r.created_at, r.updated_at
+         FROM learning_registrations r
+         JOIN learning_topics t ON t.id = r.topic_id
+         WHERE r.id = $1",
+    )
+    .bind(id)
+    .fetch_optional(pool.get_ref())
+    .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "success": false,
+                "error": "Registration not found"
+            }));
+        }
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "success": false,
+                "error": format!("Database error: {}", e)
+            }));
+        }
+    };
+
+    let status = if let Some(s) = &body.status {
+        let v = s.trim().to_lowercase();
+        if !matches!(v.as_str(), "new" | "confirmed" | "cancelled" | "waitlist") {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "error": "Invalid status"
+            }));
+        }
+        v
+    } else {
+        existing.status.clone()
+    };
+
+    let admin_note = body
+        .admin_note
+        .as_ref()
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.admin_note.clone());
+
+    match sqlx::query(
+        "UPDATE learning_registrations SET status = $1, admin_note = $2, updated_at = NOW()
+         WHERE id = $3",
+    )
+    .bind(&status)
+    .bind(&admin_note)
+    .bind(id)
+    .execute(pool.get_ref())
+    .await
+    {
+        Ok(r) if r.rows_affected() == 0 => HttpResponse::NotFound().json(serde_json::json!({
+            "success": false,
+            "error": "Registration not found"
+        })),
+        Ok(_) => {
+            match sqlx::query_as::<_, AdminLearningRegistrationView>(
+                "SELECT r.id, r.topic_id, t.title AS topic_title, r.name, r.phone, r.email, r.notes,
+                        r.status, r.admin_note, r.created_at, r.updated_at
+                 FROM learning_registrations r
+                 JOIN learning_topics t ON t.id = r.topic_id
+                 WHERE r.id = $1",
+            )
+            .bind(id)
+            .fetch_optional(pool.get_ref())
+            .await
+            {
+                Ok(Some(row)) => HttpResponse::Ok().json(serde_json::json!({
+                    "success": true,
+                    "data": row
+                })),
+                Ok(None) => HttpResponse::NotFound().json(serde_json::json!({
+                    "success": false,
+                    "error": "Registration not found"
+                })),
+                Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Database error: {}", e)
+                })),
+            }
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "success": false,
+            "error": format!("Database error: {}", e)
+        })),
+    }
+}

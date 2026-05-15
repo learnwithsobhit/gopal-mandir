@@ -231,6 +231,68 @@ class ApiService {
     }
   }
 
+  // ──────────────────────────────────────────────
+  // Learn hub (topics + registration)
+  // ──────────────────────────────────────────────
+
+  Future<List<LearnTopic>> getLearnTopics() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/learn/topics'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'];
+        if (data is List) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(LearnTopic.fromJson)
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('learn topics: $e');
+    }
+    return [];
+  }
+
+  Future<LearnTopic?> getLearnTopic(int id) async {
+    try {
+      final response =
+          await http.get(Uri.parse('$baseUrl/api/learn/topics/$id'));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'];
+        if (data is Map<String, dynamic>) return LearnTopic.fromJson(data);
+      }
+    } catch (e) {
+      print('learn topic by id: $e');
+    }
+    return null;
+  }
+
+  Future<({bool success, String message})> submitLearnRegistration(
+    LearnRegistrationPayload req,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/learn/register'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(req.toJson()),
+      );
+      final json = jsonDecode(response.body) as Map<String, dynamic>?;
+      if (response.statusCode == 200 && json != null && json['success'] == true) {
+        return (
+          success: true,
+          message: (json['message'] ?? 'Submitted').toString(),
+        );
+      }
+      final msg = (json?['error'] ?? json?['message'] ?? 'Failed').toString();
+      return (success: false, message: '(${response.statusCode}) $msg');
+    } catch (e) {
+      print('learn registration: $e');
+      return (success: false, message: 'Network error. Please try again.');
+    }
+  }
+
   /// Returns new like count on success, null on failure.
   Future<int?> likeEvent(int eventId) async {
     try {
@@ -3100,6 +3162,147 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       print('admin member patch: $e');
+    }
+    return false;
+  }
+
+  // ──────────────────────────────────────────────
+  // Admin Learn hub
+  // ──────────────────────────────────────────────
+
+  Future<List<AdminLearnTopic>> adminListLearnTopics(
+    String token, {
+    int page = 1,
+    int perPage = 200,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/admin/learn/topics').replace(
+        queryParameters: {'page': '$page', 'per_page': '$perPage'},
+      );
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(AdminLearnTopic.fromJson)
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin learn topics list: $e');
+    }
+    return [];
+  }
+
+  Future<AdminLearnTopic?> adminCreateLearnTopic(
+    String token,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/admin/learn/topics'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return AdminLearnTopic.fromJson(data);
+      }
+    } catch (e) {
+      print('admin learn topic create: $e');
+    }
+    return null;
+  }
+
+  Future<AdminLearnTopic?> adminPatchLearnTopic(
+    String token,
+    int id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/learn/topics/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as Map<String, dynamic>?;
+        if (data != null) return AdminLearnTopic.fromJson(data);
+      }
+    } catch (e) {
+      print('admin learn topic patch: $e');
+    }
+    return null;
+  }
+
+  Future<bool> adminDeleteLearnTopic(String token, int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/admin/learn/topics/$id'),
+        headers: _adminHeaders(token),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin learn topic delete: $e');
+    }
+    return false;
+  }
+
+  Future<List<AdminLearnRegistrationView>> adminListLearnRegistrations(
+    String token, {
+    int? topicId,
+    String? status,
+    int page = 1,
+    int perPage = 100,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'per_page': '$perPage',
+        if (topicId != null) 'topic_id': '$topicId',
+        if (status != null && status.isNotEmpty) 'status': status,
+      };
+      final uri = Uri.parse('$baseUrl/api/admin/learn/registrations')
+          .replace(queryParameters: q);
+      final response = await http.get(uri, headers: _adminHeaders(token));
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = json?['data'] as List<dynamic>?;
+        if (data != null) {
+          return data
+              .whereType<Map<String, dynamic>>()
+              .map(AdminLearnRegistrationView.fromJson)
+              .toList();
+        }
+      }
+    } catch (e) {
+      print('admin learn registrations list: $e');
+    }
+    return [];
+  }
+
+  Future<bool> adminPatchLearnRegistration(
+    String token,
+    int id, {
+    String? status,
+    String? adminNote,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (status != null) body['status'] = status;
+      if (adminNote != null) body['admin_note'] = adminNote;
+      final response = await http.patch(
+        Uri.parse('$baseUrl/api/admin/learn/registrations/$id'),
+        headers: _adminHeaders(token),
+        body: jsonEncode(body),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('admin learn registration patch: $e');
     }
     return false;
   }

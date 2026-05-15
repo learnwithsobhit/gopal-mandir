@@ -29,6 +29,8 @@ import 'admin_feedback_list_screen.dart';
 import 'admin_feedback_analytics_screen.dart';
 import 'admin_astro_consult_list_screen.dart';
 import 'admin_community_posts_screen.dart';
+import 'admin_learn_topics_list_screen.dart';
+import 'admin_learn_registrations_screen.dart';
 import 'admin_festivals_list_screen.dart';
 import 'admin_activity_feed_screen.dart';
 import 'admin_owner_access_screen.dart';
@@ -402,6 +404,28 @@ class _AdminShellState extends State<AdminShell> {
               context,
               MaterialPageRoute<void>(
                 builder: (_) => AdminAstroConsultListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.school_outlined,
+            s.adminLearnTopics,
+            s.adminLearnTopicsSub,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminLearnTopicsListScreen(token: _token!),
+              ),
+            ),
+          ),
+          _tile(
+            Icons.how_to_reg_outlined,
+            s.adminLearnRegistrations,
+            s.adminLearnRegistrationsSub,
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AdminLearnRegistrationsScreen(token: _token!),
               ),
             ),
           ),

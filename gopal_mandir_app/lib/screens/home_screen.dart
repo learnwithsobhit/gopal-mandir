@@ -27,6 +27,7 @@ import 'festivals_screen.dart';
 import 'gallery_screen.dart';
 import 'hindu_panchang_screen.dart';
 import 'live_darshan_screen.dart';
+import 'learn_hub_screen.dart';
 import 'seva_offerings_screen.dart';
 import 'successions_screen.dart';
 
@@ -341,6 +342,12 @@ class _HomeScreenState extends State<HomeScreen> {
             label: s.quickAskAstrologer,
             color: AppColors.krishnaBlue,
             onTap: () => _navigateTo(context, const AstroConsultScreen()),
+          ),
+          QuickActionButton(
+            icon: Icons.school_outlined,
+            label: s.quickLearn,
+            color: AppColors.templeGoldDark,
+            onTap: () => _navigateTo(context, const LearnHubScreen()),
           ),
           QuickActionButton(
             icon: Icons.forum,

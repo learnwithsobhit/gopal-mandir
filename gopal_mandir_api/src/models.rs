@@ -1181,6 +1181,118 @@ pub struct VolunteerRequest {
 }
 
 // ──────────────────────────────────────────────
+// Learning hub (topics + registrations)
+// ──────────────────────────────────────────────
+
+/// Public / API shape for published topics (no internal flags/timestamps).
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct LearningTopicPublic {
+    pub id: i32,
+    pub title: String,
+    pub category_key: String,
+    pub description: String,
+    pub teacher_name: String,
+    pub delivery_mode: String,
+    pub schedule_summary: String,
+    pub duration_summary: String,
+    pub location_note: Option<String>,
+    pub max_participants: Option<i32>,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
+pub struct LearningTopic {
+    pub id: i32,
+    pub title: String,
+    pub category_key: String,
+    pub description: String,
+    pub teacher_name: String,
+    pub delivery_mode: String,
+    pub schedule_summary: String,
+    pub duration_summary: String,
+    pub location_note: Option<String>,
+    pub max_participants: Option<i32>,
+    pub is_published: bool,
+    pub sort_order: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LearnRegistrationRequest {
+    pub topic_id: i32,
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminLearningTopicCreate {
+    pub title: String,
+    pub category_key: Option<String>,
+    pub description: Option<String>,
+    pub teacher_name: Option<String>,
+    pub delivery_mode: Option<String>,
+    pub schedule_summary: Option<String>,
+    pub duration_summary: Option<String>,
+    pub location_note: Option<String>,
+    pub max_participants: Option<i32>,
+    pub is_published: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminLearningTopicPatch {
+    pub title: Option<String>,
+    pub category_key: Option<String>,
+    pub description: Option<String>,
+    pub teacher_name: Option<String>,
+    pub delivery_mode: Option<String>,
+    pub schedule_summary: Option<String>,
+    pub duration_summary: Option<String>,
+    pub location_note: Option<String>,
+    pub max_participants: Option<i32>,
+    pub is_published: Option<bool>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Clone, FromRow)]
+pub struct AdminLearningRegistrationView {
+    pub id: i32,
+    pub topic_id: i32,
+    pub topic_title: String,
+    pub name: String,
+    pub phone: String,
+    pub email: Option<String>,
+    pub notes: Option<String>,
+    pub status: String,
+    pub admin_note: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminLearningRegistrationPatch {
+    pub status: Option<String>,
+    pub admin_note: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminLearnTopicsQuery {
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminLearnRegistrationsQuery {
+    pub topic_id: Option<i32>,
+    pub status: Option<String>,
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+}
+
+// ──────────────────────────────────────────────
 // Pooja / Guru-Baba appointments
 // ──────────────────────────────────────────────
 
