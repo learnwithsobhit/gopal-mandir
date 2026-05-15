@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/section_header.dart';
 import '../widgets/skeleton.dart';
+import 'daily_upasana_pdf_prefs.dart';
 import 'daily_upasana_web_pdf_view.dart';
 
 // ── Persistence keys ────────────────────────────────────────────────────────
@@ -19,8 +20,6 @@ const _prefLastCategory = 'daily_upasana_last_category';
 const _prefLastItemId = 'daily_upasana_last_item_id';
 const _prefTextScale = 'daily_upasana_text_scale';
 const _prefReaderDark = 'daily_upasana_reader_dark';
-String _prefPdfPage(int itemId) => 'daily_upasana_pdf_page_$itemId';
-String _prefPdfBookmarks(int itemId) => 'daily_upasana_pdf_bookmarks_$itemId';
 
 Future<void> saveDailyUpasanaLastRead(String categoryKey, int itemId) async {
   try {
@@ -868,6 +867,7 @@ class _DailyUpasanaReaderScreenState extends State<DailyUpasanaReaderScreen> {
   // Shared prefs for text reader; PDF reader uses its own per-item keys.
   double _textScale = 1.0;
   bool _darkMode = false;
+  PdfViewerController? _pdfToolbarCtrl;
 
   @override
   void initState() {
@@ -928,48 +928,97 @@ class _DailyUpasanaReaderScreenState extends State<DailyUpasanaReaderScreen> {
     _saveTextPrefs();
   }
 
+  void _nudgePdfZoom(double delta) {
+    final c = _pdfToolbarCtrl;
+    if (c == null) return;
+    c.zoomLevel = (c.zoomLevel + delta).clamp(1.0, 3.0);
+  }
+
+  void _resetPdfZoom() {
+    final c = _pdfToolbarCtrl;
+    if (c == null) return;
+    c.zoomLevel = 1.0;
+  }
+
+  void _onPdfControllerReady(PdfViewerController c) {
+    setState(() => _pdfToolbarCtrl = c);
+  }
+
+  void _onPdfControllerDisposed(PdfViewerController c) {
+    if (_pdfToolbarCtrl == c) {
+      setState(() => _pdfToolbarCtrl = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = AppLocaleScope.of(context).strings;
     final item = widget.items[_pageIndex];
     final isPdf = item.isPdf;
-    final bg = isPdf
-        ? AppColors.sandalCream
-        : (_darkMode ? const Color(0xFF2A1F1A) : AppColors.sandalCream);
-    final fg = isPdf
-        ? AppColors.darkBrown
-        : (_darkMode ? const Color(0xFFEFE6D8) : AppColors.darkBrown);
+    final bg =
+        _darkMode ? const Color(0xFF2A1F1A) : AppColors.sandalCream;
+    final fg =
+        _darkMode ? const Color(0xFFEFE6D8) : AppColors.darkBrown;
 
     return Scaffold(
       backgroundColor: bg,
       appBar: AppBar(
-        title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        backgroundColor: bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: fg,
+        title: Text(item.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: fg)),
         actions: [
+          if (isPdf && _pdfToolbarCtrl != null) ...[
+            IconButton(
+              tooltip: s.readerZoomOut,
+              icon: Icon(Icons.zoom_out, color: fg),
+              onPressed: () => _nudgePdfZoom(-0.25),
+            ),
+            IconButton(
+              tooltip: s.readerZoomIn,
+              icon: Icon(Icons.zoom_in, color: fg),
+              onPressed: () => _nudgePdfZoom(0.25),
+            ),
+            IconButton(
+              tooltip: s.readerZoomActualSize,
+              icon: Icon(Icons.fit_screen, color: fg),
+              onPressed: _resetPdfZoom,
+            ),
+          ],
           if (!isPdf) ...[
             IconButton(
               tooltip: s.readerFontSize,
-              icon: const Icon(Icons.text_fields),
+              icon: Icon(Icons.text_fields, color: fg),
               onPressed: () => _bumpFont(0.1),
             ),
             IconButton(
               tooltip: s.readerFontSize,
-              icon: const Icon(Icons.text_decrease),
+              icon: Icon(Icons.text_decrease, color: fg),
               onPressed: () => _bumpFont(-0.1),
             ),
-            IconButton(
-              tooltip: s.readerBrightness,
-              icon: Icon(_darkMode
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined),
-              onPressed: _toggleDark,
-            ),
           ],
+          IconButton(
+            tooltip: s.readerBrightness,
+            icon: Icon(
+              _darkMode
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+              color: fg,
+            ),
+            onPressed: _toggleDark,
+          ),
         ],
       ),
       body: isPdf
           ? _DailyUpasanaPdfReader(
               key: ValueKey('pdf_${item.id}'),
               item: item,
+              onPdfControllerReady: kIsWeb ? null : _onPdfControllerReady,
+              onPdfControllerDisposed: kIsWeb ? null : _onPdfControllerDisposed,
             )
           : _TextReader(
               key: ValueKey('text_${item.id}'),
@@ -977,41 +1026,43 @@ class _DailyUpasanaReaderScreenState extends State<DailyUpasanaReaderScreen> {
               textScale: _textScale,
               foreground: fg,
             ),
-      bottomNavigationBar: Material(
-        elevation: 8,
-        color: AppColors.softWhite,
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-            child: Row(
-              children: [
-                TextButton.icon(
-                  onPressed: _pageIndex > 0 ? _goPrev : null,
-                  icon: const Icon(Icons.chevron_left),
-                  label: Text(s.dailyUpasanaPrevious),
-                ),
-                Expanded(
-                  child: Text(
-                    '${_pageIndex + 1} / ${widget.items.length}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.warmGrey,
-                    ),
+      bottomNavigationBar: widget.items.length <= 1
+          ? null
+          : Material(
+              elevation: 8,
+              color: AppColors.softWhite,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+                  child: Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: _pageIndex > 0 ? _goPrev : null,
+                        icon: const Icon(Icons.chevron_left),
+                        label: Text(s.dailyUpasanaPrevious),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_pageIndex + 1} / ${widget.items.length}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.warmGrey,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed:
+                            _pageIndex < widget.items.length - 1 ? _goNext : null,
+                        icon: const Icon(Icons.chevron_right),
+                        label: Text(s.dailyUpasanaNext),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton.icon(
-                  onPressed:
-                      _pageIndex < widget.items.length - 1 ? _goNext : null,
-                  icon: const Icon(Icons.chevron_right),
-                  label: Text(s.dailyUpasanaNext),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1095,16 +1146,23 @@ class _TextReaderState extends State<_TextReader> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DailyUpasanaPdfReader extends StatefulWidget {
-  const _DailyUpasanaPdfReader({super.key, required this.item});
+  const _DailyUpasanaPdfReader({
+    super.key,
+    required this.item,
+    this.onPdfControllerReady,
+    this.onPdfControllerDisposed,
+  });
 
   final DailyUpasanaItem item;
+  final ValueChanged<PdfViewerController>? onPdfControllerReady;
+  final ValueChanged<PdfViewerController>? onPdfControllerDisposed;
 
   @override
   State<_DailyUpasanaPdfReader> createState() => _DailyUpasanaPdfReaderState();
 }
 
 class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
-  final PdfViewerController _pdfCtrl = PdfViewerController();
+  PdfViewerController? _pdfCtrl;
   int _totalPages = 0;
   int _currentPage = 1;
   int? _savedPage;
@@ -1118,21 +1176,29 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   @override
   void initState() {
     super.initState();
+    if (!kIsWeb) {
+      _pdfCtrl = PdfViewerController();
+      widget.onPdfControllerReady?.call(_pdfCtrl!);
+    }
     _loadPrefs();
   }
 
   @override
   void dispose() {
-    _pdfCtrl.dispose();
+    if (_pdfCtrl != null) {
+      widget.onPdfControllerDisposed?.call(_pdfCtrl!);
+      _pdfCtrl!.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _loadPrefs() async {
     try {
       final sp = await SharedPreferences.getInstance();
-      final saved = sp.getInt(_prefPdfPage(widget.item.id));
-      final rawBm = sp.getStringList(_prefPdfBookmarks(widget.item.id)) ??
-          const <String>[];
+      final saved = sp.getInt(dailyUpasanaPdfPagePrefKey(widget.item.id));
+      final rawBm =
+          sp.getStringList(dailyUpasanaPdfBookmarksPrefKey(widget.item.id)) ??
+              const <String>[];
       final bm = <int>[];
       for (final e in rawBm) {
         final n = int.tryParse(e);
@@ -1151,7 +1217,7 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
     _currentPage = page;
     try {
       final sp = await SharedPreferences.getInstance();
-      await sp.setInt(_prefPdfPage(widget.item.id), page);
+      await sp.setInt(dailyUpasanaPdfPagePrefKey(widget.item.id), page);
     } catch (_) {}
   }
 
@@ -1159,7 +1225,8 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
     try {
       final sp = await SharedPreferences.getInstance();
       await sp.setStringList(
-          _prefPdfBookmarks(widget.item.id), bm.map((e) => '$e').toList());
+          dailyUpasanaPdfBookmarksPrefKey(widget.item.id),
+          bm.map((e) => '$e').toList());
     } catch (_) {}
   }
 
@@ -1272,7 +1339,9 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
   void _jumpTo(int page) {
     if (_totalPages == 0) return;
     final clamped = page.clamp(1, _totalPages);
-    _pdfCtrl.jumpToPage(clamped);
+    final c = _pdfCtrl;
+    if (c == null) return;
+    c.jumpToPage(clamped);
   }
 
   void _retry() {
@@ -1312,7 +1381,16 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
     // richer controls (resume, bookmarks, jump-to-page) — we pass the saved
     // page to PDF.js via `#page=N` so resume still works on web.
     if (kIsWeb) {
-      return buildDailyUpasanaWebPdfView(url, initialPage: _savedPage);
+      return DailyUpasanaWebPdfReader(
+        url: url,
+        initialPage: _savedPage,
+        itemId: widget.item.id,
+      );
+    }
+
+    final c = _pdfCtrl;
+    if (c == null) {
+      return const SizedBox.shrink();
     }
 
     return Stack(
@@ -1320,15 +1398,15 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
         SfPdfViewer.network(
           url,
           key: ValueKey('pdf_${widget.item.id}_$_reloadNonce'),
-          controller: _pdfCtrl,
+          controller: c,
           // Vertical continuous reading feels most natural on mobile — users
           // scroll through the whole book with one gesture. Horizontal single
           // page required a side-swipe that most readers missed, so the PDF
           // felt stuck on page 1.
           pageLayoutMode: PdfPageLayoutMode.continuous,
           scrollDirection: PdfScrollDirection.vertical,
-          canShowScrollHead: true,
-          canShowScrollStatus: true,
+          canShowScrollHead: false,
+          canShowScrollStatus: false,
           canShowPageLoadingIndicator: true,
           enableDoubleTapZooming: true,
           onDocumentLoaded: (details) {
@@ -1339,7 +1417,7 @@ class _DailyUpasanaPdfReaderState extends State<_DailyUpasanaPdfReader> {
             final saved = _savedPage ?? 1;
             if (saved > 1 && saved <= _totalPages) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                _pdfCtrl.jumpToPage(saved);
+                c.jumpToPage(saved);
               });
             }
           },

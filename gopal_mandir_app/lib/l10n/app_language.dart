@@ -645,6 +645,10 @@ class AppStrings {
   // ── Reader chrome ──
   String get readerFontSize => isHindi ? 'फ़ॉन्ट आकार' : 'Font size';
   String get readerBrightness => isHindi ? 'रात्रि मोड' : 'Night mode';
+  String get readerZoomIn => isHindi ? 'बड़ा करें' : 'Zoom in';
+  String get readerZoomOut => isHindi ? 'छोटा करें' : 'Zoom out';
+  String get readerZoomActualSize =>
+      isHindi ? 'वास्तविक आकार' : 'Actual size';
   String get readerJumpToPage =>
       isHindi ? 'पृष्ठ पर जाएं' : 'Jump to page';
   String get readerBookmarkPage =>
@@ -657,6 +661,16 @@ class AppStrings {
   String get readerPdfLoadFailed => isHindi
       ? 'पीडीएफ लोड नहीं हो सका। पुनः प्रयास करें।'
       : 'Could not load PDF. Please retry.';
+  /// Web / phones: native browser tab PDF viewer is stable for pinch-zoom.
+  String get readerPdfOpenNativeTitle =>
+      isHindi ? 'पीडीएफ नई टैब में खोलें' : 'Open PDF in browser tab';
+  String get readerPdfOpenNativeBody => isHindi
+      ? 'फ़ोन पर ब्राउज़र का अपना पाठक ज़ूम और स्क्रॉल के लिए अधिक स्थिर है। ऐप के अंदर वाला दृश्य कुछ डिवाइसों पर ज़ूम करते समय रुक या बंद हो सकता है।'
+      : 'On phones, your browser’s built-in PDF viewer handles pinch-zoom and scrolling more reliably. The in-app viewer can freeze or crash when zooming.';
+  String get readerPdfOpenNativeButton =>
+      isHindi ? 'पीडीएफ खोलें' : 'Open PDF';
+  String get readerPdfTryEmbeddedAnyway =>
+      isHindi ? 'ऐप के भीतर पढ़ें' : 'Read inside app instead';
   String get readerRetry => isHindi ? 'पुनः प्रयास' : 'Retry';
   String get readerGo => isHindi ? 'जाएं' : 'Go';
 

@@ -42,3 +42,43 @@
 .toolbar .toolbarHorizontalGroup + .toolbarHorizontalGroup {
   margin-left: 4px;
 }
+
+/* ── Minimal reading chrome (body[data-reading="minimal"]) ─────────────── */
+
+body[data-reading="minimal"] #outerContainer {
+  background-color: #f5efe6;
+}
+
+body[data-reading="minimal"] #sidebarContainer {
+  background-color: #f0e9dd;
+}
+
+body[data-reading="minimal"] #viewerContainer {
+  background-color: #f5efe6;
+}
+
+body[data-reading="minimal"] .toolbar {
+  background-color: #ebe3d4;
+  border-bottom: 1px solid rgba(74, 54, 35, 0.12);
+}
+
+/* Softer focus on the page canvas */
+body[data-reading="minimal"] .page {
+  margin-bottom: 12px !important;
+}
+
+/* Narrow screens: fewer competing controls; keep page + zoom + tools menu */
+@media (max-width: 640px) {
+  body[data-reading="minimal"] #printButton,
+  body[data-reading="minimal"] #downloadButton {
+    display: none !important;
+  }
+
+  body[data-reading="minimal"] #toolbarViewerMiddle .toolbarHorizontalGroup {
+    gap: 0;
+  }
+
+  body[data-reading="minimal"] #scaleSelectContainer {
+    max-width: 5.5rem;
+  }
+}

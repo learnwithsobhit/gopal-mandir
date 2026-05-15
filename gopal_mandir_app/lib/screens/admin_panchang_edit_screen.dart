@@ -157,13 +157,13 @@ class _AdminPanchangEditScreenState extends State<AdminPanchangEditScreen> {
                     final data = await Clipboard.getData(Clipboard.kTextPlain);
                     if (data?.text != null && data!.text!.isNotEmpty) {
                       _contentCtrl.text = data.text!;
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Pasted from clipboard'), duration: Duration(seconds: 1)),
                         );
                       }
                     } else {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Clipboard is empty')),
                         );

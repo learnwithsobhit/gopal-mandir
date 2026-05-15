@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// No-op stub: on non-web platforms the Flutter Web iframe bridge is never
-/// wired in (callers gate on `kIsWeb` and fall back to Syncfusion's
-/// `SfPdfViewer`). Exists so that [buildDailyUpasanaWebPdfView] is importable
-/// from any platform through the conditional export in
-/// `daily_upasana_web_pdf_view.dart`.
-Widget buildDailyUpasanaWebPdfView(String url, {int? initialPage}) {
-  return const SizedBox.shrink();
+/// Stub: non-web platforms use [SfPdfViewer] instead.
+class DailyUpasanaWebPdfReader extends StatelessWidget {
+  const DailyUpasanaWebPdfReader({
+    super.key,
+    required this.url,
+    this.initialPage,
+    required this.itemId,
+  });
+
+  final String url;
+  final int? initialPage;
+  final int itemId;
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }

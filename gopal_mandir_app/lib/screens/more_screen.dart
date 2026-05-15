@@ -59,6 +59,7 @@ class _MoreScreenState extends State<MoreScreen> {
     }
     final uri = Uri.parse(url);
     if (!await canLaunchUrl(uri)) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(s.viewOnMap),
@@ -78,7 +79,7 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _launchShareUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
     if (!await canLaunchUrl(uri)) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final s = AppLocaleScope.of(context).strings;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -93,7 +94,7 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _copyShareLink(BuildContext context) async {
     await Clipboard.setData(const ClipboardData(text: _shareUrl));
-    if (!mounted) return;
+    if (!context.mounted) return;
     final s = AppLocaleScope.of(context).strings;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -49,10 +49,12 @@ class EventsScreenState extends State<EventsScreen> {
         _error = null;
       });
     } catch (e) {
-      if (mounted) setState(() {
-        _loading = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
     }
   }
 
@@ -322,6 +324,7 @@ class EventsScreenState extends State<EventsScreen> {
   Future<void> _showCommentsSheet(BuildContext context, Event event) async {
     final s = AppLocaleScope.of(context).strings;
     List<EventComment> comments = await _api.getEventComments(event.id);
+    if (!context.mounted) return;
     _commentCounts[event.id] = comments.length;
 
     final nameCtrl = TextEditingController();
@@ -441,7 +444,7 @@ class EventsScreenState extends State<EventsScreen> {
                           NewCommentRequest(name: name, comment: text),
                         );
                         if (count == null) {
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(s.failedToAddComment),
@@ -562,7 +565,7 @@ class EventsScreenState extends State<EventsScreen> {
                         notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       ),
                     );
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(resp.message),

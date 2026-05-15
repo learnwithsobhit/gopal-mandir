@@ -81,7 +81,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     if (ok != true) return;
 
     final resp = await _api.cancelPrasadOrder(order.referenceId);
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -103,7 +103,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     if (ok != true) return;
 
     final resp = await _api.cancelSevaBooking(booking.referenceId);
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -203,7 +203,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     );
 
     final resp = await _api.updatePrasadOrder(order.referenceId, req);
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -281,7 +281,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     );
 
     final resp = await _api.updateSevaBooking(booking.referenceId, req);
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -302,7 +302,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     );
     if (ok != true) return;
     final resp = await _api.cancelPoojaBooking(b.referenceId);
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -321,7 +321,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     final to =
         '${end.year.toString().padLeft(4, '0')}-${end.month.toString().padLeft(2, '0')}-${end.day.toString().padLeft(2, '0')}';
     final days = await _api.getPoojaAvailability(officiant: b.officiant, from: from, to: to);
-    if (!mounted) return;
+    if (!context.mounted) return;
     final items = days.where((d) => d.slots.any((sl) => sl.available > 0)).toList();
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.poojaNoSlots)));
@@ -375,7 +375,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
-                        children: day!.slots.map((sl) {
+                        children: day.slots.map((sl) {
                           final en = sl.available > 0;
                           return ChoiceChip(
                             label: Text(sl.label),
@@ -407,7 +407,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
       b.referenceId,
       PoojaRescheduleRequest(bookingDate: pickedDate!, slotId: pickedSlot!),
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp.message),
@@ -419,7 +419,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
 
   Future<void> _payPoojaOnline(BuildContext context, PoojaBookingView b) async {
     final checkout = await _api.createPoojaBookingCheckout(b.referenceId);
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (!checkout.success || checkout.orderId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -446,13 +446,13 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
         referenceId: checkout.referenceId,
         reason: e.toString(),
       );
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString()), backgroundColor: AppColors.urgentRed),
       );
       return;
     }
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (outcome == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -470,7 +470,7 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
       paymentId: outcome.paymentId,
       signature: outcome.signature,
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
