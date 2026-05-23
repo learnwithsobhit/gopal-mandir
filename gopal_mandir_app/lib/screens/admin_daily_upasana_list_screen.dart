@@ -104,10 +104,8 @@ class _AdminDailyUpasanaListScreenState extends State<AdminDailyUpasanaListScree
                       return ListTile(
                         leading: Icon(
                           item.isPdf
-                              ? Icons.picture_as_pdf_outlined
-                              : (item.isPublished
-                                  ? Icons.check_circle
-                                  : Icons.pending),
+                              ? Icons.menu_book_rounded
+                              : Icons.article_outlined,
                           color: item.isPdf
                               ? AppColors.templeGoldDark
                               : (item.isPublished

@@ -90,7 +90,28 @@ IconData _iconForCategory(String key) {
   if (k.contains('श्लोक') || k.contains('shlok') || k.contains('verse')) {
     return Icons.format_quote;
   }
-  return Icons.menu_book_outlined;
+  if (k.contains('स्तोत्र') || k.contains('stotra')) {
+    return Icons.self_improvement_outlined;
+  }
+  if (k.contains('गीता') || k.contains('gita') || k.contains('geeta')) {
+    return Icons.auto_stories_outlined;
+  }
+  return Icons.article_outlined;
+}
+
+IconData _iconForItem(DailyUpasanaItem item) {
+  if (item.isPdf) return Icons.menu_book_rounded;
+  return _iconForCategory(item.category);
+}
+
+Color _iconColorForItem(DailyUpasanaItem item) {
+  return item.isPdf ? AppColors.templeGoldDark : AppColors.krishnaBlue;
+}
+
+Color _iconBgForItem(DailyUpasanaItem item) {
+  return item.isPdf
+      ? AppColors.templeGold.withAlpha(40)
+      : AppColors.krishnaBlue.withAlpha(24);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -406,8 +427,8 @@ class _HeroTodayCard extends StatelessWidget {
                 ),
                 child: Icon(
                   item.isPdf
-                      ? Icons.picture_as_pdf_rounded
-                      : Icons.auto_stories_rounded,
+                      ? Icons.menu_book_rounded
+                      : _iconForCategory(item.category),
                   color: Colors.white,
                   size: 28,
                 ),
@@ -589,7 +610,7 @@ class _PdfPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.picture_as_pdf_outlined,
+          const Icon(Icons.menu_book_outlined,
               size: 11, color: AppColors.krishnaBlueDark),
           const SizedBox(width: 3),
           Text(
@@ -759,14 +780,12 @@ class _ChapterCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.templeGold.withAlpha(40),
+                  color: _iconBgForItem(item),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  item.isPdf
-                      ? Icons.picture_as_pdf_outlined
-                      : _iconForCategory(item.category),
-                  color: AppColors.templeGoldDark,
+                  _iconForItem(item),
+                  color: _iconColorForItem(item),
                   size: 22,
                 ),
               ),
