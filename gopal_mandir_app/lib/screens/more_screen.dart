@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/app_config.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
@@ -245,20 +246,21 @@ class _MoreScreenState extends State<MoreScreen> {
               );
             },
           ),
-          _menuItem(
-            context,
-            Icons.event_available,
-            s.poojaMenuTitle,
-            s.poojaMenuSub,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const VrindavanBackground(child: PoojaAppointmentScreen()),
-                ),
-              );
-            },
-          ),
+          if (AppConfig.paymentsEnabled)
+            _menuItem(
+              context,
+              Icons.event_available,
+              s.poojaMenuTitle,
+              s.poojaMenuSub,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const VrindavanBackground(child: PoojaAppointmentScreen()),
+                  ),
+                );
+              },
+            ),
           _menuItem(
             context,
             Icons.info_outline,

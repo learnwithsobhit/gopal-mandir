@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 import '../l10n/locale_scope.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
@@ -237,28 +238,30 @@ class EventsScreenState extends State<EventsScreen> {
                                         ),
                                         child: Text(s.joinLabel),
                                       ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => VrindavanBackground(
-                                                child: EventDonateScreen(event: event),
+                                      if (AppConfig.paymentsEnabled) ...[
+                                        const SizedBox(width: 8),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => VrindavanBackground(
+                                                  child: EventDonateScreen(event: event),
+                                                ),
                                               ),
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.peacockGreen,
+                                            foregroundColor: Colors.white,
+                                            textStyle: const TextStyle(
+                                              fontFamily: 'Poppins',
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                          );
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.peacockGreen,
-                                          foregroundColor: Colors.white,
-                                          textStyle: const TextStyle(
-                                            fontFamily: 'Poppins',
-                                            fontWeight: FontWeight.w600,
                                           ),
+                                          child: Text(s.donateLabel),
                                         ),
-                                        child: Text(s.donateLabel),
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),

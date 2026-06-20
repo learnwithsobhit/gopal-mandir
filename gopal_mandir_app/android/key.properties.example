@@ -1,0 +1,11 @@
+# Copy this file to `key.properties` (same folder) and fill in real values.
+# `key.properties` is gitignored — NEVER commit it or your keystore.
+#
+# storeFile can be an absolute path or relative to android/app/.
+# Example (keystore kept outside the repo, recommended):
+#   storeFile=/Users/shobhit/keys/gopal-mandir-upload.jks
+
+storePassword=$h0bhitC
+keyPassword=$h0bhitC
+keyAlias=upload
+storeFile=/Users/shobhit/keys/gopal-mandir-upload.jks

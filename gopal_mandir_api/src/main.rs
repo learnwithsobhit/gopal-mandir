@@ -75,6 +75,7 @@ async fn main() -> std::io::Result<()> {
             .service(routes::root_health)
             .service(routes::health)
             .service(routes::api_health)
+            .service(routes::privacy_policy)
             .service(routes::get_aarti)
             .service(routes::get_events)
             .service(routes::join_event)

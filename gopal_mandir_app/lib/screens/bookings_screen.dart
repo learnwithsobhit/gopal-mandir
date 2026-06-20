@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../config/app_config.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../services/api_service.dart';
@@ -486,7 +487,8 @@ class _BookingsScreenState extends State<BookingsScreen> with TickerProviderStat
     final s = AppLocaleScope.of(context).strings;
     final st = b.bookingStatus.toLowerCase();
     final canMemberChange = st != 'cancelled';
-    final canPay = st == 'confirmed' &&
+    final canPay = AppConfig.paymentsEnabled &&
+        st == 'confirmed' &&
         (b.paymentExpected ?? '').toLowerCase() == 'online' &&
         b.paymentStatus.toLowerCase() == 'pending' &&
         (b.gatewayOrderId == null || b.gatewayOrderId!.isEmpty);

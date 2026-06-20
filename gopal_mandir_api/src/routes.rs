@@ -44,6 +44,15 @@ pub async fn api_health() -> HttpResponse {
     }))
 }
 
+/// Public privacy policy page. Linked from the Google Play listing and the
+/// in-app Settings screen. Served as static HTML so it works without any auth.
+#[get("/privacy")]
+pub async fn privacy_policy() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../static/privacy.html"))
+}
+
 // ──────────────────────────────────────────────
 // Membership (free) + phone OTP + sessions
 // ──────────────────────────────────────────────
