@@ -6,7 +6,6 @@ import 'screens/events_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/live_darshan_screen.dart';
 import 'screens/more_screen.dart';
-import 'screens/seva_offerings_screen.dart';
 import 'widgets/vrindavan_background.dart';
 
 class MainShell extends StatefulWidget {
@@ -23,7 +22,6 @@ class _MainShellState extends State<MainShell> {
 
   late final List<Widget> _screens = [
     const HomeScreen(),
-    const SevaOfferingsScreen(),
     const LiveDarshanScreen(),
     EventsScreen(key: _eventsKey),
     const MoreScreen(),
@@ -31,7 +29,7 @@ class _MainShellState extends State<MainShell> {
 
   void _onTabTapped(int index) {
     HapticFeedback.selectionClick();
-    if (index == 3) {
+    if (index == 2) {
       _eventsKey.currentState?.refresh();
     }
     setState(() => _currentIndex = index);
@@ -56,11 +54,6 @@ class _MainShellState extends State<MainShell> {
             icon: const Icon(Icons.home_outlined),
             selectedIcon: const Icon(Icons.home),
             label: s.navHome,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.self_improvement_outlined),
-            selectedIcon: const Icon(Icons.self_improvement),
-            label: s.navSevaAndOfferings,
           ),
           NavigationDestination(
             icon: const Icon(Icons.live_tv_outlined),

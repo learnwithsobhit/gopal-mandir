@@ -28,7 +28,6 @@ import 'gallery_screen.dart';
 import 'hindu_panchang_screen.dart';
 import 'live_darshan_screen.dart';
 import 'learn_hub_screen.dart';
-import 'seva_offerings_screen.dart';
 import 'successions_screen.dart';
 
 /// Redesigned home screen. The top-to-bottom flow is now:
@@ -236,7 +235,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   _staggered(0, _HeroGreeting(strings: s)),
                   _staggered(1, const DarshanBanner()),
                   _staggered(2, _buildDailyGroup(s)),
-                  _staggered(3, _buildOfferingsGroup(s)),
                   _staggered(4, _buildCommunityGroup(s)),
                   _staggered(5, _buildEventsMediaGroup(s)),
                   _staggered(6, _buildTempleGroup(s)),
@@ -302,26 +300,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: s.quickPanchang,
             color: AppColors.krishnaBlueDark,
             onTap: () => _navigateTo(context, const HinduPanchangScreen()),
-          ),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildOfferingsGroup(AppStrings s) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          title: s.homeSectionOfferings,
-          icon: Icons.self_improvement_outlined,
-        ),
-        _quickGrid([
-          QuickActionButton(
-            icon: Icons.self_improvement,
-            label: s.quickSevaAndOfferings,
-            color: AppColors.templeGoldDark,
-            onTap: () => _navigateTo(context, const SevaOfferingsScreen()),
           ),
         ]),
       ],
