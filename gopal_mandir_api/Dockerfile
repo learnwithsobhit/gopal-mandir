@@ -14,9 +14,12 @@ RUN mkdir src && echo 'fn main() { println!("placeholder"); }' > src/main.rs
 RUN cargo build --release
 RUN rm -rf src
 
-# Copy real source code and migrations
+# Copy real source code, migrations, and static assets.
+# `static/` is required at compile time because routes.rs embeds
+# privacy.html via include_str!.
 COPY src ./src
 COPY migrations ./migrations
+COPY static ./static
 
 # Build the actual binary (touch to invalidate cache)
 RUN touch src/main.rs && cargo build --release
