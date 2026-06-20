@@ -9,7 +9,6 @@ import '../widgets/vrindavan_background.dart';
 import 'donate_screen.dart';
 import 'pooja_appointment_screen.dart';
 import 'prasad_screen.dart';
-import 'seva_screen.dart';
 
 /// Hub screen that groups the four devotional/commerce flows — donate,
 /// prasad booking, seva, and pooja booking — under one entry point. The
@@ -117,12 +116,6 @@ class SevaOfferingsScreen extends StatelessWidget {
                       label: s.quickBookPrasad,
                       color: AppColors.templeGoldDark,
                       onTap: () => _go(context, const PrasadScreen()),
-                    ),
-                    QuickActionButton(
-                      icon: Icons.self_improvement,
-                      label: s.quickSeva,
-                      color: AppColors.krishnaBlue,
-                      onTap: () => _go(context, const SevaScreen()),
                     ),
                     QuickActionButton(
                       icon: Icons.event_available,
